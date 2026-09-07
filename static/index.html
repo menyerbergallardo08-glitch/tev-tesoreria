@@ -1,0 +1,2609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo Eléctrico Valencia - Sistema de Tesorería y Flujo de Caja</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js CDN -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tev: {
+              green: '#3b8d7f',
+              darkgreen: '#286a5f',
+              lightgreen: '#eaf5f3',
+              gray: '#7a7b7f',
+              darkgray: '#374151',
+              lightgray: '#f3f4f6'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .btn-large {
+      padding: 0.85rem 1.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 0.75rem;
+      transition: all 0.2s ease-in-out;
+    }
+    .input-large {
+      padding: 0.75rem 1rem;
+      font-size: 1.1rem;
+      border-radius: 0.6rem;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-area, #print-area * {
+        visibility: visible;
+      }
+      #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 20px;
+        background: white;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
+
+  <!-- 1. PANTALLA DE INICIO DE SESIÓN -->
+  <div x-show="!currentUser" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 to-teal-50">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100">
+      <div class="text-center mb-6">
+        <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-20 mx-auto mb-3 object-contain rounded-xl shadow-sm">
+        <h1 class="text-2xl font-bold text-gray-800">Control de Tesorería y Gastos</h1>
+        <p class="text-gray-500 text-sm mt-1">Por favor ingrese sus datos de acceso</p>
+      </div>
+
+      <div x-show="loginError" class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg text-sm" x-text="loginError"></div>
+
+      <form @submit.prevent="handleLogin()" class="space-y-4">
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1 text-sm">Usuario</label>
+          <input type="text" x-model="loginForm.username" required placeholder="Ej: cajera1, administradora, directivo"
+                 class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1 text-sm">Contraseña</label>
+          <input type="password" x-model="loginForm.password" required placeholder="••••••••"
+                 class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+        </div>
+        <button type="submit" :disabled="loading"
+                class="w-full btn-large bg-tev-green hover:bg-tev-darkgreen text-white shadow-lg flex items-center justify-center gap-2">
+          <span x-show="!loading">Ingresar al Sistema</span>
+          <span x-show="loading">Verificando...</span>
+        </button>
+      </form>
+
+      <!-- Botones de acceso rápido -->
+      <div class="mt-8 pt-6 border-t border-gray-100">
+        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider text-center mb-3">Acceso Rápido de Prueba</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button @click="quickLogin('cajera1', 'caja12026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
+            👩‍💼 Cajera 1
+          </button>
+          <button @click="quickLogin('cajera2', 'caja22026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
+            👩‍💼 Cajera 2
+          </button>
+          <button @click="quickLogin('administradora', 'admin2026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
+            👩‍💻 Administradora
+          </button>
+          <button @click="quickLogin('directivo', 'tev2026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
+            👔 Directivo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. INTERFAZ PRINCIPAL -->
+  <div x-show="currentUser" class="min-h-screen flex flex-col">
+
+    <!-- CABECERA PRINCIPAL -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm no-print">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-20">
+          <div class="flex items-center gap-4">
+            <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-12 object-contain rounded-lg">
+            <div class="hidden sm:block">
+              <h1 class="text-lg font-bold text-gray-800 leading-tight">TODO ELÉCTRICO VALENCIA</h1>
+              <p class="text-xs text-tev-green font-semibold">Sistema de Tesorería, Gastos y Flujo de Caja</p>
+            </div>
+          </div>
+
+          <!-- Perfil, Cambio de Clave y Salir -->
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <p class="text-sm font-bold text-gray-800" x-text="currentUser?.full_name"></p>
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                    :class="{
+                      'bg-teal-100 text-teal-800': currentUser?.role === 'cajera',
+                      'bg-amber-100 text-amber-800': currentUser?.role === 'administradora',
+                      'bg-purple-100 text-purple-800': currentUser?.role === 'directivo'
+                    }"
+                    x-text="getRoleLabel(currentUser?.role)">
+              </span>
+            </div>
+
+            <button @click="showChangePasswordModal = true" title="Cambiar mi contraseña"
+                    class="p-2 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl transition text-xs font-bold flex items-center gap-1">
+              <span>🔑 Clave</span>
+            </button>
+
+            <button @click="logout()" title="Cerrar Sesión"
+                    class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition font-bold text-sm">
+              Salir 🚪
+            </button>
+          </div>
+        </div>
+
+        <!-- PESTAÑAS DE NAVEGACIÓN -->
+        <nav class="flex space-x-2 sm:space-x-3 border-t border-gray-100 overflow-x-auto py-2">
+          <button @click="activeTab = 'registro'"
+                  :class="activeTab === 'registro' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
+            <span>✍️ Registrar Movimiento</span>
+          </button>
+
+          <button @click="activeTab = 'movimientos'"
+                  :class="activeTab === 'movimientos' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
+            <span>📋 Libro de Movimientos</span>
+          </button>
+
+          <!-- FLUJO DE CAJA (ADMIN Y DIRECTIVO) -->
+          <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+            <button @click="activeTab = 'flujo'; loadCashFlowAll()"
+                    :class="activeTab === 'flujo' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
+                    class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
+              <span>🌊 Flujo de Caja Integral</span>
+            </button>
+          </template>
+
+          <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+            <button @click="activeTab = 'presupuesto'"
+                    :class="activeTab === 'presupuesto' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
+                    class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
+              <span>📊 Control Presupuestario</span>
+            </button>
+          </template>
+
+          <button @click="activeTab = 'cajas'"
+                  :class="activeTab === 'cajas' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
+            <span>🏦 Cajas y Arqueo</span>
+          </button>
+
+          <template x-if="currentUser?.role === 'directivo'">
+            <button @click="activeTab = 'usuarios'; loadUsers()"
+                    :class="activeTab === 'usuarios' ? 'bg-purple-700 text-white shadow' : 'text-purple-700 hover:bg-purple-50'"
+                    class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
+              <span>👥 Gestión de Usuarios</span>
+            </button>
+          </template>
+        </nav>
+      </div>
+    </header>
+
+    <!-- NOTIFICACIONES TOAST -->
+    <div x-show="toast.show" class="fixed bottom-6 right-6 z-50 max-w-sm w-full shadow-2xl rounded-2xl p-4 border no-print"
+         :class="{
+           'bg-emerald-50 border-emerald-500 text-emerald-900': toast.type === 'success',
+           'bg-amber-50 border-amber-500 text-amber-900': toast.type === 'warning',
+           'bg-rose-50 border-rose-500 text-rose-900': toast.type === 'error'
+         }">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl" x-text="toast.type === 'success' ? '✅' : toast.type === 'warning' ? '⚠️' : '❌'"></span>
+        <div>
+          <h4 class="font-bold text-sm" x-text="toast.title"></h4>
+          <p class="text-xs mt-0.5" x-text="toast.message"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+      <!-- ======================================================== -->
+      <!-- TAB 1: REGISTRO DE MOVIMIENTOS (CON LAS 5 TARJETAS) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'registro'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+          <h2 class="text-xl font-bold text-gray-800 mb-4">Seleccione qué desea registrar hoy:</h2>
+
+          <!-- 5 TARJETAS PRINCIPALES DE IGUAL JERARQUÍA -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <!-- 1. Gasto Operativo -->
+            <button @click="setFormType('EGRESO', 'GASTO_OPERATIVO')"
+                    :class="form.subtype === 'GASTO_OPERATIVO' ? 'bg-rose-600 text-white ring-4 ring-rose-200' : 'bg-rose-50 text-rose-800 hover:bg-rose-100'"
+                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-rose-200">
+              <span class="text-3xl">💸</span>
+              <span class="text-base">Gasto Operativo</span>
+              <span class="text-xs opacity-80">(12 Partidas)</span>
+            </button>
+
+            <!-- 2. Pago a Proveedor -->
+            <button @click="setFormType('EGRESO', 'PAGO_PROVEEDOR')"
+                    :class="form.subtype === 'PAGO_PROVEEDOR' ? 'bg-orange-600 text-white ring-4 ring-orange-200' : 'bg-orange-50 text-orange-800 hover:bg-orange-100'"
+                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-orange-200">
+              <span class="text-3xl">📦</span>
+              <span class="text-base">Pago a Proveedor</span>
+              <span class="text-xs opacity-80">(Mercancía / CxP)</span>
+            </button>
+
+            <!-- 3. Cierre de Venta Diaria -->
+            <button @click="setFormType('INGRESO', 'VENTA_DIARIA')"
+                    :class="form.subtype === 'VENTA_DIARIA' ? 'bg-emerald-600 text-white ring-4 ring-emerald-200' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'"
+                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-emerald-200">
+              <span class="text-3xl">💰</span>
+              <span class="text-base">Cierre Venta Diaria</span>
+              <span class="text-xs opacity-80">(Reporte Z del Día)</span>
+            </button>
+
+            <!-- 4. Cobro a Cliente -->
+            <button @click="setFormType('INGRESO', 'COBRO_CXC')"
+                    :class="form.subtype === 'COBRO_CXC' ? 'bg-teal-600 text-white ring-4 ring-teal-200' : 'bg-teal-50 text-teal-800 hover:bg-teal-100'"
+                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-teal-200">
+              <span class="text-3xl">📥</span>
+              <span class="text-base">Cobro a Cliente</span>
+              <span class="text-xs opacity-80">(Factura / CxC)</span>
+            </button>
+
+            <!-- 5. Traspaso / Cambio de Moneda (5ta Tarjeta Principal) -->
+            <button @click="openTransferModal()"
+                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 hover:ring-4 hover:ring-blue-200">
+              <span class="text-3xl">🔄</span>
+              <span class="text-base">Cambio de Moneda</span>
+              <span class="text-xs opacity-80">(Traspaso entre Cajas)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Formulario -->
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
+          <div class="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
+            <div>
+              <h3 class="text-2xl font-black text-gray-800" x-text="getFormTitle()"></h3>
+              <p class="text-sm text-gray-500" x-show="form.subtype === 'VENTA_DIARIA'">
+                Ingrese el monto consolidado de ventas de la jornada para la caja correspondiente.
+              </p>
+              <p class="text-sm text-gray-500" x-show="form.subtype !== 'VENTA_DIARIA'">
+                Complete los campos. El contravalor en dólares se calcula en tiempo real.
+              </p>
+            </div>
+            <span class="text-xs px-3 py-1 bg-gray-100 text-gray-600 rounded-full font-bold">Caja Única TEV</span>
+          </div>
+
+          <form @submit.prevent="prepareSubmitTransaction()" class="space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-base font-bold text-gray-700 mb-1">📅 Fecha de la Operación</label>
+                <input type="date" x-model="form.date" required class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-base font-bold text-gray-700 mb-1">🏦 Caja o Banco Afectado</label>
+                <select x-model.number="form.account_id" @change="onAccountChange()" required
+                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white">
+                  <template x-for="acc in accounts" :key="acc.id">
+                    <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+
+            <!-- Partida Presupuestaria si es Gasto Operativo -->
+            <div x-show="form.subtype === 'GASTO_OPERATIVO'" class="p-4 bg-teal-50 rounded-2xl border border-teal-200">
+              <label class="block text-base font-bold text-teal-900 mb-1">🏷️ Partida Presupuestaria (Tipo de Gasto)</label>
+              <select x-model.number="form.category_id"
+                      class="w-full input-large border border-teal-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white">
+                <option value="">-- Seleccione la Partida --</option>
+                <template x-for="cat in categories" :key="cat.id">
+                  <option :value="cat.id" x-text="cat.code + ' - ' + cat.name + ' (Presupuesto: $' + cat.monthly_budget_usd + ')'"></option>
+                </template>
+              </select>
+            </div>
+
+            <!-- Monto, Tasa y Equivalente USD -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-2xl border border-gray-200">
+              <div>
+                <label class="block text-base font-bold text-gray-700 mb-1">
+                  💵 Monto en <span class="text-tev-green" x-text="selectedAccountCurrency"></span>
+                </label>
+                <input type="number" step="0.01" min="0.01" x-model.number="form.amount_original" required
+                       placeholder="0.00"
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
+              </div>
+
+              <div x-show="selectedAccountCurrency === 'VES'">
+                <label class="block text-base font-bold text-gray-700 mb-1">💱 Tasa Aplicada (Bs / $)</label>
+                <input type="number" step="0.01" min="1" x-model.number="form.exchange_rate"
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
+                <span class="text-xs text-gray-500">Tasa de la transacción</span>
+              </div>
+
+              <div>
+                <label class="block text-base font-bold text-gray-700 mb-1">💲 Equivalente en Dólares ($)</label>
+                <div class="input-large bg-emerald-50 border border-emerald-300 text-emerald-900 font-black text-2xl flex items-center justify-between">
+                  <span>$</span>
+                  <span x-text="calculateUsdEquivalent().toFixed(2)"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Advertencia de tasa -->
+            <div x-show="isRateWarning()" class="p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-800 rounded-xl text-sm flex items-center gap-3">
+              <span class="text-2xl">⚠️</span>
+              <div>
+                <strong>Atención:</strong> La tasa ingresada (<span x-text="form.exchange_rate"></span> Bs/$) parece inusual. Verifique que no haya puesto ceros de más o de menos.
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-base font-bold text-gray-700 mb-1">
+                  <span x-text="form.subtype === 'VENTA_DIARIA' ? '🏪 Concepto de Ingreso' : '👤 Beneficiario / Proveedor / Cliente'"></span>
+                </label>
+                <input type="text" x-model="form.beneficiary"
+                       :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Ventas Mostrador - Tienda Valencia' : 'Ej: Rubén Plomero / Digitel / Juan Pérez'"
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-base font-bold text-gray-700 mb-1">
+                  <span x-text="form.subtype === 'VENTA_DIARIA' ? '🔖 N° de Reporte Z / Lote de Facturación' : '🔖 N° de Referencia / Comprobante'"></span>
+                </label>
+                <input type="text" x-model="form.reference_number"
+                       :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Ej: Reporte Z-0182 / Lote 941' : 'Ej: 492015'"
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-base font-bold text-gray-700 mb-1">📝 Detalle / Concepto del Movimiento</label>
+              <textarea x-model="form.description" rows="2"
+                        :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Cierre de ventas total de la jornada' : 'Detalle de la operación...'"
+                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none"></textarea>
+            </div>
+
+            <div class="pt-4">
+              <button type="submit"
+                      class="w-full btn-large bg-tev-green hover:bg-tev-darkgreen text-white shadow-xl flex items-center justify-center gap-3 text-xl py-4">
+                <span>💾 Registrar Movimiento en el Sistema</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 2: LIBRO DE MOVIMIENTOS -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'movimientos'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Libro Diario de Movimientos</h2>
+            <p class="text-sm text-gray-500">Historial completo con asientos de partida doble de traspasos</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <select x-model="filterMonth" @change="loadTransactions()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+
+            <select x-model="filterType" @change="loadTransactions()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
+              <option value="">Todos los Tipos</option>
+              <option value="EGRESO">Solo Egresos / Salidas</option>
+              <option value="INGRESO">Solo Ingresos / Entradas</option>
+            </select>
+
+            <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+              <div class="flex items-center gap-2">
+                <button @click="triggerExcelUpload()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm flex items-center gap-1.5 transition">
+                  <span>📥</span> Cargar Excel (.xlsx)
+                </button>
+                <input type="file" x-ref="excelInput" @change="uploadExcelFile($event)" accept=".xlsx, .xlsm, .xltx" class="hidden">
+
+                <button @click="confirmClearTransactions()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold flex items-center gap-1.5 transition" title="Vaciar movimientos para empezar desde cero">
+                  <span>🧹</span> Empezar en Cero
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-4">Fecha</th>
+                  <th class="p-4">Tipo / Operación</th>
+                  <th class="p-4">Cuenta / Caja</th>
+                  <th class="p-4">Partida / Beneficiario</th>
+                  <th class="p-4">Descripción</th>
+                  <th class="p-4 text-right">Monto Original</th>
+                  <th class="p-4 text-right">Monto ($ USD)</th>
+                  <th class="p-4 text-center">Estado</th>
+                  <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+                    <th class="p-4 text-center">Acciones</th>
+                  </template>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-sm">
+                <template x-for="t in transactions" :key="t.id">
+                  <tr class="hover:bg-slate-50 transition" :class="{'opacity-50 line-through bg-gray-50': t.status === 'ANULADO'}">
+                    <td class="p-4 whitespace-nowrap font-medium text-gray-700" x-text="t.date"></td>
+                    <td class="p-4 whitespace-nowrap">
+                      <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold"
+                            :class="{
+                              'bg-rose-100 text-rose-800': t.movement_type === 'EGRESO' && t.subtype !== 'TRASPASO_SALIDA',
+                              'bg-emerald-100 text-emerald-800': t.movement_type === 'INGRESO' && t.subtype !== 'TRASPASO_ENTRADA',
+                              'bg-blue-100 text-blue-800': t.subtype === 'TRASPASO_SALIDA' || t.subtype === 'TRASPASO_ENTRADA'
+                            }"
+                            x-text="formatSubtype(t.subtype)">
+                      </span>
+                    </td>
+                    <td class="p-4 whitespace-nowrap font-semibold text-gray-700" x-text="t.account_name"></td>
+                    <td class="p-4">
+                      <div class="font-bold text-gray-800" x-text="t.category_name || t.beneficiary || '-'"></div>
+                      <div class="text-xs text-gray-400" x-text="t.reference_number ? 'Ref: ' + t.reference_number : ''"></div>
+                    </td>
+                    <td class="p-4 text-gray-600 max-w-xs truncate" :title="t.description" x-text="t.description"></td>
+                    <td class="p-4 text-right whitespace-nowrap font-semibold">
+                      <span x-text="formatNumber(t.amount_original)"></span> <span class="text-xs text-gray-500" x-text="t.currency"></span>
+                    </td>
+                    <td class="p-4 text-right whitespace-nowrap font-black text-gray-800">
+                      $<span x-text="formatNumber(t.amount_usd)"></span>
+                    </td>
+                    <td class="p-4 text-center whitespace-nowrap">
+                      <span class="px-2 py-0.5 rounded-full text-xs font-bold"
+                            :class="{
+                              'bg-emerald-100 text-emerald-800': t.status === 'VERIFICADO',
+                              'bg-amber-100 text-amber-800': t.status === 'REGISTRADO',
+                              'bg-gray-200 text-gray-700': t.status === 'ANULADO'
+                            }"
+                            x-text="t.status">
+                      </span>
+                    </td>
+                    <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+                      <td class="p-4 text-center whitespace-nowrap">
+                        <div class="flex items-center justify-center gap-2">
+                          <button x-show="t.status === 'REGISTRADO'" @click="verifyTransaction(t.id)"
+                                  class="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold">
+                            ✓ Aprobar
+                          </button>
+                          <button x-show="t.status !== 'ANULADO'" @click="cancelTransaction(t.id)"
+                                  class="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold">
+                            ✕ Anular
+                          </button>
+                        </div>
+                      </td>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 3: FLUJO DE CAJA INTEGRAL (CON 3 VISTAS + ONE-PAGE) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'flujo'" class="space-y-6">
+
+        <!-- Barra de Control y Selector de Vistas -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-black text-gray-800">🌊 Flujo de Caja Integral</h2>
+            <p class="text-sm text-gray-500">Conciliación multidivisa, diferencial cambiario y reportes ejecutivos</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <select x-model="filterMonth" @change="loadCashFlowAll()" class="p-2.5 border border-gray-300 rounded-xl text-sm font-bold bg-white">
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+
+            <button @click="openInitialBalancesModal()"
+                    class="p-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-xl text-sm font-bold border border-teal-200">
+              ⚙️ Saldos Iniciales
+            </button>
+
+            <!-- BOTÓN ONE-PAGE EXECUTIVE REPORT -->
+            <button @click="openOnePageReport()"
+                    class="btn-large bg-tev-green hover:bg-tev-darkgreen text-white text-sm py-2.5 px-4 shadow flex items-center gap-2">
+              <span>📄 Reporte One-Page (PDF)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sub-pestañas de visualización del Flujo -->
+        <div class="flex space-x-2 border-b border-gray-200 pb-2">
+          <button @click="cashFlowSubTab = 'resumen'"
+                  :class="cashFlowSubTab === 'resumen' ? 'bg-teal-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition">
+            Resumen del Mes y Billeteras
+          </button>
+          <button @click="cashFlowSubTab = 'anual'"
+                  :class="cashFlowSubTab === 'anual' ? 'bg-teal-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition">
+            Matriz Anual (ENE a DIC)
+          </button>
+          <button @click="cashFlowSubTab = 'diario'"
+                  :class="cashFlowSubTab === 'diario' ? 'bg-teal-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition">
+            Detalle Día a Día
+          </button>
+        </div>
+
+        <!-- SUB-VISTA 1: RESUMEN DEL MES Y BILLETERAS -->
+        <div x-show="cashFlowSubTab === 'resumen'" class="space-y-6">
+
+          <!-- Tarjetas del Flujo con Diferencial Cambiario -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">(=) Saldo Inicial Total</p>
+              <p class="text-2xl font-black text-gray-800 mt-2">$<span x-text="formatNumber(cashFlowData.initial_balance_usd)"></span></p>
+              <p class="text-xs text-gray-500 mt-1">Con el que arrancó el mes</p>
+            </div>
+
+            <div class="bg-emerald-50 p-6 rounded-3xl shadow-sm border border-emerald-200 flex flex-col justify-between">
+              <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider">(+) Total Ingresos</p>
+              <p class="text-2xl font-black text-emerald-900 mt-2">$<span x-text="formatNumber(cashFlowData.total_inflows_usd)"></span></p>
+              <div class="text-xs text-emerald-700 mt-1">
+                Ventas: $<span x-text="formatNumber(cashFlowData.inflows_breakdown?.ventas_usd)"></span> | Cobros: $<span x-text="formatNumber(cashFlowData.inflows_breakdown?.cobros_cxc_usd)"></span>
+              </div>
+            </div>
+
+            <div class="bg-rose-50 p-6 rounded-3xl shadow-sm border border-rose-200 flex flex-col justify-between">
+              <p class="text-xs font-bold text-rose-700 uppercase tracking-wider">(-) Total Egresos</p>
+              <p class="text-2xl font-black text-rose-900 mt-2">$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></p>
+              <div class="text-xs text-rose-700 mt-1">
+                Gastos: $<span x-text="formatNumber(cashFlowData.outflows_breakdown?.gastos_operativos_usd)"></span> | Prov: $<span x-text="formatNumber(cashFlowData.outflows_breakdown?.pagos_proveedores_usd)"></span>
+              </div>
+            </div>
+
+            <div class="p-6 rounded-3xl shadow-sm border flex flex-col justify-between"
+                 :class="cashFlowData.fx_differential_usd >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'">
+              <p class="text-xs font-bold uppercase tracking-wider"
+                 :class="cashFlowData.fx_differential_usd >= 0 ? 'text-blue-700' : 'text-amber-700'">
+                (+/-) Diferencial Cambiario
+              </p>
+              <p class="text-2xl font-black mt-2"
+                 :class="cashFlowData.fx_differential_usd >= 0 ? 'text-blue-900' : 'text-amber-900'">
+                $<span x-text="formatNumber(cashFlowData.fx_differential_usd)"></span>
+              </p>
+              <p class="text-xs opacity-80 mt-1">Resultado de traspasos de divisas</p>
+            </div>
+
+            <div class="bg-teal-900 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
+              <p class="text-xs font-bold text-teal-200 uppercase tracking-wider">(=) Saldo Final Disponible</p>
+              <p class="text-2xl font-black mt-2 text-white">$<span x-text="formatNumber(cashFlowData.final_balance_usd)"></span></p>
+              <p class="text-xs text-teal-200 mt-1">En todas las cajas y bancos</p>
+            </div>
+          </div>
+
+          <!-- Desglose por Caja / Billetera -->
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">Desglose de Flujo de Caja por Billetera / Banco</h3>
+                <p class="text-xs text-gray-500">Muestra el movimiento en su moneda de origen y el consolidado en dólares</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                    <th class="p-4">Caja o Cuenta</th>
+                    <th class="p-4 text-center">Moneda</th>
+                    <th class="p-4 text-right">Saldo Inicial</th>
+                    <th class="p-4 text-right text-emerald-700">(+) Ingresos</th>
+                    <th class="p-4 text-right text-rose-700">(-) Egresos</th>
+                    <th class="p-4 text-right text-blue-700">(+/-) Traspasos</th>
+                    <th class="p-4 text-right font-black text-gray-900">(=) Saldo Final Real</th>
+                    <th class="p-4 text-right font-black text-teal-800">Saldo Final ($ USD)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                  <template x-for="acc in cashFlowData.accounts_detail" :key="acc.account_id">
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="p-4 font-bold text-gray-800" x-text="acc.name"></td>
+                      <td class="p-4 text-center font-bold">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs bg-slate-100 text-slate-800" x-text="acc.currency"></span>
+                      </td>
+                      <td class="p-4 text-right font-medium text-gray-600" x-text="formatNumber(acc.initial_balance)"></td>
+                      <td class="p-4 text-right font-bold text-emerald-600" x-text="formatNumber(acc.inflows_orig)"></td>
+                      <td class="p-4 text-right font-bold text-rose-600" x-text="formatNumber(acc.outflows_orig)"></td>
+                      <td class="p-4 text-right font-medium text-blue-600" x-text="formatNumber(acc.transfers_net_orig)"></td>
+                      <td class="p-4 text-right font-black text-gray-900">
+                        <span x-text="formatNumber(acc.final_balance)"></span> <span class="text-xs text-gray-500" x-text="acc.currency"></span>
+                      </td>
+                      <td class="p-4 text-right font-black text-teal-800 bg-teal-50/50">
+                        $<span x-text="formatNumber(acc.final_balance_usd)"></span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VISTA 2: MATRIZ ANUAL (ENE A DIC - IMAGEN 5) -->
+        <div x-show="cashFlowSubTab === 'anual'" class="space-y-6">
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+              <h3 class="text-lg font-bold text-gray-800">Flujo de Caja Anual Multicolumna (2026)</h3>
+              <p class="text-xs text-gray-500">Formato corporativo mensualizado de Enero a Diciembre</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-right border-collapse text-xs">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-700 font-bold border-b border-gray-300">
+                    <th class="p-3 text-left">Concepto</th>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <th class="p-3 text-center" x-text="m.month_label"></th>
+                    </template>
+                    <th class="p-3 text-right font-black bg-teal-50 text-teal-900">Total Anual</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-gray-800 font-medium">
+                  <!-- Ingresos -->
+                  <tr class="bg-emerald-50/50 font-bold text-emerald-900 text-left">
+                    <td class="p-3" :colspan="annualCashFlow.months?.length + 2">INGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Ventas Mostrador</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.ventas)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('ventas'))"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Cobros CxC</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.cxc)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('cxc'))"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-emerald-800">
+                    <td class="p-3 text-left">Total Ingresos</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.total_in)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(sumAnnual('total_in'))"></td>
+                  </tr>
+
+                  <!-- Egresos -->
+                  <tr class="bg-rose-50/50 font-bold text-rose-900 text-left">
+                    <td class="p-3" :colspan="annualCashFlow.months?.length + 2">EGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Gastos Operativos (12 Partidas)</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.gastos)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('gastos'))"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Pagos a Proveedores</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.prov)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('prov'))"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-rose-800">
+                    <td class="p-3 text-left">Total Egresos</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.total_out)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(sumAnnual('total_out'))"></td>
+                  </tr>
+
+                  <!-- Flujo Neto -->
+                  <tr class="font-black bg-teal-50 text-teal-900 border-t-2 border-teal-300">
+                    <td class="p-3 text-left">(=) Flujo Neto del Periodo</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" :class="m.net < 0 ? 'text-rose-700' : 'text-teal-900'" x-text="formatNumber(m.net)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-200 text-teal-950" x-text="formatNumber(sumAnnual('net'))"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VISTA 3: DETALLE DÍA A DÍA (MATRIZ MULTICOLUMNA IDÉNTICA A LA ANUAL) -->
+        <div x-show="cashFlowSubTab === 'diario'" class="space-y-6">
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-4">
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">Flujo de Caja Diario Multicolumna (<span x-text="filterMonth"></span>)</h3>
+                <p class="text-xs text-gray-500">Matriz día a día por rubro contable con cuadre mensualizado</p>
+              </div>
+
+              <!-- Selector de estilo de vista si desea alternar con la lista de auditoría -->
+              <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                <button @click="dailyViewMode = 'matriz'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                        :class="dailyViewMode === 'matriz' ? 'bg-white text-teal-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
+                  📊 Matriz Multicolumna
+                </button>
+                <button @click="dailyViewMode = 'lista'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                        :class="dailyViewMode === 'lista' ? 'bg-white text-teal-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
+                  📋 Lista de Auditoría
+                </button>
+              </div>
+            </div>
+
+            <!-- VISTA A: MATRIZ MULTICOLUMNA (IDÉNTICA A LA IMAGEN ANUAL) -->
+            <div x-show="dailyViewMode === 'matriz'" class="overflow-x-auto">
+              <table class="w-full text-right border-collapse text-xs whitespace-nowrap">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-700 font-bold border-b border-gray-300">
+                    <th class="p-3 text-left sticky left-0 bg-gray-100 z-10 min-w-[200px] shadow-sm">Concepto</th>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <th class="p-3 text-center min-w-[65px]"
+                          :class="{'bg-teal-50/70 font-black text-teal-950': d.count > 0}"
+                          x-text="d.day_num < 10 ? '0' + d.day_num : d.day_num">
+                      </th>
+                    </template>
+                    <th class="p-3 text-right font-black bg-teal-50 text-teal-900 min-w-[100px]">Total Mes</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-gray-800 font-medium">
+                  <!-- INGRESOS -->
+                  <tr class="bg-emerald-50/50 font-bold text-emerald-900 text-left">
+                    <td class="p-3 sticky left-0 bg-emerald-50/90 z-10 shadow-sm" :colspan="dailyCashFlow?.length + 2">INGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Ventas Mostrador</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.ventas > 0}" x-text="formatNumber(d.ventas)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.ventas || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Cobros CxC</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.cxc > 0}" x-text="formatNumber(d.cxc)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.cxc || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Otros Ingresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.otros_in > 0}" x-text="formatNumber(d.otros_in)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.otros_in || 0)"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-emerald-800">
+                    <td class="p-3 text-left sticky left-0 bg-gray-50 z-10 shadow-sm">Total Ingresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" x-text="formatNumber(d.total_in)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(dailyCashFlowTotals.total_in || 0)"></td>
+                  </tr>
+
+                  <!-- EGRESOS -->
+                  <tr class="bg-rose-50/50 font-bold text-rose-900 text-left">
+                    <td class="p-3 sticky left-0 bg-rose-50/90 z-10 shadow-sm" :colspan="dailyCashFlow?.length + 2">EGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Gastos Operativos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.gastos > 0}" x-text="formatNumber(d.gastos)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.gastos || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Pagos a Proveedores</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.prov > 0}" x-text="formatNumber(d.prov)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.prov || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Otros Egresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.otros_out > 0}" x-text="formatNumber(d.otros_out)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.otros_out || 0)"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-rose-800">
+                    <td class="p-3 text-left sticky left-0 bg-gray-50 z-10 shadow-sm">Total Egresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" x-text="formatNumber(d.total_out)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(dailyCashFlowTotals.total_out || 0)"></td>
+                  </tr>
+
+                  <!-- FLUJO NETO -->
+                  <tr class="font-black bg-teal-50 text-teal-900 border-t-2 border-teal-300">
+                    <td class="p-3 text-left sticky left-0 bg-teal-50 z-10 shadow-sm">(=) Flujo Neto del Periodo</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="d.net < 0 ? 'text-rose-700' : d.net > 0 ? 'text-teal-900 font-black' : 'text-gray-400'" x-text="formatNumber(d.net)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-200 text-teal-950" x-text="formatNumber(dailyCashFlowTotals.net || 0)"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- VISTA B: LISTA DE AUDITORÍA DETALLADA DÍA A DÍA -->
+            <div x-show="dailyViewMode === 'lista'" class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                    <th class="p-3">Fecha</th>
+                    <th class="p-3 text-center">N° Movimientos</th>
+                    <th class="p-3 text-right text-emerald-700">(+) Ventas ($)</th>
+                    <th class="p-3 text-right text-emerald-700">(+) Cobros ($)</th>
+                    <th class="p-3 text-right text-emerald-800 font-bold">(+) Total Ingresos ($)</th>
+                    <th class="p-3 text-right text-rose-700">(-) Gastos ($)</th>
+                    <th class="p-3 text-right text-rose-700">(-) Proveedores ($)</th>
+                    <th class="p-3 text-right text-rose-800 font-bold">(-) Total Egresos ($)</th>
+                    <th class="p-3 text-right font-black text-gray-900">(=) Flujo Neto del Día ($)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="d in dailyCashFlow" :key="d.date">
+                    <tr class="hover:bg-slate-50 transition" :class="{'bg-teal-50/30': d.count > 0}">
+                      <td class="p-3 font-semibold text-gray-700" x-text="d.date"></td>
+                      <td class="p-3 text-center font-bold text-xs text-gray-500" x-text="d.count"></td>
+                      <td class="p-3 text-right text-emerald-600" x-text="d.ventas > 0 ? '$' + formatNumber(d.ventas) : '-'"></td>
+                      <td class="p-3 text-right text-emerald-600" x-text="d.cxc > 0 ? '$' + formatNumber(d.cxc) : '-'"></td>
+                      <td class="p-3 text-right font-bold text-emerald-700" x-text="d.total_in > 0 ? '$' + formatNumber(d.total_in) : '-'"></td>
+                      <td class="p-3 text-right text-rose-600" x-text="d.gastos > 0 ? '$' + formatNumber(d.gastos) : '-'"></td>
+                      <td class="p-3 text-right text-rose-600" x-text="d.prov > 0 ? '$' + formatNumber(d.prov) : '-'"></td>
+                      <td class="p-3 text-right font-bold text-rose-700" x-text="d.total_out > 0 ? '$' + formatNumber(d.total_out) : '-'"></td>
+                      <td class="p-3 text-right font-black" :class="d.net < 0 ? 'text-rose-600' : d.net > 0 ? 'text-emerald-700' : 'text-gray-400'">
+                        <span x-text="d.count > 0 ? '$' + formatNumber(d.net) : '-'"></span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 4: PRESUPUESTOS Y ALERTAS (IDÉNTICO AL EXCEL) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'presupuesto'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Control Presupuestario Mensual por Partida</h2>
+            <p class="text-sm text-gray-500">Semáforo de presupuesto asignado vs gasto ejecutado (Idéntico a su Excel)</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+              <button @click="openNewCategoryModal()" class="px-4 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition">
+                <span class="text-base">➕</span> Nueva Partida Presupuestaria
+              </button>
+            </template>
+            <select x-model="filterMonth" @change="loadCategories()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-4">ID</th>
+                  <th class="p-4">Partida Presupuestaria</th>
+                  <th class="p-4 text-right">Monto Máximo ($)</th>
+                  <th class="p-4 text-right">Monto Gastado ($)</th>
+                  <th class="p-4 text-right">Restante ($)</th>
+                  <th class="p-4 text-center">% Ejecución</th>
+                  <th class="p-4 text-center">Estatus</th>
+                  <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                    <th class="p-4 text-center">Ajustar</th>
+                  </template>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-sm">
+                <template x-for="cat in categories" :key="cat.id">
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="p-4 font-bold text-gray-600" x-text="cat.code"></td>
+                    <td class="p-4 font-bold text-gray-800" x-text="cat.name"></td>
+                    <td class="p-4 text-right font-semibold text-gray-700">$<span x-text="formatNumber(cat.monthly_budget_usd)"></span></td>
+                    <td class="p-4 text-right font-bold" :class="cat.status === 'ALERTA' ? 'text-rose-600' : 'text-gray-800'">
+                      $<span x-text="formatNumber(cat.spent_usd)"></span>
+                    </td>
+                    <td class="p-4 text-right font-bold" :class="cat.remaining_usd < 0 ? 'text-rose-600' : 'text-emerald-700'">
+                      $<span x-text="formatNumber(cat.remaining_usd)"></span>
+                    </td>
+                    <td class="p-4 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <span class="font-bold text-xs" x-text="cat.percentage_spent + '%'"></span>
+                        <div class="w-16 bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div class="h-2 rounded-full"
+                               :class="cat.percentage_spent > 100 ? 'bg-rose-500' : cat.percentage_spent > 85 ? 'bg-amber-500' : 'bg-emerald-500'"
+                               :style="'width: ' + Math.min(cat.percentage_spent, 100) + '%'"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="p-4 text-center whitespace-nowrap">
+                      <span class="px-3 py-1 rounded-full text-xs font-black tracking-wide"
+                            :class="cat.status === 'ALERTA' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'"
+                            x-text="cat.status">
+                      </span>
+                    </td>
+                    <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                      <td class="p-4 text-center">
+                        <button @click="openEditCategory(cat)" class="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold">
+                          ✏️ Editar
+                        </button>
+                      </td>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+              <tfoot>
+                <tr class="bg-gray-50 font-black border-t-2 border-gray-300 text-gray-900">
+                  <td class="p-4" colspan="2">TOTAL GENERAL</td>
+                  <td class="p-4 text-right">$<span x-text="formatNumber(calculateTotalBudget())"></span></td>
+                  <td class="p-4 text-right text-rose-600">$<span x-text="formatNumber(calculateTotalSpent())"></span></td>
+                  <td class="p-4 text-right" :class="calculateTotalRemaining() < 0 ? 'text-rose-600' : 'text-emerald-700'">
+                    $<span x-text="formatNumber(calculateTotalRemaining())"></span>
+                  </td>
+                  <td class="p-4 text-center" x-text="calculateTotalPercentage() + '%'"></td>
+                  <td class="p-4 text-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-black"
+                          :class="calculateTotalRemaining() < 0 ? 'bg-rose-200 text-rose-800' : 'bg-emerald-200 text-emerald-900'"
+                          x-text="calculateTotalRemaining() < 0 ? 'ALERTA' : 'APTO'">
+                    </span>
+                  </td>
+                  <td class="p-4"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 5: CAJAS Y ARQUEO -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'cajas'" class="space-y-6">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 class="text-xl font-bold text-gray-800">Saldos en Cuentas y Cajas</h2>
+              <p class="text-sm text-gray-500">Supervise y cree cajas de monedas y cuentas bancarias de la empresa</p>
+            </div>
+            <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+              <button @click="openNewAccountModal()" class="px-4 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition">
+                <span class="text-base">➕</span> Nueva Caja / Cuenta
+              </button>
+            </template>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <template x-for="acc in accounts" :key="acc.id">
+              <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between relative group hover:border-teal-300 transition">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700" x-text="acc.currency"></span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-xs text-gray-400" x-text="acc.account_type"></span>
+                      <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                        <button @click="openEditAccountModal(acc)" class="text-xs text-gray-400 hover:text-teal-700 p-0.5" title="Editar cuenta">✏️</button>
+                      </template>
+                    </div>
+                  </div>
+                  <h4 class="text-base font-bold text-gray-800" x-text="acc.name"></h4>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                  <p class="text-xs text-gray-400">Saldo Disponible:</p>
+                  <p class="text-2xl font-black text-gray-800 mt-1">
+                    <span x-text="acc.currency === 'USD' ? '$' : acc.currency === 'USDT' ? '₮' : 'Bs'"></span>
+                    <span x-text="formatNumber(acc.current_balance)"></span>
+                  </p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
+          <div class="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
+            <div>
+              <h3 class="text-2xl font-black text-gray-800">🧮 Hoja de Arqueo Físico de Gaveta</h3>
+              <p class="text-sm text-gray-500">Conteo de billetes físicos en dólares de la caja compartida</p>
+            </div>
+            <button @click="resetArqueo()" class="text-sm text-teal-600 font-bold hover:underline">Reiniciar Conteo</button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-slate-50 p-6 rounded-2xl border border-gray-200">
+              <h4 class="font-bold text-gray-800 mb-4">💵 Billetes en Dólares</h4>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de $100:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b100" class="w-full p-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de $50:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b50" class="w-full p-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de $20:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b20" class="w-full p-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de $10:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b10" class="w-full p-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de $5:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b5" class="w-full p-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de $1:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b1" class="w-full p-2 border rounded-lg">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col justify-between bg-teal-50 p-6 rounded-2xl border border-teal-200">
+              <div>
+                <h4 class="font-bold text-teal-900 mb-2">Total Efectivo Físico Contado:</h4>
+                <div class="text-4xl font-black text-teal-950 mt-2">
+                  $<span x-text="formatNumber(calculatePhysicalUsd())"></span>
+                </div>
+                <p class="text-xs text-teal-700 mt-2">Suma de billetes físicos en gaveta compartida.</p>
+              </div>
+
+              <div class="mt-6 pt-6 border-t border-teal-200">
+                <button @click="printArqueo()" class="w-full btn-large bg-teal-700 hover:bg-teal-800 text-white shadow font-bold text-sm">
+                  🖨️ Imprimir Resumen de Turno
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 6: GESTIÓN DE USUARIOS (DIRECTIVO) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'usuarios' && currentUser?.role === 'directivo'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Gestión de Usuarios y Accesos</h2>
+            <p class="text-sm text-gray-500">Crear nuevas cuentas, restablecer contraseñas y administrar permisos</p>
+          </div>
+          <button @click="showNewUserModal = true" class="btn-large bg-purple-700 hover:bg-purple-800 text-white text-sm py-2 px-4 shadow">
+            ➕ Crear Nuevo Usuario
+          </button>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-4">ID</th>
+                  <th class="p-4">Nombre Completo</th>
+                  <th class="p-4">Usuario</th>
+                  <th class="p-4">Rol Asignado</th>
+                  <th class="p-4 text-center">Estado</th>
+                  <th class="p-4 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-sm">
+                <template x-for="u in usersList" :key="u.id">
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="p-4 font-bold text-gray-600" x-text="u.id"></td>
+                    <td class="p-4 font-bold text-gray-800" x-text="u.full_name"></td>
+                    <td class="p-4 text-gray-700" x-text="u.username"></td>
+                    <td class="p-4">
+                      <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                            :class="{
+                              'bg-teal-100 text-teal-800': u.role === 'cajera',
+                              'bg-amber-100 text-amber-800': u.role === 'administradora',
+                              'bg-purple-100 text-purple-800': u.role === 'directivo'
+                            }"
+                            x-text="getRoleLabel(u.role)">
+                      </span>
+                    </td>
+                    <td class="p-4 text-center">
+                      <span class="px-2 py-0.5 rounded-full text-xs font-bold"
+                            :class="u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                            x-text="u.is_active ? 'Activo' : 'Inactivo'">
+                      </span>
+                    </td>
+                    <td class="p-4 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <button @click="openResetPasswordModal(u)" class="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold">
+                          🔑 Cambiar Clave
+                        </button>
+                        <button x-show="u.id !== currentUser.id" @click="toggleUserStatus(u.id)"
+                                :class="u.is_active ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'"
+                                class="p-1.5 rounded-lg text-xs font-bold">
+                          <span x-text="u.is_active ? 'Desactivar' : 'Activar'"></span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ======================================================== -->
+    <!-- MODAL ONE-PAGE EXECUTIVE REPORT (IMPRIMIBLE / PDF) -->
+    <!-- ======================================================== -->
+    <div x-show="showOnePageModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-10 max-w-4xl w-full border border-gray-200 my-8">
+
+        <!-- Barra de Botones en Pantalla -->
+        <div class="flex justify-between items-center pb-4 mb-4 border-b no-print">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">Vista Previa: Reporte Mensual Ejecutivo</h3>
+            <p class="text-xs text-gray-500">Diseñado en una sola página para entregar a la Dirección General</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button @click="printReport()" class="btn-large bg-tev-green hover:bg-tev-darkgreen text-white text-sm py-2 px-4 shadow flex items-center gap-2">
+              <span>🖨️ Imprimir / Guardar en PDF</span>
+            </button>
+            <button @click="showOnePageModal = false" class="p-2 text-gray-400 hover:text-gray-700 font-bold text-xl">✕</button>
+          </div>
+        </div>
+
+        <!-- ÁREA IMPRIMIBLE ONE-PAGE -->
+        <div id="print-area" class="space-y-6 text-gray-900">
+
+          <!-- Encabezado Corporativo TEV -->
+          <div class="flex items-center justify-between border-b-2 border-gray-800 pb-4">
+            <div class="flex items-center gap-4">
+              <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-16 object-contain">
+              <div>
+                <h1 class="text-xl font-black text-gray-900 tracking-tight">TODO ELÉCTRICO VALENCIA, C.A.</h1>
+                <p class="text-xs text-gray-600 font-semibold">RIF: J-XXXXXXXX-X | Valencia, Carabobo</p>
+                <p class="text-sm font-bold text-teal-800 mt-0.5">REPORTE EJECUTIVO DE FLUJO DE CAJA Y TESORERÍA</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="inline-block px-3 py-1 bg-teal-100 text-teal-900 rounded-lg font-black text-sm uppercase">
+                Periodo: <span x-text="cashFlowData.month"></span>
+              </span>
+              <p class="text-xs text-gray-500 mt-1">Fecha Emisión: <strong x-text="new Date().toLocaleDateString('es-VE')"></strong></p>
+            </div>
+          </div>
+
+          <!-- 1. Cuadro Resumen Gerencial -->
+          <div class="grid grid-cols-4 gap-3 text-center border p-4 rounded-xl bg-slate-50 border-gray-300 text-xs">
+            <div>
+              <p class="text-gray-500 font-bold uppercase">Saldo Inicial</p>
+              <p class="text-lg font-black text-gray-900 mt-1">$<span x-text="formatNumber(cashFlowData.initial_balance_usd)"></span></p>
+            </div>
+            <div>
+              <p class="text-emerald-700 font-bold uppercase">(+) Ingresos</p>
+              <p class="text-lg font-black text-emerald-800 mt-1">$<span x-text="formatNumber(cashFlowData.total_inflows_usd)"></span></p>
+            </div>
+            <div>
+              <p class="text-rose-700 font-bold uppercase">(-) Egresos</p>
+              <p class="text-lg font-black text-rose-800 mt-1">$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></p>
+            </div>
+            <div class="bg-teal-900 text-white rounded-lg p-2">
+              <p class="text-teal-200 font-bold uppercase">Saldo Final</p>
+              <p class="text-xl font-black text-white mt-0.5">$<span x-text="formatNumber(cashFlowData.final_balance_usd)"></span></p>
+            </div>
+          </div>
+
+          <!-- 2. Detalle de Entradas y Salidas Operativas -->
+          <div class="grid grid-cols-2 gap-4 text-xs">
+            <!-- Ingresos -->
+            <div class="border border-gray-300 rounded-xl p-3">
+              <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-emerald-800">1. INGRESOS / ENTRADAS</h4>
+              <div class="space-y-1">
+                <div class="flex justify-between">
+                  <span>Ventas Mostrador / Tienda:</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.inflows_breakdown?.ventas_usd)"></span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Cobros Cuentas por Cobrar (CxC):</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.inflows_breakdown?.cobros_cxc_usd)"></span></span>
+                </div>
+                <div class="flex justify-between pt-1 border-t font-black text-emerald-900">
+                  <span>TOTAL INGRESOS:</span>
+                  <span>$<span x-text="formatNumber(cashFlowData.total_inflows_usd)"></span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Egresos -->
+            <div class="border border-gray-300 rounded-xl p-3">
+              <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-rose-800">2. EGRESOS / SALIDAS</h4>
+              <div class="space-y-1">
+                <div class="flex justify-between">
+                  <span>Gastos Operativos (Partidas):</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.outflows_breakdown?.gastos_operativos_usd)"></span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Pagos a Proveedores (Mercancía):</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.outflows_breakdown?.pagos_proveedores_usd)"></span></span>
+                </div>
+                <div class="flex justify-between text-blue-800">
+                  <span>Diferencial Cambiario Traspasos:</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.fx_differential_usd)"></span></span>
+                </div>
+                <div class="flex justify-between pt-1 border-t font-black text-rose-900">
+                  <span>TOTAL EGRESOS:</span>
+                  <span>$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Disponibilidad por Moneda y Cajas -->
+          <div class="border border-gray-300 rounded-xl p-3 text-xs">
+            <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-teal-900">3. DISPONIBILIDAD REAL POR CAJAS Y BILLETERAS</h4>
+            <table class="w-full text-left">
+              <thead>
+                <tr class="text-gray-500 font-bold border-b">
+                  <th class="pb-1">Caja / Banco</th>
+                  <th class="pb-1 text-center">Moneda</th>
+                  <th class="pb-1 text-right">Saldo Inicial</th>
+                  <th class="pb-1 text-right">Ingresos</th>
+                  <th class="pb-1 text-right">Egresos</th>
+                  <th class="pb-1 text-right">Saldo Final (Nativo)</th>
+                  <th class="pb-1 text-right font-black">Saldo ($ USD)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="acc in cashFlowData.accounts_detail" :key="acc.account_id">
+                  <tr>
+                    <td class="py-1 font-bold" x-text="acc.name"></td>
+                    <td class="py-1 text-center" x-text="acc.currency"></td>
+                    <td class="py-1 text-right" x-text="formatNumber(acc.initial_balance)"></td>
+                    <td class="py-1 text-right text-emerald-700" x-text="formatNumber(acc.inflows_orig)"></td>
+                    <td class="py-1 text-right text-rose-700" x-text="formatNumber(acc.outflows_orig)"></td>
+                    <td class="py-1 text-right font-bold" x-text="formatNumber(acc.final_balance) + ' ' + acc.currency"></td>
+                    <td class="py-1 text-right font-black text-teal-900" x-text="'$' + formatNumber(acc.final_balance_usd)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 4. Firmas de Conformidad -->
+          <div class="grid grid-cols-2 gap-12 pt-6 text-center text-xs">
+            <div class="border-t border-gray-400 pt-2">
+              <p class="font-bold text-gray-800">Elaborado y Revisado por:</p>
+              <p class="text-gray-600 mt-1">Administradora TEV</p>
+              <p class="text-[10px] text-gray-400">Tesorería y Control Administrativo</p>
+            </div>
+            <div class="border-t border-gray-400 pt-2">
+              <p class="font-bold text-gray-800">Aprobado por:</p>
+              <p class="text-gray-600 mt-1">Dirección General</p>
+              <p class="text-[10px] text-gray-400">Todo Eléctrico Valencia, C.A.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL TRASPASO / CAMBIO DE MONEDA CON TASA BIDIRECCIONAL -->
+    <!-- ======================================================== -->
+    <div x-show="showTransferModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-lg w-full border border-gray-100 space-y-6">
+        <div class="flex items-center justify-between pb-3 border-b">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">🔄 Cambio de Moneda / Traspaso de Fondos</h3>
+            <p class="text-xs text-gray-500">Calculadora automática bidireccional por partida doble</p>
+          </div>
+          <button @click="showTransferModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+        </div>
+
+        <form @submit.prevent="executeTransfer()" class="space-y-4">
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">📅 Fecha de la Operación</label>
+            <input type="date" x-model="transferForm.date" required class="w-full p-2.5 border rounded-xl">
+          </div>
+
+          <!-- Cuentas Origen y Destino -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Cuenta Origen (Sale)</label>
+              <select x-model.number="transferForm.origin_account_id" @change="onTransferAccountsChange()" required class="w-full p-2.5 border rounded-xl bg-white text-sm">
+                <template x-for="acc in accounts" :key="acc.id">
+                  <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">Cuenta Destino (Entra)</label>
+              <select x-model.number="transferForm.destination_account_id" @change="onTransferAccountsChange()" required class="w-full p-2.5 border rounded-xl bg-white text-sm">
+                <template x-for="acc in accounts" :key="acc.id">
+                  <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- TASA DE CAMBIO CON BOTÓN DE CÁLCULO BIDIRECCIONAL (IMAGEN 1) -->
+          <div class="bg-teal-50 p-4 rounded-2xl border border-teal-200">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-sm font-black text-teal-900">💱 Tasa de Cambio Pactada (Bs / $)</label>
+              <span class="text-xs text-teal-700 font-semibold">Cálculo Automático</span>
+            </div>
+            <div class="flex gap-2">
+              <input type="number" step="0.01" min="1" x-model.number="transferForm.exchange_rate" @input="recalcTransfer('rate')" required
+                     class="w-full p-2.5 border border-teal-300 rounded-xl font-black text-lg bg-white text-teal-950">
+            </div>
+          </div>
+
+          <!-- Monto que Sale y Monto que Entra Bidireccional -->
+          <div class="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">
+                Monto que Sale (<span class="text-rose-600 font-black" x-text="getAccountCurrency(transferForm.origin_account_id)"></span>)
+              </label>
+              <input type="number" step="0.01" min="0.01" x-model.number="transferForm.amount_origin" @input="recalcTransfer('origin')" required
+                     placeholder="0.00" class="w-full p-2.5 border rounded-xl font-bold text-base">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">
+                Monto que Entra (<span class="text-emerald-600 font-black" x-text="getAccountCurrency(transferForm.destination_account_id)"></span>)
+              </label>
+              <input type="number" step="0.01" min="0.01" x-model.number="transferForm.amount_destination" @input="recalcTransfer('dest')" required
+                     placeholder="0.00" class="w-full p-2.5 border rounded-xl font-bold text-base bg-emerald-50 text-emerald-950 border-emerald-300">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">N° Comprobante / Ref</label>
+              <input type="text" x-model="transferForm.reference_number" placeholder="Ej: 994201" class="w-full p-2 border rounded-xl text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Motivo / Detalle</label>
+              <input type="text" x-model="transferForm.description" placeholder="Ej: Compra de 50 USD efectivo" class="w-full p-2 border rounded-xl text-sm">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full btn-large bg-tev-green hover:bg-tev-darkgreen text-white shadow font-bold text-base py-3">
+            Confirmar Traspaso de Fondos
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL CARGAR SALDOS INICIALES -->
+    <div x-show="showInitialBalancesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-lg w-full border border-gray-100 space-y-6">
+        <div class="flex items-center justify-between pb-3 border-b">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">⚙️ Saldos Iniciales del Mes</h3>
+            <p class="text-xs text-gray-500">Fije el monto con el que inició cada caja en <strong x-text="filterMonth"></strong></p>
+          </div>
+          <button @click="showInitialBalancesModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+        </div>
+
+        <form @submit.prevent="saveInitialBalances()" class="space-y-4">
+          <template x-for="item in monthlyBalancesForm" :key="item.account_id">
+            <div class="bg-slate-50 p-3 rounded-xl border border-gray-200 flex items-center justify-between gap-4">
+              <div>
+                <p class="text-sm font-bold text-gray-800" x-text="item.name"></p>
+                <span class="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700 font-semibold" x-text="item.currency"></span>
+              </div>
+              <div class="w-48">
+                <input type="number" step="0.01" min="0" x-model.number="item.initial_balance" required
+                       class="w-full p-2 border border-gray-300 rounded-lg text-right font-black text-base">
+              </div>
+            </div>
+          </template>
+
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showInitialBalancesModal = false" class="btn-large bg-gray-100 hover:bg-gray-200 text-gray-700">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-large bg-tev-green hover:bg-tev-darkgreen text-white shadow">
+              Guardar Saldos
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL CAMBIAR CONTRASEÑA -->
+    <div x-show="showChangePasswordModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900">🔑 Cambiar Mi Contraseña</h3>
+        <form @submit.prevent="changeOwnPassword()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Contraseña Actual</label>
+            <input type="password" x-model="changePasswordForm.old_password" required class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nueva Contraseña</label>
+            <input type="password" x-model="changePasswordForm.new_password" required minlength="4" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showChangePasswordModal = false" class="p-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+            <button type="submit" class="p-2.5 bg-tev-green text-white rounded-xl font-bold shadow">Actualizar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVO USUARIO -->
+    <div x-show="showNewUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900">➕ Registrar Nuevo Usuario</h3>
+        <form @submit.prevent="createUser()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nombre Completo</label>
+            <input type="text" x-model="newUserForm.full_name" required placeholder="Ej: María Pérez" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Usuario</label>
+            <input type="text" x-model="newUserForm.username" required placeholder="Ej: mperez" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Rol</label>
+            <select x-model="newUserForm.role" required class="w-full p-2.5 border rounded-xl bg-white">
+              <option value="cajera">Cajera / Asistente Administrativa</option>
+              <option value="administradora">Administradora</option>
+              <option value="directivo">Directivo / Dueño</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Contraseña</label>
+            <input type="password" x-model="newUserForm.password" required minlength="4" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showNewUserModal = false" class="p-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+            <button type="submit" class="p-2.5 bg-purple-700 text-white rounded-xl font-bold shadow">Crear Usuario</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL RESTABLECER CONTRASEÑA -->
+    <div x-show="showResetPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900">🔑 Restablecer Contraseña</h3>
+        <p class="text-xs text-gray-500">Asignar nueva clave al usuario <strong x-text="selectedUserForReset?.username"></strong></p>
+        <form @submit.prevent="resetUserPassword()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nueva Contraseña</label>
+            <input type="password" x-model="resetPasswordForm.new_password" required minlength="4" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showResetPasswordModal = false" class="p-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+            <button type="submit" class="p-2.5 bg-purple-700 text-white rounded-xl font-bold shadow">Guardar Clave</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL CONFIRMACIÓN ANTI-ERROR -->
+    <div x-show="showConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-lg w-full border border-gray-100 space-y-6">
+        <div class="text-center">
+          <span class="text-5xl">🛡️</span>
+          <h3 class="text-2xl font-black text-gray-900 mt-2">Confirmar Operación</h3>
+          <p class="text-gray-500 text-sm">Verifique los datos antes de registrar en el libro</p>
+        </div>
+
+        <div class="bg-slate-50 p-6 rounded-2xl border border-gray-200 space-y-3 text-base">
+          <div class="flex justify-between">
+            <span class="text-gray-500 font-medium">Operación:</span>
+            <span class="font-bold text-gray-800" x-text="formatSubtype(form.subtype)"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500 font-medium">Caja / Cuenta:</span>
+            <span class="font-bold text-gray-800" x-text="getSelectedAccountName()"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500 font-medium">Monto Original:</span>
+            <span class="font-black text-gray-900" x-text="formatNumber(form.amount_original) + ' ' + selectedAccountCurrency"></span>
+          </div>
+          <div x-show="selectedAccountCurrency === 'VES'" class="flex justify-between">
+            <span class="text-gray-500 font-medium">Tasa Aplicada:</span>
+            <span class="font-bold text-gray-800" x-text="form.exchange_rate + ' Bs/$'"></span>
+          </div>
+          <div class="flex justify-between pt-2 border-t border-gray-200 text-lg">
+            <span class="text-teal-900 font-bold">Total Equivalente:</span>
+            <span class="font-black text-teal-800" x-text="'$' + calculateUsdEquivalent().toFixed(2) + ' USD'"></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+          <button @click="showConfirmModal = false" class="btn-large bg-gray-100 hover:bg-gray-200 text-gray-700">
+            Regresar / Corregir
+          </button>
+          <button @click="executeSubmitTransaction()" class="btn-large bg-tev-green hover:bg-tev-darkgreen text-white shadow">
+            Sí, Guardar Ahora
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL EDITAR PRESUPUESTO -->
+    <div x-show="showEditCatModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900">Editar Presupuesto de Partida</h3>
+        <p class="text-sm text-gray-500" x-text="editingCat?.code + ' - ' + editingCat?.name"></p>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Nuevo Monto Máximo ($)</label>
+          <input type="number" step="10" min="0" x-model.number="editingCat.monthly_budget_usd" class="w-full input-large border rounded-xl">
+        </div>
+        <div class="grid grid-cols-2 gap-3 pt-4">
+          <button @click="showEditCatModal = false" class="p-3 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+          <button @click="saveEditedCategory()" class="p-3 bg-tev-green text-white rounded-xl font-bold shadow">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVA PARTIDA PRESUPUESTARIA -->
+    <div x-show="showNewCatModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-800 text-xl font-bold">➕</div>
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">Nueva Partida Presupuestaria</h3>
+            <p class="text-xs text-gray-500">Cree una nueva categoría para imputar gastos</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Código de la Partida</label>
+          <input type="number" min="1" x-model.number="newCatForm.code" placeholder="Ej: 13" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Nombre de la Partida</label>
+          <input type="text" x-model="newCatForm.name" placeholder="Ej: Publicidad y Mercadeo" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Presupuesto Mensual Asignado ($)</label>
+          <input type="number" step="10" min="0" x-model.number="newCatForm.monthly_budget_usd" placeholder="Ej: 500.00" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-4">
+          <button @click="showNewCatModal = false" class="p-3 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancelar</button>
+          <button @click="saveNewCategory()" class="p-3 bg-tev-green text-white rounded-xl font-bold shadow hover:bg-tev-darkgreen">Crear Partida</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVA CAJA O CUENTA BANCARIA -->
+    <div x-show="showNewAccountModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-800 text-xl font-bold">🏦</div>
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">Nueva Caja o Cuenta Bancaria</h3>
+            <p class="text-xs text-gray-500">Cree un nuevo origen o destino de fondos</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Nombre de la Caja / Banco</label>
+          <input type="text" x-model="newAccountForm.name" placeholder="Ej: Punto Bancamiga VES, Zelle, Caja Chica" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Moneda</label>
+            <select x-model="newAccountForm.currency" class="w-full input-large border rounded-xl bg-white">
+              <option value="USD">Dólares ($ USD)</option>
+              <option value="VES">Bolívares (Bs VES)</option>
+              <option value="USDT">Tether (₮ USDT)</option>
+              <option value="EUR">Euros (€ EUR)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Tipo de Caja</label>
+            <select x-model="newAccountForm.account_type" class="w-full input-large border rounded-xl bg-white">
+              <option value="Caja Operativa">Caja Operativa (Mixta)</option>
+              <option value="Caja de Ingresos">Solo Ingresos (Ventas)</option>
+              <option value="Caja de Egresos">Solo Egresos (Gastos)</option>
+              <option value="Banco">Banco Nacional</option>
+              <option value="Billetera Digital">Billetera Digital</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Saldo Inicial con el que Arranca</label>
+          <input type="number" step="0.01" x-model.number="newAccountForm.initial_balance" placeholder="0.00" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-4">
+          <button @click="showNewAccountModal = false" class="p-3 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancelar</button>
+          <button @click="saveNewAccount()" class="p-3 bg-tev-green text-white rounded-xl font-bold shadow hover:bg-tev-darkgreen">Crear Caja</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL EDITAR CAJA O CUENTA BANCARIA -->
+    <div x-show="showEditAccountModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-800 text-xl font-bold">✏️</div>
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">Editar Caja o Cuenta</h3>
+            <p class="text-xs text-gray-500" x-text="editingAccount?.name"></p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Nombre</label>
+          <input type="text" x-model="editingAccount.name" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Tipo de Caja</label>
+            <select x-model="editingAccount.account_type" class="w-full input-large border rounded-xl bg-white">
+              <option value="Caja Operativa">Caja Operativa (Mixta)</option>
+              <option value="Caja de Ingresos">Solo Ingresos (Ventas)</option>
+              <option value="Caja de Egresos">Solo Egresos (Gastos)</option>
+              <option value="Banco">Banco Nacional</option>
+              <option value="Billetera Digital">Billetera Digital</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Estado</label>
+            <select x-model="editingAccount.is_active" class="w-full input-large border rounded-xl bg-white">
+              <option :value="true">Activa (En uso)</option>
+              <option :value="false">Pausada (Inactiva)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Saldo Inicial</label>
+          <input type="number" step="0.01" x-model.number="editingAccount.initial_balance" class="w-full input-large border rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-4">
+          <button @click="showEditAccountModal = false" class="p-3 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancelar</button>
+          <button @click="saveEditAccount()" class="p-3 bg-tev-green text-white rounded-xl font-bold shadow hover:bg-tev-darkgreen">Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SCRIPT ALPINE -->
+  <script>
+    function app() {
+      return {
+        currentUser: null,
+        activeTab: 'registro',
+        cashFlowSubTab: 'resumen',
+        loading: false,
+        loginError: '',
+        loginForm: { username: '', password: '' },
+
+        accounts: [],
+        categories: [],
+        transactions: [],
+        usersList: [],
+        filterMonth: '2026-08',
+        filterType: '',
+
+        selectedAccountCurrency: 'USD',
+
+        form: {
+          date: new Date().toISOString().split('T')[0],
+          movement_type: 'EGRESO',
+          subtype: 'GASTO_OPERATIVO',
+          account_id: 1,
+          category_id: '',
+          amount_original: '',
+          currency: 'USD',
+          exchange_rate: 756.71,
+          amount_usd: 0,
+          reference_number: '',
+          beneficiary: '',
+          description: ''
+        },
+
+        cashFlowData: {
+          initial_balance_usd: 0,
+          total_inflows_usd: 0,
+          total_outflows_usd: 0,
+          fx_differential_usd: 0,
+          net_cash_flow_usd: 0,
+          final_balance_usd: 0,
+          accounts_detail: [],
+          inflows_breakdown: {},
+          outflows_breakdown: {}
+        },
+
+        annualCashFlow: { year: 2026, months: [] },
+        dailyCashFlow: [],
+        dailyCashFlowTotals: {},
+        dailyViewMode: 'matriz',
+
+        arqueo: {
+          b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0
+        },
+
+        showConfirmModal: false,
+        showTransferModal: false,
+        showEditCatModal: false,
+        showNewCatModal: false,
+        showNewAccountModal: false,
+        showEditAccountModal: false,
+        showInitialBalancesModal: false,
+        showChangePasswordModal: false,
+        showNewUserModal: false,
+        showResetPasswordModal: false,
+        showOnePageModal: false,
+
+        editingCat: {},
+        newCatForm: { code: null, name: '', monthly_budget_usd: 0 },
+        editingAccount: {},
+        newAccountForm: { name: '', currency: 'USD', account_type: 'Caja Operativa', initial_balance: 0 },
+        selectedUserForReset: null,
+
+        changePasswordForm: { old_password: '', new_password: '' },
+        newUserForm: { full_name: '', username: '', role: 'cajera', password: '' },
+        resetPasswordForm: { new_password: '' },
+        monthlyBalancesForm: [],
+
+        transferForm: {
+          date: new Date().toISOString().split('T')[0],
+          origin_account_id: 2, // Banesco VES
+          destination_account_id: 1, // Gaveta USD
+          amount_origin: '',
+          amount_destination: '',
+          exchange_rate: 756.71,
+          reference_number: '',
+          description: ''
+        },
+
+        toast: { show: false, type: 'success', title: '', message: '' },
+
+        showToast(type, title, message) {
+          this.toast = { show: true, type, title, message };
+          setTimeout(() => { this.toast.show = false; }, 4000);
+        },
+
+        async initApp() {
+          const token = localStorage.getItem('tev_token');
+          if (token) {
+            try {
+              const res = await fetch('/api/auth/me', {
+                headers: { 'Authorization': 'Bearer ' + token }
+              });
+              if (res.ok) {
+                this.currentUser = await res.json();
+                await this.loadInitialData();
+              } else {
+                localStorage.removeItem('tev_token');
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        },
+
+        async quickLogin(user, pass) {
+          this.loginForm.username = user;
+          this.loginForm.password = pass;
+          await this.handleLogin();
+        },
+
+        async handleLogin() {
+          this.loading = true;
+          this.loginError = '';
+          try {
+            const res = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.loginForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al iniciar sesión');
+
+            localStorage.setItem('tev_token', data.access_token);
+            this.currentUser = data.user;
+            await this.loadInitialData();
+            this.showToast('success', 'Bienvenido(a)', 'Ha ingresado como ' + this.currentUser.full_name);
+          } catch (err) {
+            this.loginError = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        logout() {
+          localStorage.removeItem('tev_token');
+          this.currentUser = null;
+          this.activeTab = 'registro';
+        },
+
+        async loadInitialData() {
+          await this.loadAccounts();
+          await this.loadCategories();
+          await this.loadTransactions();
+          if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
+            await this.loadCashFlowAll();
+          }
+          if (this.currentUser?.role === 'directivo') {
+            await this.loadUsers();
+          }
+        },
+
+        async loadAccounts() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/accounts', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            this.accounts = await res.json();
+            if (this.accounts.length > 0 && !this.form.account_id) {
+              this.form.account_id = this.accounts[0].id;
+              this.onAccountChange();
+            }
+          }
+        },
+
+        async loadCategories() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/categories?month=' + this.filterMonth, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            this.categories = await res.json();
+          }
+        },
+
+        async loadTransactions() {
+          const token = localStorage.getItem('tev_token');
+          let url = '/api/transactions?month=' + this.filterMonth;
+          if (this.filterType) url += '&movement_type=' + this.filterType;
+
+          const res = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            this.transactions = data.items;
+          }
+        },
+
+        async loadCashFlowAll() {
+          await this.loadCashFlow();
+          await this.loadAnnualCashFlow();
+          await this.loadDailyCashFlow();
+        },
+
+        async loadCashFlow() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/dashboard/cash-flow?month=' + this.filterMonth, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            this.cashFlowData = await res.json();
+          }
+        },
+
+        async loadAnnualCashFlow() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/dashboard/cash-flow-annual?year=2026', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            this.annualCashFlow = await res.json();
+          }
+        },
+
+        async loadDailyCashFlow() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/dashboard/cash-flow-daily?month=' + this.filterMonth, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            this.dailyCashFlow = data.days;
+            this.dailyCashFlowTotals = data.totals || {};
+          }
+        },
+
+        async loadUsers() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/users', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            this.usersList = await res.json();
+          }
+        },
+
+        openTransferModal() {
+          this.transferForm.amount_origin = '';
+          this.transferForm.amount_destination = '';
+          this.transferForm.reference_number = '';
+          this.transferForm.description = '';
+          this.showTransferModal = true;
+        },
+
+        onTransferAccountsChange() {
+          this.recalcTransfer('origin');
+        },
+
+        getAccountCurrency(accId) {
+          const a = this.accounts.find(x => x.id === accId);
+          return a ? a.currency : '';
+        },
+
+        // CALCULADORA BIDIRECCIONAL DE TRASPASOS (IMAGEN 1)
+        recalcTransfer(source) {
+          const origCurr = this.getAccountCurrency(this.transferForm.origin_account_id);
+          const destCurr = this.getAccountCurrency(this.transferForm.destination_account_id);
+          const rate = parseFloat(this.transferForm.exchange_rate) || 1.0;
+
+          if (origCurr === destCurr) {
+            if (source === 'origin') {
+              this.transferForm.amount_destination = this.transferForm.amount_origin;
+            } else if (source === 'dest') {
+              this.transferForm.amount_origin = this.transferForm.amount_destination;
+            }
+            return;
+          }
+
+          // Si sale VES y entra USD/USDT
+          if (origCurr === 'VES' && (destCurr === 'USD' || destCurr === 'USDT')) {
+            if (source === 'origin' || source === 'rate') {
+              const orig = parseFloat(this.transferForm.amount_origin) || 0;
+              this.transferForm.amount_destination = rate > 0 ? (orig / rate).toFixed(2) : 0;
+            } else if (source === 'dest') {
+              const dest = parseFloat(this.transferForm.amount_destination) || 0;
+              this.transferForm.amount_origin = (dest * rate).toFixed(2);
+            }
+          }
+          // Si sale USD/USDT y entra VES
+          else if ((origCurr === 'USD' || origCurr === 'USDT') && destCurr === 'VES') {
+            if (source === 'origin' || source === 'rate') {
+              const orig = parseFloat(this.transferForm.amount_origin) || 0;
+              this.transferForm.amount_destination = (orig * rate).toFixed(2);
+            } else if (source === 'dest') {
+              const dest = parseFloat(this.transferForm.amount_destination) || 0;
+              this.transferForm.amount_origin = rate > 0 ? (dest / rate).toFixed(2) : 0;
+            }
+          }
+        },
+
+        openOnePageReport() {
+          this.showOnePageModal = true;
+        },
+
+        printReport() {
+          window.print();
+        },
+
+        sumAnnual(prop) {
+          if (!this.annualCashFlow?.months) return 0;
+          return this.annualCashFlow.months.reduce((acc, m) => acc + (m[prop] || 0), 0);
+        },
+
+        async openInitialBalancesModal() {
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/accounts/monthly-balances?month=' + this.filterMonth, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            this.monthlyBalancesForm = data.balances;
+            this.showInitialBalancesModal = true;
+          }
+        },
+
+        async saveInitialBalances() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const payload = {
+              month: this.filterMonth,
+              balances: this.monthlyBalancesForm.map(b => ({
+                account_id: b.account_id,
+                initial_balance: parseFloat(b.initial_balance) || 0.0
+              }))
+            };
+            const res = await fetch('/api/accounts/monthly-balances', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              this.showInitialBalancesModal = false;
+              this.showToast('success', 'Saldos Actualizados', 'Los saldos iniciales fueron guardados.');
+              await this.loadCashFlowAll();
+              await this.loadAccounts();
+            }
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        async changeOwnPassword() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/auth/change-password', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(this.changePasswordForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al cambiar contraseña');
+
+            this.showChangePasswordModal = false;
+            this.changePasswordForm = { old_password: '', new_password: '' };
+            this.showToast('success', 'Éxito', 'Su contraseña ha sido cambiada.');
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        async createUser() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/users', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(this.newUserForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al crear usuario');
+
+            this.showNewUserModal = false;
+            this.newUserForm = { full_name: '', username: '', role: 'cajera', password: '' };
+            this.showToast('success', 'Usuario Creado', 'El nuevo usuario fue registrado con éxito.');
+            await this.loadUsers();
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        openResetPasswordModal(user) {
+          this.selectedUserForReset = user;
+          this.resetPasswordForm.new_password = '';
+          this.showResetPasswordModal = true;
+        },
+
+        async resetUserPassword() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/users/' + this.selectedUserForReset.id + '/password', {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(this.resetPasswordForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al restablecer');
+
+            this.showResetPasswordModal = false;
+            this.showToast('success', 'Clave Restablecida', 'La clave fue actualizada.');
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        async toggleUserStatus(userId) {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/users/' + userId + '/toggle-status', {
+              method: 'PATCH',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.showToast('success', 'Estado Actualizado', 'El estado del usuario fue modificado.');
+              await this.loadUsers();
+            }
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        onAccountChange() {
+          const acc = this.accounts.find(a => a.id === this.form.account_id);
+          if (acc) {
+            this.selectedAccountCurrency = acc.currency;
+            this.form.currency = acc.currency;
+          }
+        },
+
+        setFormType(movType, subType) {
+          this.form.movement_type = movType;
+          this.form.subtype = subType;
+          if (subType === 'VENTA_DIARIA') {
+            this.form.beneficiary = 'Ventas Mostrador - Tienda Valencia';
+            this.form.description = 'Cierre de ventas total de la jornada';
+          }
+        },
+
+        getFormTitle() {
+          const map = {
+            'GASTO_OPERATIVO': 'Registro de Gasto Operativo (Partida)',
+            'PAGO_PROVEEDOR': 'Registro de Pago a Proveedor',
+            'VENTA_DIARIA': 'Cierre de Venta Diaria (Total del Día / Z)',
+            'COBRO_CXC': 'Registro de Cobro de Cuenta por Cobrar'
+          };
+          return map[this.form.subtype] || 'Registro de Movimiento';
+        },
+
+        formatSubtype(st) {
+          const map = {
+            'GASTO_OPERATIVO': '💸 Gasto Operativo',
+            'PAGO_PROVEEDOR': '📦 Pago a Proveedor',
+            'VENTA_DIARIA': '💰 Cierre Venta Diaria',
+            'COBRO_CXC': '📥 Cobro CxC',
+            'TRASPASO_SALIDA': '🔄 Salida por Traspaso',
+            'TRASPASO_ENTRADA': '🔄 Entrada por Traspaso'
+          };
+          return map[st] || st;
+        },
+
+        getRoleLabel(role) {
+          const map = {
+            'cajera': 'Cajera / Asistente',
+            'administradora': 'Administradora',
+            'directivo': 'Dirección General'
+          };
+          return map[role] || role;
+        },
+
+        calculateUsdEquivalent() {
+          const amt = parseFloat(this.form.amount_original) || 0;
+          if (this.selectedAccountCurrency === 'VES') {
+            const rate = parseFloat(this.form.exchange_rate) || 1;
+            return amt / rate;
+          }
+          return amt;
+        },
+
+        isRateWarning() {
+          if (this.selectedAccountCurrency !== 'VES') return false;
+          const rate = parseFloat(this.form.exchange_rate) || 0;
+          return rate > 0 && (rate < 500 || rate > 1500);
+        },
+
+        getSelectedAccountName() {
+          const a = this.accounts.find(x => x.id === this.form.account_id);
+          return a ? `${a.name} (${a.currency})` : '';
+        },
+
+        prepareSubmitTransaction() {
+          if (!this.form.amount_original || this.form.amount_original <= 0) {
+            this.showToast('error', 'Monto Inválido', 'Por favor ingrese un monto mayor a cero');
+            return;
+          }
+          if (this.form.subtype === 'GASTO_OPERATIVO' && !this.form.category_id) {
+            this.showToast('warning', 'Partida Requerida', 'Por favor seleccione la Partida Presupuestaria del gasto.');
+            return;
+          }
+          this.showConfirmModal = true;
+        },
+
+        async executeSubmitTransaction() {
+          this.showConfirmModal = false;
+          const token = localStorage.getItem('tev_token');
+          try {
+            const payload = {
+              date: this.form.date,
+              movement_type: this.form.movement_type,
+              subtype: this.form.subtype,
+              account_id: this.form.account_id,
+              category_id: this.form.category_id ? parseInt(this.form.category_id) : null,
+              amount_original: parseFloat(this.form.amount_original),
+              currency: this.selectedAccountCurrency,
+              exchange_rate: parseFloat(this.form.exchange_rate) || 1.0,
+              reference_number: this.form.reference_number || '',
+              beneficiary: this.form.beneficiary || '',
+              description: this.form.description || ''
+            };
+
+            const res = await fetch('/api/transactions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al guardar');
+
+            this.showToast('success', '¡Guardado Exitoso!', 'El movimiento fue registrado correctamente.');
+            this.form.amount_original = '';
+            this.form.reference_number = '';
+            this.form.beneficiary = '';
+            this.form.description = '';
+
+            await this.loadAccounts();
+            await this.loadCategories();
+            await this.loadTransactions();
+            if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
+              await this.loadCashFlowAll();
+            }
+          } catch (err) {
+            this.showToast('error', 'Error en Registro', err.message);
+          }
+        },
+
+        async executeTransfer() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/transactions/transfer', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(this.transferForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al traspasar');
+
+            this.showTransferModal = false;
+            this.showToast('success', 'Traspaso Exitoso', 'Los fondos fueron transferidos con partida doble contable.');
+            await this.loadAccounts();
+            await this.loadTransactions();
+            if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
+              await this.loadCashFlowAll();
+            }
+          } catch (err) {
+            this.showToast('error', 'Error en Traspaso', err.message);
+          }
+        },
+
+        async verifyTransaction(id) {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/transactions/' + id + '/verify', {
+              method: 'PATCH',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.showToast('success', 'Verificado', 'El movimiento fue auditado y aprobado.');
+              await this.loadTransactions();
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        },
+
+        async cancelTransaction(id) {
+          if (!confirm('¿Está seguro de anular este movimiento? Se revertirá en los saldos.')) return;
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/transactions/' + id, {
+              method: 'DELETE',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.showToast('warning', 'Anulado', 'El movimiento fue anulado.');
+              await this.loadAccounts();
+              await this.loadTransactions();
+              await this.loadCategories();
+              if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
+                await this.loadCashFlowAll();
+              }
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        },
+
+        openEditCategory(cat) {
+          this.editingCat = { ...cat };
+          this.showEditCatModal = true;
+        },
+
+        async saveEditedCategory() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/categories/' + this.editingCat.id, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({
+                monthly_budget_usd: this.editingCat.monthly_budget_usd
+              })
+            });
+            if (res.ok) {
+              this.showEditCatModal = false;
+              this.showToast('success', 'Presupuesto Actualizado', 'El monto de la partida fue actualizado.');
+              await this.loadCategories();
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        },
+
+        openNewCategoryModal() {
+          const maxCode = this.categories.length > 0 ? Math.max(...this.categories.map(c => c.code || 0)) : 0;
+          this.newCatForm = {
+            code: maxCode + 1,
+            name: '',
+            monthly_budget_usd: 100
+          };
+          this.showNewCatModal = true;
+        },
+
+        async saveNewCategory() {
+          if (!this.newCatForm.name || !this.newCatForm.name.trim()) {
+            this.showToast('warning', 'Nombre Requerido', 'Debe escribir el nombre de la partida presupuestaria');
+            return;
+          }
+          if (!this.newCatForm.code) {
+            this.showToast('warning', 'Código Requerido', 'Debe ingresar un código numérico para la partida');
+            return;
+          }
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/categories', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({
+                code: parseInt(this.newCatForm.code),
+                name: this.newCatForm.name.trim(),
+                monthly_budget_usd: parseFloat(this.newCatForm.monthly_budget_usd) || 0
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al crear la partida');
+
+            this.showNewCatModal = false;
+            this.showToast('success', 'Partida Creada', `Partida "${data.name}" creada exitosamente`);
+            await this.loadCategories();
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        triggerExcelUpload() {
+          this.$refs.excelInput.click();
+        },
+
+        async uploadExcelFile(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          const token = localStorage.getItem('tev_token');
+          const formData = new FormData();
+          formData.append('file', file);
+
+          this.showToast('warning', 'Procesando Archivo', 'Importando gastos desde el archivo Excel...');
+
+          try {
+            const res = await fetch('/api/import/excel', {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + token
+              },
+              body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al importar archivo');
+
+            this.showToast('success', 'Importación Exitosa', data.message);
+            this.filterMonth = data.month;
+            await this.loadTransactions();
+            await this.loadCategories();
+            await this.loadAccounts();
+            if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
+              await this.loadCashFlowAll();
+            }
+          } catch (err) {
+            this.showToast('error', 'Error al Importar', err.message);
+          } finally {
+            event.target.value = '';
+          }
+        },
+
+        async confirmClearTransactions() {
+          if (!confirm('¿Está seguro de que desea VACIAR todos los movimientos para empezar la base de datos totalmente limpia desde cero? Podrá volver a cargar cualquier Excel cuando lo desee.')) {
+            return;
+          }
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/admin/clear-transactions', {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + token
+              }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al limpiar');
+
+            this.showToast('success', 'Base Limpia', data.message);
+            await this.loadTransactions();
+            await this.loadCategories();
+            await this.loadAccounts();
+            if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
+              await this.loadCashFlowAll();
+            }
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        openNewAccountModal() {
+          this.newAccountForm = {
+            name: '',
+            currency: 'USD',
+            account_type: 'Caja Operativa',
+            initial_balance: 0.0
+          };
+          this.showNewAccountModal = true;
+        },
+
+        async saveNewAccount() {
+          if (!this.newAccountForm.name || !this.newAccountForm.name.trim()) {
+            this.showToast('warning', 'Nombre Requerido', 'Debe escribir el nombre de la caja o banco');
+            return;
+          }
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/accounts', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(this.newAccountForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al crear la cuenta');
+
+            this.showNewAccountModal = false;
+            this.showToast('success', 'Caja Creada', `La cuenta "${data.name}" fue creada exitosamente`);
+            await this.loadAccounts();
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        openEditAccountModal(acc) {
+          this.editingAccount = { ...acc };
+          this.showEditAccountModal = true;
+        },
+
+        async saveEditAccount() {
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/accounts/' + this.editingAccount.id, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({
+                name: this.editingAccount.name,
+                account_type: this.editingAccount.account_type,
+                initial_balance: this.editingAccount.initial_balance,
+                is_active: this.editingAccount.is_active
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al actualizar');
+
+            this.showEditAccountModal = false;
+            this.showToast('success', 'Caja Actualizada', 'Los datos de la cuenta fueron guardados');
+            await this.loadAccounts();
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        calculatePhysicalUsd() {
+          return (this.arqueo.b100 * 100) +
+                 (this.arqueo.b50 * 50) +
+                 (this.arqueo.b20 * 20) +
+                 (this.arqueo.b10 * 10) +
+                 (this.arqueo.b5 * 5) +
+                 (this.arqueo.b1 * 1);
+        },
+
+        resetArqueo() {
+          this.arqueo = { b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0 };
+        },
+
+        printArqueo() {
+          window.print();
+        },
+
+        calculateTotalBudget() {
+          return this.categories.reduce((acc, c) => acc + (c.monthly_budget_usd || 0), 0);
+        },
+
+        calculateTotalSpent() {
+          return this.categories.reduce((acc, c) => acc + (c.spent_usd || 0), 0);
+        },
+
+        calculateTotalRemaining() {
+          return this.calculateTotalBudget() - this.calculateTotalSpent();
+        },
+
+        calculateTotalPercentage() {
+          const b = this.calculateTotalBudget();
+          if (b <= 0) return '0.0';
+          return ((this.calculateTotalSpent() / b) * 100).toFixed(1);
+        },
+
+        formatNumber(val) {
+          if (val === undefined || val === null) return '0,00';
+          return parseFloat(val).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+      };
+    }
+  </script>
+</body>
+</html>
