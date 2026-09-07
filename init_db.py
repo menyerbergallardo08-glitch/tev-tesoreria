@@ -1,4 +1,4 @@
-﻿import os
+import os
 import datetime
 import openpyxl
 from database import engine, SessionLocal, Base
@@ -34,13 +34,15 @@ def init_database():
 
     admin_user = db.query(User).filter(User.username == "administradora").first()
 
-    # 2. Cuentas de Tesorería por defecto
+    # 2. Cuentas de Tesorería por defecto (Banesco, Mercantil, BNC, Zelle, USDT, Efectivo Bs, Efectivo $)
     accounts_data = [
-        ("Gaveta Efectivo USD", "USD", "EFECTIVO", 0.0),
+        ("Efectivo USD", "USD", "EFECTIVO", 0.0),
+        ("Efectivo VES", "VES", "EFECTIVO", 0.0),
         ("Banco Banesco VES", "VES", "BANCO", 0.0),
         ("Banco Mercantil VES", "VES", "BANCO", 0.0),
-        ("Billetera Binance USDT", "USDT", "BILLETERA", 0.0),
-        ("Caja Chica Efectivo VES", "VES", "EFECTIVO", 0.0),
+        ("Banco BNC VES", "VES", "BANCO", 0.0),
+        ("Zelle USD", "USD", "BANCO", 0.0),
+        ("Billetera USDT", "USDT", "BILLETERA", 0.0),
     ]
 
     for name, curr, acc_type, init_bal in accounts_data:
@@ -57,7 +59,7 @@ def init_database():
             print(f"Account created: {name} [{curr}]")
     db.commit()
 
-    acc_usd = db.query(TreasuryAccount).filter(TreasuryAccount.currency == "USD").first()
+    acc_usd = db.query(TreasuryAccount).filter(TreasuryAccount.name == "Efectivo USD").first()
     acc_ves = db.query(TreasuryAccount).filter(TreasuryAccount.name == "Banco Banesco VES").first()
 
     # 3. Cargar las 12 Partidas Presupuestarias
