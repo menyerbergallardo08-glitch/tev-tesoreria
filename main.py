@@ -9,9 +9,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
-
 from database import engine, SessionLocal, get_db, Base
-from models import User, BudgetCategory, TreasuryAccount, Transaction, AccountMonthlyBalance
+from models import User, BudgetCategory, TreasuryAccount, Transaction, AccountMonthlyBalance, Supplier, SystemSetting
 from auth import (
     hash_password,
     verify_password,
@@ -295,6 +294,7 @@ def get_accounts(db: Session = Depends(get_db), current_user: User = Depends(get
             "account_type": acc.account_type,
             "initial_balance": acc.initial_balance,
             "current_balance": round(calc_balance, 2),
+            "only_income": getattr(acc, 'only_income', False) or ('CASHEA' in acc.name.upper()),
             "is_active": acc.is_active
         })
     return res
@@ -904,6 +904,80 @@ def update_category(
 
 
 # -------------------------------------------------------------
+# System Settings & BCV Rate Endpoints
+# -------------------------------------------------------------
+class BcvRateUpdate(BaseModel):
+    rate: float
+
+@app.get("/api/settings/bcv-rate")
+def get_bcv_rate(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    rate_val = float(setting.value) if (setting and setting.value) else 36.80
+    return {
+        "rate": rate_val,
+        "updated_at": setting.updated_at.isoformat() if setting and setting.updated_at else None,
+        "updated_by": setting.updated_by if setting else "sistema"
+    }
+
+@app.post("/api/settings/bcv-rate")
+def update_bcv_rate(
+    payload: BcvRateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["administradora", "directivo"]))
+):
+    if payload.rate <= 0:
+        raise HTTPException(status_code=400, detail="La tasa debe ser mayor a 0.00")
+    setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    if not setting:
+        setting = SystemSetting(key='bcv_rate', value=str(payload.rate), updated_by=current_user.username)
+        db.add(setting)
+    else:
+        setting.value = str(payload.rate)
+        setting.updated_by = current_user.username
+        setting.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    return {"message": "Tasa BCV actualizada exitosamente", "rate": payload.rate}
+
+
+# -------------------------------------------------------------
+# Suppliers (Proveedores) Endpoints
+# -------------------------------------------------------------
+class SupplierCreate(BaseModel):
+    name: str
+    rif: Optional[str] = None
+    phone: Optional[str] = None
+    bank_details: Optional[str] = None
+
+@app.get("/api/suppliers")
+def get_suppliers(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(Supplier).filter(Supplier.is_active == True).order_by(Supplier.name.asc()).all()
+
+@app.post("/api/suppliers")
+def create_supplier(
+    sup_in: SupplierCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    name = sup_in.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="El nombre del proveedor es obligatorio.")
+    existing = db.query(Supplier).filter(Supplier.name.ilike(name), Supplier.is_active == True).first()
+    if existing:
+        return existing
+    supplier = Supplier(
+        name=name,
+        rif=sup_in.rif.strip().upper() if sup_in.rif else None,
+        phone=sup_in.phone.strip() if sup_in.phone else None,
+        bank_details=sup_in.bank_details.strip() if sup_in.bank_details else "",
+        is_active=True
+    )
+    db.add(supplier)
+    db.commit()
+    db.refresh(supplier)
+    return supplier
+
+
+# -------------------------------------------------------------
 # Transactions Endpoints (Double-entry transfers)
 # -------------------------------------------------------------
 @app.get("/api/transactions")
@@ -989,9 +1063,17 @@ def create_transaction(
     if tx_in.amount_original <= 0:
         raise HTTPException(status_code=400, detail="El monto debe ser mayor a cero.")
 
+    # 1. Restricción para cajeras: No pueden hacer cambios de divisas ni traspasos
+    if current_user.role == "cajera" and (tx_in.subtype == "CAMBIO_DIVISAS" or tx_in.movement_type == "TRASPASO"):
+        raise HTTPException(status_code=403, detail="Los usuarios de caja no tienen permiso para registrar cambios de divisas ni traspasos.")
+
     account = db.query(TreasuryAccount).filter(TreasuryAccount.id == tx_in.account_id).first()
     if not account:
         raise HTTPException(status_code=400, detail="La cuenta de tesorería seleccionada no existe.")
+
+    # 2. Restricción Cashea: Solo para ingresos
+    if (getattr(account, 'only_income', False) or 'CASHEA' in account.name.upper()) and tx_in.movement_type == "EGRESO":
+        raise HTTPException(status_code=400, detail=f"La cuenta '{account.name}' está configurada exclusivamente para registrar INGRESOS.")
 
     # Control de duplicados por referencia bancaria (excepto cierres Z o vacíos)
     if tx_in.reference_number and len(tx_in.reference_number.strip()) > 3 and tx_in.subtype != "VENTA_DIARIA":
@@ -1007,8 +1089,15 @@ def create_transaction(
                 detail=f"¡Alerta de Duplicado! La referencia bancaria '{ref}' ya fue registrada previamente el {dup.date} por ${dup.amount_usd:.2f}."
             )
 
-    rate = tx_in.exchange_rate if tx_in.exchange_rate > 0 else 1.0
+    # 3. Tasa BCV Oficial Obligatoria (salvo cambio de divisas que es negociado)
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+
     if tx_in.currency == "VES":
+        if tx_in.subtype != "CAMBIO_DIVISAS":
+            rate = active_bcv
+        else:
+            rate = tx_in.exchange_rate if tx_in.exchange_rate > 0 else active_bcv
         calc_usd = round(tx_in.amount_original / rate, 2)
     elif tx_in.currency in ["USD", "USDT"]:
         calc_usd = round(tx_in.amount_original, 2)
@@ -1176,28 +1265,71 @@ def get_daily_closing(
     txs = db.query(Transaction).filter(
         Transaction.date == target_date,
         Transaction.status != "ANULADO"
-    ).all()
+    ).order_by(Transaction.id.asc()).all()
 
     inflows_usd = sum(t.amount_usd for t in txs if t.movement_type == "INGRESO")
     outflows_usd = sum(t.amount_usd for t in txs if t.movement_type == "EGRESO")
+
+    ventas_usd = sum(t.amount_usd for t in txs if t.movement_type == "INGRESO" and t.subtype == "VENTA_DIARIA")
+    cxc_usd = sum(t.amount_usd for t in txs if t.movement_type == "INGRESO" and t.subtype == "COBRO_CXC")
+    otros_in_usd = sum(t.amount_usd for t in txs if t.movement_type == "INGRESO" and t.subtype not in ["VENTA_DIARIA", "COBRO_CXC"])
+
+    prov_usd = sum(t.amount_usd for t in txs if t.movement_type == "EGRESO" and t.subtype == "PAGO_PROVEEDOR")
+    gastos_usd = sum(t.amount_usd for t in txs if t.movement_type == "EGRESO" and t.subtype == "GASTO_OPERATIVO")
+    otros_out_usd = sum(t.amount_usd for t in txs if t.movement_type == "EGRESO" and t.subtype not in ["PAGO_PROVEEDOR", "GASTO_OPERATIVO"])
 
     by_account = {}
     for t in txs:
         acc_name = t.account.name if t.account else "Desconocida"
         if acc_name not in by_account:
-            by_account[acc_name] = {"currency": t.currency, "ingresos": 0.0, "egresos": 0.0}
+            by_account[acc_name] = {"currency": t.currency, "ingresos": 0.0, "egresos": 0.0, "neto": 0.0}
         if t.movement_type == "INGRESO":
             by_account[acc_name]["ingresos"] += t.amount_original
+            by_account[acc_name]["neto"] += t.amount_original
         elif t.movement_type == "EGRESO":
             by_account[acc_name]["egresos"] += t.amount_original
+            by_account[acc_name]["neto"] -= t.amount_original
+
+    # Obtener tasa BCV activa
+    setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    active_bcv = float(setting.value) if setting and setting.value else 36.80
+
+    tx_items = []
+    for t in txs:
+        tx_items.append({
+            "id": t.id,
+            "movement_type": t.movement_type,
+            "subtype": t.subtype,
+            "account_name": t.account.name if t.account else "",
+            "category_name": t.category.name if t.category else None,
+            "amount_original": round(t.amount_original, 2),
+            "currency": t.currency,
+            "exchange_rate": round(t.exchange_rate, 2),
+            "amount_usd": round(t.amount_usd, 2),
+            "reference_number": t.reference_number,
+            "beneficiary": t.beneficiary,
+            "description": t.description
+        })
 
     return {
         "date": target_date.isoformat(),
+        "bcv_rate": active_bcv,
         "total_inflows_usd": round(inflows_usd, 2),
         "total_outflows_usd": round(outflows_usd, 2),
         "net_day_usd": round(inflows_usd - outflows_usd, 2),
+        "inflows_breakdown": {
+            "ventas_usd": round(ventas_usd, 2),
+            "cobros_cxc_usd": round(cxc_usd, 2),
+            "otros_inflows_usd": round(otros_in_usd, 2)
+        },
+        "outflows_breakdown": {
+            "pago_proveedores_usd": round(prov_usd, 2),
+            "gastos_operativos_usd": round(gastos_usd, 2),
+            "otros_outflows_usd": round(otros_out_usd, 2)
+        },
         "accounts_summary": by_account,
-        "count_transactions": len(txs)
+        "count_transactions": len(txs),
+        "transactions": tx_items
     }
 
 # -------------------------------------------------------------
