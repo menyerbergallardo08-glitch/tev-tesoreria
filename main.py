@@ -22,9 +22,16 @@ from auth import (
 
 Base.metadata.create_all(bind=engine)
 
+# Auto-inicializar tablas, usuarios base y cuentas si la base de datos (PostgreSQL / Supabase) es nueva
+try:
+    from init_db import init_database
+    init_database()
+except Exception as e:
+    print(f"[WARN] Error en init_database al arrancar: {e}")
+
 app = FastAPI(
     title="Todo Eléctrico Valencia - Sistema de Tesorería, Gastos y Flujo de Caja",
-    version="1.2.0"
+    version="1.3.0"
 )
 
 app.add_middleware(
@@ -804,10 +811,14 @@ def get_daily_cash_flow(
 @app.get("/api/categories")
 def get_categories(
     month: Optional[str] = None,
+    include_inactive: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    categories = db.query(BudgetCategory).filter(BudgetCategory.is_active == True).order_by(BudgetCategory.code).all()
+    query = db.query(BudgetCategory)
+    if not include_inactive:
+        query = query.filter(BudgetCategory.is_active == True)
+    categories = query.order_by(BudgetCategory.code).all()
     
     if month:
         try:
