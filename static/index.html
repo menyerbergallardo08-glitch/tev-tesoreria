@@ -57,10 +57,10 @@
       body * {
         visibility: hidden;
       }
-      #print-area, #print-area * {
+      #print-area, #print-area *, #arqueo-print-area, #arqueo-print-area * {
         visibility: visible;
       }
-      #print-area {
+      #print-area, #arqueo-print-area {
         position: absolute;
         left: 0;
         top: 0;
@@ -146,6 +146,19 @@
               <h1 class="text-lg font-bold text-gray-800 leading-tight">TODO ELÉCTRICO VALENCIA</h1>
               <p class="text-xs text-tev-green font-semibold">Sistema de Tesorería, Gastos y Flujo de Caja</p>
             </div>
+          </div>
+
+          <!-- Badge Tasa BCV Oficial -->
+          <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-2xl shadow-sm">
+            <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+              <span>🇻🇪 Tasa BCV:</span>
+              <strong class="text-sm font-black text-emerald-950" x-text="'Bs. ' + formatNumber(bcvRate)"></strong>
+            </span>
+            <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+              <button @click="openBcvRateModal()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-lg font-bold transition shadow-xs" title="Actualizar Tasa Oficial BCV del día">
+                ✏️ Actualizar
+              </button>
+            </template>
           </div>
 
           <!-- Perfil, Cambio de Clave y Salir -->
@@ -286,13 +299,15 @@
               <span class="text-xs opacity-80">(Factura / CxC)</span>
             </button>
 
-            <!-- 5. Traspaso / Cambio de Moneda (5ta Tarjeta Principal) -->
-            <button @click="openTransferModal()"
-                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 hover:ring-4 hover:ring-blue-200">
-              <span class="text-3xl">🔄</span>
-              <span class="text-base">Cambio de Moneda</span>
-              <span class="text-xs opacity-80">(Traspaso entre Cajas)</span>
-            </button>
+            <!-- 5. Traspaso / Cambio de Moneda (Solo Administradora y Directivo) -->
+            <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+              <button @click="openTransferModal()"
+                      class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 hover:ring-4 hover:ring-blue-200">
+                <span class="text-3xl">🔄</span>
+                <span class="text-base">Cambio de Moneda</span>
+                <span class="text-xs opacity-80">(Traspaso entre Cajas)</span>
+              </button>
+            </template>
           </div>
         </div>
 
@@ -322,7 +337,7 @@
                 <label class="block text-base font-bold text-gray-700 mb-1">🏦 Caja o Banco Afectado</label>
                 <select x-model.number="form.account_id" @change="onAccountChange()" required
                         class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white">
-                  <template x-for="acc in accounts" :key="acc.id">
+                  <template x-for="acc in getAvailableAccountsForForm()" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
                 </select>
@@ -353,10 +368,13 @@
               </div>
 
               <div x-show="selectedAccountCurrency === 'VES'">
-                <label class="block text-base font-bold text-gray-700 mb-1">💱 Tasa Aplicada (Bs / $)</label>
+                <label class="block text-base font-bold text-gray-700 mb-1">💱 Tasa Oficial BCV (Bs / $)</label>
                 <input type="number" step="0.01" min="1" x-model.number="form.exchange_rate"
+                       :readonly="form.subtype !== 'CAMBIO_DIVISAS'"
+                       :class="form.subtype !== 'CAMBIO_DIVISAS' ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white text-gray-900'"
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
-                <span class="text-xs text-gray-500">Tasa de la transacción</span>
+                <span class="text-xs text-emerald-700 font-bold block mt-1" x-show="form.subtype !== 'CAMBIO_DIVISAS'">🔒 Tasa fijada obligatoria a BCV del día</span>
+                <span class="text-xs text-blue-700 font-bold block mt-1" x-show="form.subtype === 'CAMBIO_DIVISAS'">💱 Tasa negociada de compra/venta</span>
               </div>
 
               <div>
@@ -365,6 +383,32 @@
                   <span>$</span>
                   <span x-text="calculateUsdEquivalent().toFixed(2)"></span>
                 </div>
+              </div>
+            </div>
+
+            <!-- Selector de Proveedores si es Pago a Proveedor -->
+            <div x-show="form.subtype === 'PAGO_PROVEEDOR'" class="p-5 bg-orange-50 rounded-2xl border border-orange-200">
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-base font-bold text-orange-950">📦 Seleccionar Proveedor Registrado:</label>
+                <button type="button" @click="openSupplierModal()" class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5">
+                  <span>➕</span> Registrar Nuevo Proveedor
+                </button>
+              </div>
+              <select x-model="selectedSupplierId" @change="onSupplierSelect()"
+                      class="w-full input-large border border-orange-300 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white font-semibold text-sm">
+                <option value="">-- Seleccione un proveedor o ingrese uno nuevo --</option>
+                <template x-for="sup in suppliers" :key="sup.id">
+                  <option :value="sup.id" x-text="sup.name + (sup.rif ? ' [' + sup.rif + ']' : '')"></option>
+                </template>
+              </select>
+              <div x-show="selectedSupplierObj" class="mt-3 p-3 bg-white rounded-xl border border-orange-200 text-xs text-orange-950 space-y-1">
+                <div class="flex flex-wrap justify-between gap-2">
+                  <p><strong>RIF:</strong> <span x-text="selectedSupplierObj?.rif || 'No registrado'"></span></p>
+                  <p><strong>Teléfono:</strong> <span x-text="selectedSupplierObj?.phone || 'No registrado'"></span></p>
+                </div>
+                <p x-show="selectedSupplierObj?.bank_details">
+                  <strong>Datos Bancarios / Pago Móvil:</strong> <span class="text-gray-700 font-mono" x-text="selectedSupplierObj?.bank_details"></span>
+                </p>
               </div>
             </div>
 
@@ -424,7 +468,13 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <select x-model="filterMonth" @change="loadTransactions()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
+            <div class="flex items-center gap-1.5 bg-slate-100 border border-gray-300 rounded-xl px-3 py-1.5 text-sm font-semibold">
+              <span class="text-gray-500 text-xs font-bold">📅 Día:</span>
+              <input type="date" x-model="filterDate" @change="loadTransactions()" class="bg-transparent border-0 text-sm focus:outline-none cursor-pointer font-bold text-gray-800">
+              <button x-show="filterDate" @click="filterDate = ''; loadTransactions()" class="text-xs text-rose-500 font-bold hover:text-rose-700 ml-1" title="Quitar filtro de día y ver mes completo">✕ Limpiar</button>
+            </div>
+
+            <select x-model="filterMonth" @change="filterDate = ''; loadTransactions()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
               <option value="2026-08">Agosto 2026</option>
               <option value="2026-09">Septiembre 2026</option>
             </select>
@@ -1133,8 +1183,8 @@
               </div>
 
               <div class="mt-6 pt-6 border-t border-teal-200">
-                <button @click="printArqueo()" class="w-full btn-large bg-teal-700 hover:bg-teal-800 text-white shadow font-bold text-sm">
-                  🖨️ Imprimir Resumen de Turno
+                <button @click="printArqueo()" class="w-full btn-large bg-teal-700 hover:bg-teal-800 text-white shadow font-bold text-sm flex items-center justify-center gap-2">
+                  <span>🧾</span> Ver e Imprimir Comprobante de Arqueo
                 </button>
               </div>
             </div>
@@ -1236,8 +1286,20 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button @click="printReport()" class="px-5 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-sm shadow-md flex items-center gap-2 transition">
-              <span>🖨️ Imprimir / Guardar en PDF</span>
+            <!-- Selector de Modo: Mensual vs Diario -->
+            <div class="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-300">
+              <button @click="onePageMode = 'mensual'" :class="onePageMode === 'mensual' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-3 py-1.5 text-xs rounded-lg transition">
+                📅 Mensual
+              </button>
+              <button @click="onePageMode = 'diario'; loadDailyOnePage()" :class="onePageMode === 'diario' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-3 py-1.5 text-xs rounded-lg transition">
+                📆 Diario
+              </button>
+            </div>
+            <div x-show="onePageMode === 'diario'" class="flex items-center gap-1">
+              <input type="date" x-model="onePageDate" @change="loadDailyOnePage()" class="p-1.5 border border-teal-300 rounded-lg text-xs font-bold bg-teal-50 text-gray-800">
+            </div>
+            <button @click="printReport()" class="px-4 py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-sm shadow-md flex items-center gap-1.5 transition">
+              <span>🖨️ Imprimir / PDF</span>
             </button>
             <button @click="showOnePageModal = false" class="p-2 text-gray-400 hover:text-gray-700 font-bold text-2xl" title="Cerrar">✕</button>
           </div>
@@ -1246,6 +1308,8 @@
         <!-- ÁREA IMPRIMIBLE ONE-PAGE -->
         <div id="print-area" class="space-y-6 text-gray-900">
 
+          <!-- VISTA MENSUAL -->
+          <div x-show="onePageMode === 'mensual'" class="space-y-6">
           <!-- Encabezado Corporativo TEV con RIF Configurable -->
           <div class="flex items-center justify-between border-b-2 border-gray-800 pb-4">
             <div class="flex items-center gap-4">
@@ -1382,6 +1446,144 @@
               <p class="text-[10px] text-gray-400">Todo Eléctrico Valencia, C.A.</p>
             </div>
           </div>
+          </div>
+
+          <!-- VISTA ONE-PAGE DIARIA -->
+          <div x-show="onePageMode === 'diario'" class="space-y-5">
+            <!-- Encabezado Corporativo Diario -->
+            <div class="flex items-center justify-between border-b-2 border-gray-800 pb-3">
+              <div class="flex items-center gap-4">
+                <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-14 object-contain">
+                <div>
+                  <h1 class="text-xl font-black text-gray-900 tracking-tight">TODO ELÉCTRICO VALENCIA, C.A.</h1>
+                  <div class="flex items-center gap-2 text-xs text-gray-700 font-semibold">
+                    <span class="font-bold text-gray-900">RIF: J-50248654-2</span>
+                    <span>•</span>
+                    <span>El Viñedo, Valencia, Edo. Carabobo</span>
+                  </div>
+                  <p class="text-xs font-black text-teal-800 uppercase tracking-wide mt-0.5">REPORTE EJECUTIVO DIARIO DE TESORERÍA Y CAJA</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="inline-block px-3 py-1 bg-teal-100 text-teal-900 rounded-lg font-black text-xs uppercase">
+                  Día: <span x-text="onePageDate"></span>
+                </span>
+                <p class="text-xs text-emerald-800 font-bold mt-1">Tasa Oficial BCV: <strong>Bs. <span x-text="formatNumber(dailyOnePageData?.bcv_rate || bcvRate)"></span></strong></p>
+                <p class="text-[10px] text-gray-400">Emisión: <span x-text="new Date().toLocaleTimeString('es-VE')"></span></p>
+              </div>
+            </div>
+
+            <!-- Resumen del Día -->
+            <div class="grid grid-cols-4 gap-3 text-center border p-3.5 rounded-xl bg-slate-50 border-gray-300 text-xs">
+              <div>
+                <p class="text-emerald-700 font-bold uppercase">(+) Ingresos Día</p>
+                <p class="text-lg font-black text-emerald-800 mt-0.5">$<span x-text="formatNumber(dailyOnePageData?.total_inflows_usd)"></span></p>
+              </div>
+              <div>
+                <p class="text-rose-700 font-bold uppercase">(-) Egresos Día</p>
+                <p class="text-lg font-black text-rose-800 mt-0.5">$<span x-text="formatNumber(dailyOnePageData?.total_outflows_usd)"></span></p>
+              </div>
+              <div class="rounded-lg p-1.5" :class="(dailyOnePageData?.net_day_usd || 0) >= 0 ? 'bg-emerald-100 text-emerald-950' : 'bg-rose-100 text-rose-950'">
+                <p class="font-bold uppercase text-[10px]">Flujo Neto del Día</p>
+                <p class="text-lg font-black mt-0.5" x-text="((dailyOnePageData?.net_day_usd || 0) >= 0 ? '+$' : '-$') + formatNumber(Math.abs(dailyOnePageData?.net_day_usd || 0))"></p>
+              </div>
+              <div class="bg-teal-900 text-white rounded-lg p-1.5">
+                <p class="text-teal-200 font-bold uppercase text-[10px]">Operaciones</p>
+                <p class="text-lg font-black text-white mt-0.5" x-text="(dailyOnePageData?.count_transactions || 0) + ' trans.'"></p>
+              </div>
+            </div>
+
+            <!-- Desglose de Entradas y Salidas del Día -->
+            <div class="grid grid-cols-2 gap-4 text-xs">
+              <!-- Entradas del Día -->
+              <div class="border border-gray-300 rounded-xl p-3">
+                <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-emerald-800">1. INGRESOS DE LA JORNADA</h4>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between">
+                    <span>Ventas Mostrador / Cierres Z:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.inflows_breakdown?.ventas_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Cobros Cuentas por Cobrar (CxC):</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.inflows_breakdown?.cobros_cxc_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Otros Ingresos / Aportes:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.inflows_breakdown?.otros_inflows_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between pt-1 border-t font-black text-emerald-900">
+                    <span>TOTAL INGRESOS DÍA:</span>
+                    <span>$<span x-text="formatNumber(dailyOnePageData?.total_inflows_usd)"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Salidas del Día -->
+              <div class="border border-gray-300 rounded-xl p-3">
+                <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-rose-800">2. EGRESOS DE LA JORNADA</h4>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between">
+                    <span>Pago a Proveedores / Mercancía:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.outflows_breakdown?.pago_proveedores_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Gastos Operativos (Partidas):</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.outflows_breakdown?.gastos_operativos_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Otros Egresos / Retiros:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.outflows_breakdown?.otros_outflows_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between pt-1 border-t font-black text-rose-900">
+                    <span>TOTAL EGRESOS DÍA:</span>
+                    <span>$<span x-text="formatNumber(dailyOnePageData?.total_outflows_usd)"></span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resumen por Caja / Banco del Día -->
+            <div class="border border-gray-300 rounded-xl p-3 text-xs">
+              <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-teal-900">3. MOVIMIENTO EN CAJAS Y BANCOS DEL DÍA</h4>
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="text-gray-500 border-b text-[11px]">
+                    <th class="pb-1 text-left">Caja / Cuenta</th>
+                    <th class="pb-1 text-center">Moneda</th>
+                    <th class="pb-1 text-right">Ingresos Día</th>
+                    <th class="pb-1 text-right">Egresos Día</th>
+                    <th class="pb-1 text-right font-black">Neto Movimiento</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="(summary, accName) in (dailyOnePageData?.accounts_summary || {})" :key="accName">
+                    <tr>
+                      <td class="py-1 font-bold" x-text="accName"></td>
+                      <td class="py-1 text-center font-semibold" x-text="summary.currency"></td>
+                      <td class="py-1 text-right text-emerald-700" x-text="formatNumber(summary.ingresos)"></td>
+                      <td class="py-1 text-right text-rose-700" x-text="formatNumber(summary.egresos)"></td>
+                      <td class="py-1 text-right font-black" :class="summary.neto >= 0 ? 'text-emerald-900' : 'text-rose-900'"
+                          x-text="(summary.neto >= 0 ? '+' : '') + formatNumber(summary.neto) + ' ' + summary.currency"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Firmas de Conformidad -->
+            <div class="grid grid-cols-2 gap-12 pt-5 text-center text-xs">
+              <div class="border-t border-gray-400 pt-2">
+                <p class="font-bold text-gray-800">Elaborado y Entregado por:</p>
+                <p class="text-gray-600 mt-1">Caja / Tesorería TEV</p>
+                <p class="text-[10px] text-gray-400">Control Operativo Diario</p>
+              </div>
+              <div class="border-t border-gray-400 pt-2">
+                <p class="font-bold text-gray-800">Recibido y Aprobado por:</p>
+                <p class="text-gray-600 mt-1">Dirección General</p>
+                <p class="text-[10px] text-gray-400">Todo Eléctrico Valencia, C.A.</p>
+              </div>
+            </div>
+          </div>
 
         </div>
 
@@ -1399,6 +1601,197 @@
     </div>
 
     <!-- ======================================================== -->
+    
+    <!-- ======================================================== -->
+    <!-- MODAL ACTUALIZAR TASA BCV OFICIAL -->
+    <!-- ======================================================== -->
+    <div x-show="showBcvRateModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full border border-emerald-200 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🇻🇪</span>
+            <div>
+              <h3 class="text-lg font-black text-gray-900">Fijar Tasa Oficial BCV</h3>
+              <p class="text-xs text-gray-500">Tasa del Banco Central de Venezuela para todas las cajas</p>
+            </div>
+          </div>
+          <button @click="showBcvRateModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-xl p-1 rounded-lg">✕</button>
+        </div>
+
+        <div class="space-y-3">
+          <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900">
+            <p><strong>Nota Operativa:</strong> Al guardar, todas las pantallas y registros en Bolívares (VES) operarán obligatoriamente con esta tasa fija.</p>
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Nueva Tasa Oficial BCV (Bs. / USD):</label>
+            <input type="number" step="0.01" min="1" x-model="newBcvRate" required
+                   placeholder="Ej: 36.85"
+                   class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-2xl font-black text-emerald-950">
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-3">
+          <button type="button" @click="showBcvRateModal = false" class="w-1/2 p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm">
+            Cancelar
+          </button>
+          <button type="button" @click="updateBcvRate()" class="w-1/2 p-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-sm shadow">
+            💾 Guardar Tasa
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL REGISTRAR NUEVO PROVEEDOR -->
+    <!-- ======================================================== -->
+    <div x-show="showSupplierModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full border border-orange-200 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">📦</span>
+            <div>
+              <h3 class="text-lg font-black text-gray-900">Registrar Nuevo Proveedor</h3>
+              <p class="text-xs text-gray-500">Quedará guardado en el directorio para futuros pagos</p>
+            </div>
+          </div>
+          <button @click="showSupplierModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-xl p-1 rounded-lg">✕</button>
+        </div>
+
+        <form @submit.prevent="saveNewSupplier()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Razón Social / Nombre Comercial *</label>
+            <input type="text" x-model="newSupplierForm.name" required placeholder="Ej: Materiales Eléctricos Carabobo, C.A."
+                   class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-orange-500 text-sm">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">RIF / Cédula</label>
+              <input type="text" x-model="newSupplierForm.rif" placeholder="Ej: J-12345678-9"
+                     class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-orange-500 text-sm uppercase">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Teléfono de Contacto</label>
+              <input type="text" x-model="newSupplierForm.phone" placeholder="Ej: 0414-1234567"
+                     class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-orange-500 text-sm">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Datos Bancarios / Pago Móvil</label>
+            <textarea x-model="newSupplierForm.bank_details" rows="2" placeholder="Ej: Banesco 0134-... / Pago Móvil 0414... / Zelle: correo@..."
+                      class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-orange-500 text-xs"></textarea>
+          </div>
+
+          <div class="flex gap-3 pt-3">
+            <button type="button" @click="showSupplierModal = false" class="w-1/2 p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm">
+              Cancelar
+            </button>
+            <button type="submit" class="w-1/2 p-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-sm shadow">
+              💾 Guardar Proveedor
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL COMPROBANTE DE ARQUEO Y CIERRE DE TURNO -->
+    <!-- ======================================================== -->
+    <div x-show="showArqueoReceiptModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full border border-gray-200 my-8 max-h-[92vh] overflow-y-auto">
+        <!-- Barra de Botones no-print -->
+        <div class="flex items-center justify-between pb-3 mb-4 border-b no-print">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🧾</span>
+            <h3 class="text-lg font-black text-gray-900">Comprobante de Arqueo</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="executePrintReceipt()" class="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+              <span>🖨️</span> Imprimir Comprobante
+            </button>
+            <button @click="showArqueoReceiptModal = false" class="p-1.5 text-gray-400 hover:text-gray-700 font-bold text-xl">✕</button>
+          </div>
+        </div>
+
+        <!-- ÁREA IMPRIMIBLE DEL ARQUEO -->
+        <div id="arqueo-print-area" class="p-4 bg-white text-gray-900 border border-gray-200 rounded-2xl space-y-4">
+          <!-- Encabezado -->
+          <div class="text-center border-b pb-3">
+            <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-12 mx-auto object-contain mb-1">
+            <h2 class="text-base font-black tracking-tight">TODO ELÉCTRICO VALENCIA, C.A.</h2>
+            <p class="text-[11px] font-bold text-gray-600">RIF: J-50248654-2</p>
+            <p class="text-xs font-black text-teal-800 mt-1 uppercase tracking-wide">COMPROBANTE DE ARQUEO FÍSICO DE CAJA</p>
+            <div class="mt-2 text-[11px] text-gray-600 flex justify-between px-2">
+              <span>Fecha: <strong x-text="new Date().toLocaleDateString('es-VE')"></strong></span>
+              <span>Hora: <strong x-text="new Date().toLocaleTimeString('es-VE', {hour: '2-digit', minute:'2-digit'})"></strong></span>
+            </div>
+            <p class="text-[11px] text-gray-700 text-left px-2 mt-1">
+              Responsable: <strong x-text="currentUser?.full_name"></strong> (<span x-text="getRoleLabel(currentUser?.role)"></span>)
+            </p>
+          </div>
+
+          <!-- Tabla de Conteo Físico -->
+          <div>
+            <h4 class="text-xs font-black uppercase text-gray-700 mb-1">Desglose de Billetes (USD):</h4>
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="py-1 px-2 text-left">Denominación</th>
+                  <th class="py-1 px-2 text-center">Cantidad</th>
+                  <th class="py-1 px-2 text-right">Subtotal ($)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr><td class="py-1 px-2">Billetes de $100</td><td class="py-1 px-2 text-center" x-text="arqueo.b100"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b100 * 100)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $50</td><td class="py-1 px-2 text-center" x-text="arqueo.b50"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b50 * 50)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $20</td><td class="py-1 px-2 text-center" x-text="arqueo.b20"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b20 * 20)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $10</td><td class="py-1 px-2 text-center" x-text="arqueo.b10"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b10 * 10)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $5</td><td class="py-1 px-2 text-center" x-text="arqueo.b5"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b5 * 5)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $1</td><td class="py-1 px-2 text-center" x-text="arqueo.b1"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b1 * 1)"></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Físico y Comparación -->
+          <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-xs space-y-1">
+            <div class="flex justify-between text-sm">
+              <span class="font-bold text-teal-900">Total Físico en Gaveta:</span>
+              <strong class="text-base font-black text-teal-950" x-text="'$' + formatNumber(calculatePhysicalUsd())"></strong>
+            </div>
+            <div class="flex justify-between text-gray-600 pt-1 border-t border-teal-200">
+              <span>Saldo Sistema (Caja Efectivo USD):</span>
+              <span class="font-bold text-gray-800" x-text="'$' + formatNumber(getAccountBalance('Efectivo USD'))"></span>
+            </div>
+            <div class="flex justify-between pt-1 font-bold"
+                 :class="(calculatePhysicalUsd() - getAccountBalance('Efectivo USD')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+              <span>Diferencia Arqueo:</span>
+              <span x-text="(calculatePhysicalUsd() - getAccountBalance('Efectivo USD') >= 0 ? '+' : '') + '$' + formatNumber(calculatePhysicalUsd() - getAccountBalance('Efectivo USD'))"></span>
+            </div>
+          </div>
+
+          <!-- Firmas -->
+          <div class="grid grid-cols-2 gap-6 pt-8 text-center text-[10px]">
+            <div class="border-t border-gray-400 pt-1">
+              <p class="font-bold text-gray-800">Entregado por (Cajero):</p>
+              <p class="text-gray-500 mt-4" x-text="currentUser?.full_name"></p>
+            </div>
+            <div class="border-t border-gray-400 pt-1">
+              <p class="font-bold text-gray-800">Recibido por (Administración):</p>
+              <p class="text-gray-500 mt-4">Firma y Sello</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 flex justify-between no-print">
+          <button @click="showArqueoReceiptModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs">
+            Cerrar
+          </button>
+          <button @click="executePrintReceipt()" class="px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-bold text-xs shadow flex items-center gap-1">
+            <span>🖨️</span> Imprimir Comprobante
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL TRASPASO / CAMBIO DE MONEDA CON TASA BIDIRECCIONAL -->
     <!-- ======================================================== -->
     <div x-show="showTransferModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
@@ -1875,6 +2268,20 @@
           b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0
         },
 
+        bcvRate: 36.80,
+        newBcvRate: 36.80,
+        showBcvRateModal: false,
+        suppliers: [],
+        selectedSupplierId: '',
+        selectedSupplierObj: null,
+        showSupplierModal: false,
+        newSupplierForm: { name: '', rif: '', phone: '', bank_details: '' },
+        filterDate: '',
+        showArqueoReceiptModal: false,
+        onePageMode: 'mensual',
+        onePageDate: new Date().toISOString().split('T')[0],
+        dailyOnePageData: null,
+
         showConfirmModal: false,
         showTransferModal: false,
         showEditCatModal: false,
@@ -1978,6 +2385,8 @@
           if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
             await this.loadCashFlowAll();
           }
+          await this.loadBcvRate();
+          await this.loadSuppliers();
           if (this.currentUser?.role === 'directivo') {
             await this.loadUsers();
           }
@@ -2021,7 +2430,12 @@
 
         async loadTransactions() {
           const token = localStorage.getItem('tev_token');
-          let url = '/api/transactions?month=' + this.filterMonth;
+          let url = '/api/transactions?';
+          if (this.filterDate) {
+            url += 'date=' + this.filterDate;
+          } else {
+            url += 'month=' + this.filterMonth;
+          }
           if (this.filterType) url += '&movement_type=' + this.filterType;
 
           const res = await fetch(url, {
@@ -2282,6 +2696,13 @@
           if (acc) {
             this.selectedAccountCurrency = acc.currency;
             this.form.currency = acc.currency;
+            if (acc.currency === 'VES') {
+              if (this.form.subtype !== 'CAMBIO_DIVISAS') {
+                this.form.exchange_rate = this.bcvRate || 36.80;
+              }
+            } else {
+              this.form.exchange_rate = 1.0;
+            }
           }
         },
 
@@ -2726,8 +3147,147 @@
           this.arqueo = { b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0 };
         },
 
-        printArqueo() {
+        
+        getAvailableAccountsForForm() {
+          if (this.form.movement_type === 'EGRESO') {
+            return this.accounts.filter(a => !a.only_income && !a.name.toUpperCase().includes('CASHEA'));
+          }
+          return this.accounts;
+        },
+
+        getAccountBalance(name) {
+          const acc = this.accounts.find(a => a.name === name);
+          return acc ? (acc.current_balance || 0.0) : 0.0;
+        },
+
+        openBcvRateModal() {
+          this.newBcvRate = this.bcvRate;
+          this.showBcvRateModal = true;
+        },
+
+        async loadBcvRate() {
+          try {
+            const token = localStorage.getItem('tev_token');
+            const res = await fetch('/api/settings/bcv-rate', {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              this.bcvRate = data.rate;
+              this.newBcvRate = data.rate;
+              if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
+                this.form.exchange_rate = this.bcvRate;
+              }
+            }
+          } catch(e) { console.error(e); }
+        },
+
+        async updateBcvRate() {
+          if (!this.newBcvRate || this.newBcvRate <= 0) {
+            alert('Por favor ingrese una tasa válida.');
+            return;
+          }
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/settings/bcv-rate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ rate: parseFloat(this.newBcvRate) })
+          });
+          if (res.ok) {
+            this.bcvRate = parseFloat(this.newBcvRate);
+            if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
+              this.form.exchange_rate = this.bcvRate;
+            }
+            this.showBcvRateModal = false;
+            this.showToast('success', 'Tasa Oficial Actualizada', 'La tasa BCV del día se fijó en Bs. ' + this.formatNumber(this.bcvRate));
+          } else {
+            const err = await res.json();
+            alert(err.detail || 'Error al actualizar tasa');
+          }
+        },
+
+        async loadSuppliers() {
+          try {
+            const token = localStorage.getItem('tev_token');
+            const res = await fetch('/api/suppliers', {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.suppliers = await res.json();
+            }
+          } catch(e) { console.error(e); }
+        },
+
+        onSupplierSelect() {
+          const sup = this.suppliers.find(s => s.id === parseInt(this.selectedSupplierId));
+          if (sup) {
+            this.selectedSupplierObj = sup;
+            this.form.beneficiary = (sup.rif ? sup.rif + ' - ' : '') + sup.name;
+          } else {
+            this.selectedSupplierObj = null;
+          }
+        },
+
+        openSupplierModal() {
+          this.newSupplierForm = { name: '', rif: '', phone: '', bank_details: '' };
+          this.showSupplierModal = true;
+        },
+
+        async saveNewSupplier() {
+          if (!this.newSupplierForm.name.trim()) {
+            alert('El nombre o razón social del proveedor es obligatorio.');
+            return;
+          }
+          const token = localStorage.getItem('tev_token');
+          const res = await fetch('/api/suppliers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(this.newSupplierForm)
+          });
+          if (res.ok) {
+            const created = await res.json();
+            await this.loadSuppliers();
+            this.selectedSupplierId = created.id;
+            this.onSupplierSelect();
+            this.showSupplierModal = false;
+            this.showToast('success', 'Proveedor Registrado', `Proveedor '${created.name}' guardado exitosamente.`);
+          } else {
+            const err = await res.json();
+            alert(err.detail || 'Error al registrar proveedor');
+          }
+        },
+
+        openArqueoReceiptModal() {
+          this.showArqueoReceiptModal = true;
+        },
+
+        executePrintReceipt() {
           window.print();
+        },
+
+        async openOnePageReport() {
+          this.showOnePageModal = true;
+          this.onePageMode = 'mensual';
+          if (!this.onePageDate) {
+            this.onePageDate = new Date().toISOString().split('T')[0];
+          }
+          await this.loadDailyOnePage();
+        },
+
+        async loadDailyOnePage() {
+          try {
+            const token = localStorage.getItem('tev_token');
+            const res = await fetch('/api/dashboard/daily-closing?date=' + this.onePageDate, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.dailyOnePageData = await res.json();
+            }
+          } catch(e) { console.error(e); }
+        },
+
+        printArqueo() {
+          this.showArqueoReceiptModal = true;
         },
 
         calculateTotalBudget() {
