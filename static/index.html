@@ -54,20 +54,38 @@
       }
     }
     @media print {
+      @page {
+        size: auto;
+        margin: 8mm;
+      }
       body * {
-        visibility: hidden;
+        visibility: hidden !important;
       }
-      #print-area, #print-area *, #arqueo-print-area, #arqueo-print-area * {
-        visibility: visible;
+      #print-area, #print-area *, #arqueo-print-area, #arqueo-print-area *, #arqueo-ves-print-area, #arqueo-ves-print-area * {
+        visibility: visible !important;
       }
-      #print-area, #arqueo-print-area {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 20px;
-        background: white;
+      #arqueo-print-area, #arqueo-ves-print-area {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 550px !important;
+        margin: 0 auto !important;
+        padding: 10px !important;
+        background: white !important;
+        border: 1px solid #e5e7eb !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      #print-area {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        background: white !important;
       }
       .no-print {
         display: none !important;
@@ -360,28 +378,39 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-2xl border border-gray-200">
               <div>
                 <label class="block text-base font-bold text-gray-700 mb-1">
-                  💵 Monto en <span class="text-tev-green" x-text="selectedAccountCurrency"></span>
+                  💵 Monto en <span class="text-tev-green font-black" x-text="selectedAccountCurrency"></span>
                 </label>
                 <input type="number" step="0.01" min="0.01" x-model.number="form.amount_original" required
                        placeholder="0.00"
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
               </div>
 
-              <div x-show="selectedAccountCurrency === 'VES'">
+              <!-- Tasa de Conversión (Siempre visible como referencia oficial) -->
+              <div>
                 <label class="block text-base font-bold text-gray-700 mb-1">💱 Tasa Oficial BCV (Bs / $)</label>
                 <input type="number" step="0.01" min="1" x-model.number="form.exchange_rate"
                        :readonly="form.subtype !== 'CAMBIO_DIVISAS'"
                        :class="form.subtype !== 'CAMBIO_DIVISAS' ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white text-gray-900'"
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
-                <span class="text-xs text-emerald-700 font-bold block mt-1" x-show="form.subtype !== 'CAMBIO_DIVISAS'">🔒 Tasa fijada obligatoria a BCV del día</span>
+                <span class="text-xs text-emerald-700 font-bold block mt-1" x-show="form.subtype !== 'CAMBIO_DIVISAS'">🔒 Tasa fijada oficial BCV del día</span>
                 <span class="text-xs text-blue-700 font-bold block mt-1" x-show="form.subtype === 'CAMBIO_DIVISAS'">💱 Tasa negociada de compra/venta</span>
               </div>
 
-              <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">💲 Equivalente en Dólares ($)</label>
+              <!-- Si la cuenta es VES: Muestra contravalor en Dólares ($) -->
+              <div x-show="selectedAccountCurrency === 'VES'">
+                <label class="block text-base font-bold text-gray-700 mb-1">💲 Contravalor en Dólares ($)</label>
                 <div class="input-large bg-emerald-50 border border-emerald-300 text-emerald-900 font-black text-2xl flex items-center justify-between">
                   <span>$</span>
                   <span x-text="calculateUsdEquivalent().toFixed(2)"></span>
+                </div>
+              </div>
+
+              <!-- Si la cuenta es USD: Muestra traducción a Bolívares (Bs.) -->
+              <div x-show="selectedAccountCurrency === 'USD' || selectedAccountCurrency === 'USDT'">
+                <label class="block text-base font-bold text-gray-700 mb-1">🇻🇪 Equivalente en Bolívares (Bs.)</label>
+                <div class="input-large bg-blue-50 border border-blue-300 text-blue-900 font-black text-2xl flex items-center justify-between">
+                  <span>Bs.</span>
+                  <span x-text="calculateVesEquivalent()"></span>
                 </div>
               </div>
             </div>
@@ -412,13 +441,7 @@
               </div>
             </div>
 
-            <!-- Advertencia de tasa -->
-            <div x-show="isRateWarning()" class="p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-800 rounded-xl text-sm flex items-center gap-3">
-              <span class="text-2xl">⚠️</span>
-              <div>
-                <strong>Atención:</strong> La tasa ingresada (<span x-text="form.exchange_rate"></span> Bs/$) parece inusual. Verifique que no haya puesto ceros de más o de menos.
-              </div>
-            </div>
+
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
@@ -434,9 +457,16 @@
                 <label class="block text-base font-bold text-gray-700 mb-1">
                   <span x-text="form.subtype === 'VENTA_DIARIA' ? '🔖 N° de Reporte Z / Lote de Facturación' : '🔖 N° de Referencia / Comprobante'"></span>
                 </label>
-                <input type="text" x-model="form.reference_number"
+                <input type="text" x-model="form.reference_number" @input="checkDuplicateReference()"
                        :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Ej: Reporte Z-0182 / Lote 941' : 'Ej: 492015'"
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+                <div x-show="duplicateWarning" class="mt-2 p-3 bg-red-50 border-l-4 border-red-500 text-red-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-pulse">
+                  <span class="text-xl">🚨</span>
+                  <div>
+                    <strong>¡ALERTA DE POSIBLE DUPLICADO!</strong>
+                    <p class="mt-0.5" x-text="duplicateWarningMessage"></p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -492,9 +522,11 @@
                 </button>
                 <input type="file" x-ref="excelInput" @change="uploadExcelFile($event)" accept=".xlsx, .xlsm, .xltx" class="hidden">
 
-                <button @click="confirmClearTransactions()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold flex items-center gap-1.5 transition" title="Vaciar movimientos para empezar desde cero">
-                  <span>🧹</span> Empezar en Cero
-                </button>
+                <template x-if="currentUser?.role === 'directivo'">
+                  <button @click="confirmClearTransactions()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold flex items-center gap-1.5 transition" title="Vaciar movimientos para empezar desde cero (Solo Directivo)">
+                    <span>🧹</span> Empezar en Cero
+                  </button>
+                </template>
               </div>
             </template>
           </div>
@@ -1134,57 +1166,151 @@
         </div>
 
         <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
-          <div class="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
+          <div class="flex flex-wrap items-center justify-between pb-4 mb-6 border-b border-gray-100 gap-4">
             <div>
               <h3 class="text-2xl font-black text-gray-800">🧮 Hoja de Arqueo Físico de Gaveta</h3>
-              <p class="text-sm text-gray-500">Conteo de billetes físicos en dólares de la caja compartida</p>
+              <p class="text-sm text-gray-500">Conteo de efectivo físico en mano para el cierre de turno</p>
             </div>
-            <button @click="resetArqueo()" class="text-sm text-teal-600 font-bold hover:underline">Reiniciar Conteo</button>
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- Selector de Moneda para el Arqueo -->
+              <div class="flex items-center bg-gray-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
+                <button @click="arqueoCurrency = 'USD'"
+                        :class="arqueoCurrency === 'USD' ? 'bg-teal-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5">
+                  <span>💵</span> Dólares ($ USD)
+                </button>
+                <button @click="arqueoCurrency = 'VES'"
+                        :class="arqueoCurrency === 'VES' ? 'bg-blue-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5">
+                  <span>🇻🇪</span> Bolívares (Bs. VES)
+                </button>
+              </div>
+              <button @click="resetArqueo()" class="text-xs text-rose-600 font-bold hover:underline">Reiniciar Conteo</button>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- 1. ARQUEO EN DOLARES ($ USD) -->
+          <div x-show="arqueoCurrency === 'USD'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div class="bg-slate-50 p-6 rounded-2xl border border-gray-200">
-              <h4 class="font-bold text-gray-800 mb-4">💵 Billetes en Dólares</h4>
+              <h4 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                <span>💵 Billetes en Dólares ($ USD)</span>
+                <span class="text-xs text-gray-400 font-normal">Cantidad de piezas</span>
+              </h4>
               <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <label class="text-xs font-semibold text-gray-600">Billetes de $100:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b100" class="w-full p-2 border rounded-lg">
+                  <input type="number" min="0" x-model.number="arqueo.b100" class="w-full p-2.5 border rounded-xl font-bold">
                 </div>
                 <div>
                   <label class="text-xs font-semibold text-gray-600">Billetes de $50:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b50" class="w-full p-2 border rounded-lg">
+                  <input type="number" min="0" x-model.number="arqueo.b50" class="w-full p-2.5 border rounded-xl font-bold">
                 </div>
                 <div>
                   <label class="text-xs font-semibold text-gray-600">Billetes de $20:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b20" class="w-full p-2 border rounded-lg">
+                  <input type="number" min="0" x-model.number="arqueo.b20" class="w-full p-2.5 border rounded-xl font-bold">
                 </div>
                 <div>
                   <label class="text-xs font-semibold text-gray-600">Billetes de $10:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b10" class="w-full p-2 border rounded-lg">
+                  <input type="number" min="0" x-model.number="arqueo.b10" class="w-full p-2.5 border rounded-xl font-bold">
                 </div>
                 <div>
                   <label class="text-xs font-semibold text-gray-600">Billetes de $5:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b5" class="w-full p-2 border rounded-lg">
+                  <input type="number" min="0" x-model.number="arqueo.b5" class="w-full p-2.5 border rounded-xl font-bold">
                 </div>
                 <div>
                   <label class="text-xs font-semibold text-gray-600">Billetes de $1:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b1" class="w-full p-2 border rounded-lg">
+                  <input type="number" min="0" x-model.number="arqueo.b1" class="w-full p-2.5 border rounded-xl font-bold">
                 </div>
               </div>
             </div>
 
             <div class="flex flex-col justify-between bg-teal-50 p-6 rounded-2xl border border-teal-200">
-              <div>
-                <h4 class="font-bold text-teal-900 mb-2">Total Efectivo Físico Contado:</h4>
-                <div class="text-4xl font-black text-teal-950 mt-2">
+              <div class="space-y-3">
+                <h4 class="font-bold text-teal-900">Total Físico en Gaveta (USD):</h4>
+                <div class="text-4xl font-black text-teal-950">
                   $<span x-text="formatNumber(calculatePhysicalUsd())"></span>
                 </div>
-                <p class="text-xs text-teal-700 mt-2">Suma de billetes físicos en gaveta compartida.</p>
+                <div class="pt-3 border-t border-teal-200 text-xs space-y-1 text-teal-900">
+                  <div class="flex justify-between">
+                    <span>Saldo Sistema (Efectivo USD):</span>
+                    <span class="font-bold" x-text="'$' + formatNumber(getAccountBalance('Efectivo USD'))"></span>
+                  </div>
+                  <div class="flex justify-between font-bold"
+                       :class="(calculatePhysicalUsd() - getAccountBalance('Efectivo USD')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+                    <span>Diferencia:</span>
+                    <span x-text="((calculatePhysicalUsd() - getAccountBalance('Efectivo USD')) >= 0 ? '+$' : '-$') + formatNumber(Math.abs(calculatePhysicalUsd() - getAccountBalance('Efectivo USD')))"></span>
+                  </div>
+                </div>
               </div>
 
               <div class="mt-6 pt-6 border-t border-teal-200">
                 <button @click="printArqueo()" class="w-full btn-large bg-teal-700 hover:bg-teal-800 text-white shadow font-bold text-sm flex items-center justify-center gap-2">
-                  <span>🧾</span> Ver e Imprimir Comprobante de Arqueo
+                  <span>🧾</span> Ver e Imprimir Comprobante ($ USD)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. ARQUEO EN BOLIVARES (Bs. VES) -->
+          <div x-show="arqueoCurrency === 'VES'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-slate-50 p-6 rounded-2xl border border-gray-200">
+              <h4 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                <span>🇻🇪 Billetes en Bolívares (Bs. VES)</span>
+                <span class="text-xs text-gray-400 font-normal">Cantidad de piezas</span>
+              </h4>
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 500:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b500" class="w-full p-2.5 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 200:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b200" class="w-full p-2.5 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 100:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b100" class="w-full p-2.5 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 50:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b50" class="w-full p-2.5 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 20:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b20" class="w-full p-2.5 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 10:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b10" class="w-full p-2.5 border rounded-xl font-bold">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col justify-between bg-blue-50 p-6 rounded-2xl border border-blue-200">
+              <div class="space-y-3">
+                <h4 class="font-bold text-blue-900">Total Físico en Gaveta (Bolívares):</h4>
+                <div class="text-4xl font-black text-blue-950">
+                  Bs. <span x-text="formatNumber(calculatePhysicalVes())"></span>
+                </div>
+                <p class="text-xs text-blue-700 font-semibold">
+                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (bcvRate || 36.80))"></span> USD</strong>
+                </p>
+                <div class="pt-3 border-t border-blue-200 text-xs space-y-1 text-blue-900">
+                  <div class="flex justify-between">
+                    <span>Saldo Sistema (Efectivo VES):</span>
+                    <span class="font-bold" x-text="'Bs. ' + formatNumber(getAccountBalance('Efectivo VES'))"></span>
+                  </div>
+                  <div class="flex justify-between font-bold"
+                       :class="(calculatePhysicalVes() - getAccountBalance('Efectivo VES')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+                    <span>Diferencia:</span>
+                    <span x-text="((calculatePhysicalVes() - getAccountBalance('Efectivo VES')) >= 0 ? '+Bs. ' : '-Bs. ') + formatNumber(Math.abs(calculatePhysicalVes() - getAccountBalance('Efectivo VES')))"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-6 pt-6 border-t border-blue-200">
+                <button @click="showArqueoVesReceiptModal = true" class="w-full btn-large bg-blue-700 hover:bg-blue-800 text-white shadow font-bold text-sm flex items-center justify-center gap-2">
+                  <span>🧾</span> Ver e Imprimir Comprobante (Bs. VES)
                 </button>
               </div>
             </div>
@@ -1792,6 +1918,108 @@
       </div>
     </div>
 
+    <!-- ======================================================== -->
+    <!-- MODAL COMPROBANTE DE ARQUEO EN BOLIVARES (Bs. VES) -->
+    <!-- ======================================================== -->
+    <div x-show="showArqueoVesReceiptModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full border border-gray-200 my-auto">
+        <!-- Barra no-print -->
+        <div class="flex items-center justify-between pb-3 mb-3 border-b no-print">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🧾</span>
+            <h3 class="text-base font-black text-gray-900">Arqueo Bolívares (VES)</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="executePrintReceipt()" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1">
+              <span>🖨️</span> Imprimir
+            </button>
+            <button @click="showArqueoVesReceiptModal = false" class="p-1 text-gray-400 hover:text-gray-700 font-bold text-xl">✕</button>
+          </div>
+        </div>
+
+        <!-- ÁREA IMPRIMIBLE DEL ARQUEO VES (1 HOJA EXACTA) -->
+        <div id="arqueo-ves-print-area" class="p-4 bg-white text-gray-900 border border-gray-200 rounded-2xl space-y-3 text-xs">
+          <!-- Encabezado -->
+          <div class="text-center border-b pb-2">
+            <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-10 mx-auto object-contain mb-1">
+            <h2 class="text-sm font-black tracking-tight leading-tight">TODO ELÉCTRICO VALENCIA, C.A.</h2>
+            <p class="text-[10px] font-bold text-gray-600">RIF: J-50248654-2</p>
+            <p class="text-[11px] font-black text-blue-900 mt-0.5 uppercase tracking-wide">COMPROBANTE DE ARQUEO FÍSICO (BOLÍVARES)</p>
+            <div class="mt-1.5 text-[10px] text-gray-600 flex justify-between px-1">
+              <span>Fecha: <strong x-text="new Date().toLocaleDateString('es-VE')"></strong></span>
+              <span>Hora: <strong x-text="new Date().toLocaleTimeString('es-VE', {hour: '2-digit', minute:'2-digit'})"></strong></span>
+            </div>
+            <p class="text-[10px] text-gray-700 text-left px-1 mt-0.5">
+              Responsable: <strong x-text="currentUser?.full_name"></strong>
+            </p>
+          </div>
+
+          <!-- Tabla de Billetes -->
+          <div>
+            <table class="w-full text-[11px] border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="py-0.5 px-2 text-left">Denominación</th>
+                  <th class="py-0.5 px-2 text-center">Piezas</th>
+                  <th class="py-0.5 px-2 text-right">Subtotal (Bs.)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr><td class="py-0.5 px-2">Billetes de Bs. 500</td><td class="py-0.5 px-2 text-center" x-text="arqueoVES.b500"></td><td class="py-0.5 px-2 text-right font-bold" x-text="'Bs. ' + formatNumber(arqueoVES.b500 * 500)"></td></tr>
+                <tr><td class="py-0.5 px-2">Billetes de Bs. 200</td><td class="py-0.5 px-2 text-center" x-text="arqueoVES.b200"></td><td class="py-0.5 px-2 text-right font-bold" x-text="'Bs. ' + formatNumber(arqueoVES.b200 * 200)"></td></tr>
+                <tr><td class="py-0.5 px-2">Billetes de Bs. 100</td><td class="py-0.5 px-2 text-center" x-text="arqueoVES.b100"></td><td class="py-0.5 px-2 text-right font-bold" x-text="'Bs. ' + formatNumber(arqueoVES.b100 * 100)"></td></tr>
+                <tr><td class="py-0.5 px-2">Billetes de Bs. 50</td><td class="py-0.5 px-2 text-center" x-text="arqueoVES.b50"></td><td class="py-0.5 px-2 text-right font-bold" x-text="'Bs. ' + formatNumber(arqueoVES.b50 * 50)"></td></tr>
+                <tr><td class="py-0.5 px-2">Billetes de Bs. 20</td><td class="py-0.5 px-2 text-center" x-text="arqueoVES.b20"></td><td class="py-0.5 px-2 text-right font-bold" x-text="'Bs. ' + formatNumber(arqueoVES.b20 * 20)"></td></tr>
+                <tr><td class="py-0.5 px-2">Billetes de Bs. 10</td><td class="py-0.5 px-2 text-center" x-text="arqueoVES.b10"></td><td class="py-0.5 px-2 text-right font-bold" x-text="'Bs. ' + formatNumber(arqueoVES.b10 * 10)"></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total y Comparación -->
+          <div class="p-2.5 bg-blue-50 rounded-xl border border-blue-200 text-xs space-y-1">
+            <div class="flex justify-between font-black text-blue-950 text-sm">
+              <span>Total Físico en Gaveta:</span>
+              <span x-text="'Bs. ' + formatNumber(calculatePhysicalVes())"></span>
+            </div>
+            <div class="flex justify-between text-blue-800 text-[11px]">
+              <span>Equivalente BCV ($):</span>
+              <span class="font-bold" x-text="'$' + formatNumber(calculatePhysicalVes() / (bcvRate || 36.80)) + ' USD'"></span>
+            </div>
+            <div class="flex justify-between text-gray-600 pt-1 border-t border-blue-200 text-[11px]">
+              <span>Saldo Sistema (Efectivo VES):</span>
+              <span class="font-bold text-gray-800" x-text="'Bs. ' + formatNumber(getAccountBalance('Efectivo VES'))"></span>
+            </div>
+            <div class="flex justify-between pt-1 font-bold text-[11px]"
+                 :class="(calculatePhysicalVes() - getAccountBalance('Efectivo VES')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+              <span>Diferencia Arqueo:</span>
+              <span x-text="((calculatePhysicalVes() - getAccountBalance('Efectivo VES')) >= 0 ? '+Bs. ' : '-Bs. ') + formatNumber(Math.abs(calculatePhysicalVes() - getAccountBalance('Efectivo VES')))"></span>
+            </div>
+          </div>
+
+          <!-- Firmas -->
+          <div class="grid grid-cols-2 gap-4 pt-5 text-center text-[10px]">
+            <div class="border-t border-gray-400 pt-1">
+              <p class="font-bold text-gray-800">Cajero (Entrega):</p>
+              <p class="text-gray-500 mt-3" x-text="currentUser?.full_name"></p>
+            </div>
+            <div class="border-t border-gray-400 pt-1">
+              <p class="font-bold text-gray-800">Administración (Recibe):</p>
+              <p class="text-gray-500 mt-3">Firma y Sello</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-between no-print">
+          <button @click="showArqueoVesReceiptModal = false" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs">
+            Cerrar
+          </button>
+          <button @click="executePrintReceipt()" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-xs shadow flex items-center gap-1">
+            <span>🖨️</span> Imprimir Comprobante
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL TRASPASO / CAMBIO DE MONEDA CON TASA BIDIRECCIONAL -->
     <!-- ======================================================== -->
     <div x-show="showTransferModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
@@ -2267,6 +2495,13 @@
         arqueo: {
           b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0
         },
+        arqueoVES: {
+          b500: 0, b200: 0, b100: 0, b50: 0, b20: 0, b10: 0
+        },
+        arqueoCurrency: 'USD',
+        showArqueoVesReceiptModal: false,
+        duplicateWarning: false,
+        duplicateWarningMessage: '',
 
         bcvRate: 36.80,
         newBcvRate: 36.80,
@@ -3134,6 +3369,40 @@
           }
         },
 
+        calculatePhysicalVes() {
+          return (
+            (this.arqueoVES.b500 || 0) * 500 +
+            (this.arqueoVES.b200 || 0) * 200 +
+            (this.arqueoVES.b100 || 0) * 100 +
+            (this.arqueoVES.b50 || 0) * 50 +
+            (this.arqueoVES.b20 || 0) * 20 +
+            (this.arqueoVES.b10 || 0) * 10
+          );
+        },
+
+        calculateVesEquivalent() {
+          const amt = parseFloat(this.form.amount_original) || 0;
+          const rate = parseFloat(this.form.exchange_rate || this.bcvRate) || 36.80;
+          return this.formatNumber(amt * rate);
+        },
+
+        checkDuplicateReference() {
+          if (!this.form.reference_number || this.form.reference_number.trim().length < 3 || this.form.subtype === 'VENTA_DIARIA') {
+            this.duplicateWarning = false;
+            this.duplicateWarningMessage = '';
+            return;
+          }
+          const ref = this.form.reference_number.trim().toLowerCase();
+          const match = this.transactions.find(t => t.reference_number && t.reference_number.trim().toLowerCase() === ref && t.status !== 'ANULADO');
+          if (match) {
+            this.duplicateWarning = true;
+            this.duplicateWarningMessage = 'La referencia "' + match.reference_number + '" ya fue registrada el ' + match.date + ' por $' + this.formatNumber(match.amount_usd) + ' (' + (match.beneficiary || match.subtype) + '). ¡Verifique antes de pagar!';
+          } else {
+            this.duplicateWarning = false;
+            this.duplicateWarningMessage = '';
+          }
+        },
+
         calculatePhysicalUsd() {
           return (this.arqueo.b100 * 100) +
                  (this.arqueo.b50 * 50) +
@@ -3144,7 +3413,11 @@
         },
 
         resetArqueo() {
-          this.arqueo = { b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0 };
+          if (this.arqueoCurrency === 'USD') {
+            this.arqueo = { b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0 };
+          } else {
+            this.arqueoVES = { b500: 0, b200: 0, b100: 0, b50: 0, b20: 0, b10: 0 };
+          }
         },
 
         
