@@ -1151,9 +1151,14 @@
             <h2 class="text-xl font-bold text-gray-800">Gestión de Usuarios y Accesos</h2>
             <p class="text-sm text-gray-500">Crear nuevas cuentas, restablecer contraseñas y administrar permisos</p>
           </div>
-          <button @click="showNewUserModal = true" class="btn-large bg-purple-700 hover:bg-purple-800 text-white text-sm py-2 px-4 shadow">
-            ➕ Crear Nuevo Usuario
-          </button>
+          <div class="flex items-center gap-3">
+            <button @click="resetSystemDemo()" class="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Eliminar datos de prueba y comenzar operaciones reales limpias">
+              <span>🧹 Resetear Pruebas a 0.00</span>
+            </button>
+            <button @click="showNewUserModal = true" class="btn-large bg-purple-700 hover:bg-purple-800 text-white text-sm py-2 px-4 shadow">
+              ➕ Crear Nuevo Usuario
+            </button>
+          </div>
         </div>
 
         <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
@@ -2746,6 +2751,35 @@
         formatNumber(val) {
           if (val === undefined || val === null) return '0,00';
           return parseFloat(val).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+
+        async resetSystemDemo() {
+          const pass1 = confirm("⚠️ ATENCIÓN: RESETEO DE PRUEBAS A CERO ⚠️\n\n¿Está seguro de que desea reiniciar la herramienta?\n\n- Se ELIMINARÁN todos los movimientos y gastos de prueba.\n- Los saldos iniciales de todas las cajas volverán a 0.00.\n- Los usuarios, partidas y cuentas se conservarán intactos.");
+          if (!pass1) return;
+
+          const pass2 = prompt("🔒 CONFIRMACIÓN DE SEGURIDAD (DIRECCIÓN):\nEscriba la palabra 'RESETEAR' para confirmar la limpieza:");
+          if (pass2 !== 'RESETEAR') {
+            this.showToast('warning', 'Operación Cancelada', 'No se realizaron cambios en la base de datos.');
+            return;
+          }
+
+          const token = localStorage.getItem('tev_token');
+          try {
+            const res = await fetch('/api/admin/reset-system-demo', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al resetear');
+
+            this.showToast('success', 'Sistema Limpio a Cero', data.message);
+            await this.loadAccounts();
+            await this.loadCategories();
+            await this.loadTransactions();
+            await this.loadCashFlowAll();
+          } catch (err) {
+            this.showToast('error', 'Error en Reseteo', err.message);
+          }
         }
       };
     }
