@@ -1364,6 +1364,38 @@ def clear_all_transactions(
         "message": f"Se han eliminado {count} movimientos. La base de datos ha quedado limpia desde cero."
     }
 
+@app.post("/api/admin/reset-system-demo")
+def reset_system_demo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo"]))
+):
+    """
+    Función para resetear la herramienta al finalizar el periodo de prueba:
+    1. Elimina todos los movimientos de prueba registrados.
+    2. Reinicia todos los saldos de apertura a cero ($0.00 / Bs 0.00).
+    3. Conserva intactos los usuarios, categorías y cuentas configuradas.
+    """
+    tx_count = db.query(Transaction).count()
+    db.query(Transaction).delete()
+
+    # Resetear saldos iniciales en cuentas
+    accounts = db.query(TreasuryAccount).all()
+    for acc in accounts:
+        acc.initial_balance = 0.0
+
+    # Resetear saldos iniciales mensuales
+    mb_list = db.query(AccountMonthlyBalance).all()
+    for mb in mb_list:
+        mb.initial_balance = 0.0
+
+    db.commit()
+    return {
+        "success": True,
+        "transactions_deleted": tx_count,
+        "accounts_reset": len(accounts),
+        "message": "Sistema reseteado exitosamente. Todos los movimientos de prueba fueron eliminados y las cuentas quedaron en 0.00 para iniciar operaciones reales."
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
