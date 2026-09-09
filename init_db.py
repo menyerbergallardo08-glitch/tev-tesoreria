@@ -2,7 +2,7 @@ import os
 import datetime
 import openpyxl
 from database import engine, SessionLocal, Base
-from models import User, BudgetCategory, TreasuryAccount, Transaction, DailySalesRecord
+from models import User, BudgetCategory, TreasuryAccount, Transaction, AccountMonthlyBalance
 from auth import hash_password
 
 def init_database():
@@ -176,25 +176,6 @@ def init_database():
                 db.commit()
                 print(f"Imported {imported} transactions from August 2026 successfully.")
 
-    # 5. Cargar datos de Ventas y Ganancia Bruta histórica (Enero a Agosto 2026)
-    sales_history = [
-        (datetime.date(2026, 1, 31), 53235.83, 33806.29, 19429.53, "Cierre Enero 2026"),
-        (datetime.date(2026, 2, 28), 61855.08, 42130.47, 19724.61, "Cierre Febrero 2026"),
-        (datetime.date(2026, 3, 31), 69659.93, 43699.22, 25960.71, "Cierre Marzo 2026"),
-        (datetime.date(2026, 4, 30), 73291.20, 44185.98, 29105.22, "Cierre Abril 2026"),
-        (datetime.date(2026, 5, 31), 50096.08, 30938.61, 19157.47, "Cierre Mayo 2026"),
-        (datetime.date(2026, 6, 30), 55130.62, 36771.99, 18358.62, "Cierre Junio 2026"),
-        (datetime.date(2026, 7, 31), 61848.15, 43211.80, 18636.35, "Cierre Julio 2026"),
-        (datetime.date(2026, 8, 31), 45824.29, 28051.85, 17772.44, "Cierre Agosto 2026"),
-    ]
-
-    for d, v, c, g, note in sales_history:
-        existing = db.query(DailySalesRecord).filter(DailySalesRecord.date == d).first()
-        if not existing:
-            rec = DailySalesRecord(date=d, sales_usd=v, cogs_usd=c, gross_profit_usd=g, notes=note)
-            db.add(rec)
-    db.commit()
-    print("Sales and profit history seeded successfully.")
     db.close()
     print("Database initialization complete.")
 
