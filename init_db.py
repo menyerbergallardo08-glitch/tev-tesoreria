@@ -34,18 +34,20 @@ def init_database():
 
     admin_user = db.query(User).filter(User.username == "administradora").first()
 
-    # 2. Cuentas de Tesorería por defecto (Banesco, Mercantil, BNC, Zelle, USDT, Efectivo Bs, Efectivo $)
+    # 2. Cuentas de Tesorería por defecto
     accounts_data = [
-        ("Efectivo USD", "USD", "EFECTIVO", 0.0),
-        ("Efectivo VES", "VES", "EFECTIVO", 0.0),
-        ("Banco Banesco VES", "VES", "BANCO", 0.0),
-        ("Banco Mercantil VES", "VES", "BANCO", 0.0),
-        ("Banco BNC VES", "VES", "BANCO", 0.0),
-        ("Zelle USD", "USD", "BANCO", 0.0),
-        ("Billetera USDT", "USDT", "BILLETERA", 0.0),
+        ("Efectivo USD", "USD", "EFECTIVO", 0.0, False),
+        ("Efectivo VES", "VES", "EFECTIVO", 0.0, False),
+        ("Banco Banesco VES", "VES", "BANCO", 0.0, False),
+        ("Banco Mercantil VES", "VES", "BANCO", 0.0, False),
+        ("BNC - CASHEA", "VES", "BANCO", 0.0, True),
+        ("Banco Bancaribe VES", "VES", "BANCO", 0.0, False),
+        ("Banco de Venezuela VES", "VES", "BANCO", 0.0, False),
+        ("Zelle USD", "USD", "BANCO", 0.0, False),
+        ("Billetera USDT", "USDT", "BILLETERA", 0.0, False),
     ]
 
-    for name, curr, acc_type, init_bal in accounts_data:
+    for name, curr, acc_type, init_bal, inc_only in accounts_data:
         existing = db.query(TreasuryAccount).filter(TreasuryAccount.name == name).first()
         if not existing:
             acc = TreasuryAccount(
@@ -53,11 +55,19 @@ def init_database():
                 currency=curr,
                 account_type=acc_type,
                 initial_balance=init_bal,
+                only_income=inc_only,
                 is_active=True
             )
             db.add(acc)
             print(f"Account created: {name} [{curr}]")
     db.commit()
+
+    # Configuración de tasa BCV inicial
+    from models import SystemSetting
+    bcv = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    if not bcv:
+        db.add(SystemSetting(key='bcv_rate', value='36.80', updated_by='sistema'))
+        db.commit()
 
     acc_usd = db.query(TreasuryAccount).filter(TreasuryAccount.name == "Efectivo USD").first()
     acc_ves = db.query(TreasuryAccount).filter(TreasuryAccount.name == "Banco Banesco VES").first()
