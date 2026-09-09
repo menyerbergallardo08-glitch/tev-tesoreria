@@ -38,6 +38,7 @@ class TreasuryAccount(Base):
     currency = Column(String(10), nullable=False)  # 'USD', 'VES', 'USDT'
     account_type = Column(String(20), nullable=False)  # 'EFECTIVO', 'BANCO', 'BILLETERA'
     initial_balance = Column(Float, default=0.0)
+    only_income = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
     transactions_origin = relationship('Transaction', foreign_keys='Transaction.account_id', back_populates='account')
@@ -100,3 +101,26 @@ class Transaction(Base):
     category = relationship('BudgetCategory', back_populates='transactions')
     creator = relationship('User', foreign_keys=[created_by_id], back_populates='transactions_created')
     verifier = relationship('User', foreign_keys=[verified_by_id], back_populates='transactions_verified')
+
+
+class Supplier(Base):
+    __tablename__ = 'suppliers'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False, index=True)
+    rif = Column(String(30), nullable=True, index=True)
+    phone = Column(String(50), nullable=True)
+    bank_details = Column(Text, default='')
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class SystemSetting(Base):
+    __tablename__ = 'system_settings'
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(50), unique=True, index=True, nullable=False)
+    value = Column(String(255), nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_by = Column(String(50), default='sistema')
+
