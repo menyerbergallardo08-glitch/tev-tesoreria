@@ -70,6 +70,21 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
         )
     return user
 
+def get_optional_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Optional[User]:
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token)
+        if not payload:
+            return None
+        username = payload.get('sub')
+        if not username:
+            return None
+        return db.query(User).filter(User.username == username, User.is_active == True).first()
+    except Exception:
+        return None
+
+
 def require_roles(allowed_roles: List[str]):
     def role_checker(current_user: User = Depends(get_current_user)):
         if current_user.role not in allowed_roles:
