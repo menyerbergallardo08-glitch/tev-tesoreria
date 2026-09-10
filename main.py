@@ -293,7 +293,7 @@ class TransactionCreate(BaseModel):
 
 
 # -------------------------------------------------------------
-# Schemas para Venta en Caliente y Abonos CxC
+# Schemas para Punto de Venta / Caja y Abonos CxC
 # -------------------------------------------------------------
 class LiveSaleCreate(BaseModel):
     date: datetime.date
@@ -2043,7 +2043,7 @@ def get_accumulated_sales(
 
 
 # -------------------------------------------------------------
-# Live Point-of-Sale (Venta en Caliente Venta por Venta) Endpoints
+# Live Point-of-Sale (Punto de Venta y Cobros en Caja) Endpoints
 # -------------------------------------------------------------
 @app.post("/api/sales/live")
 def create_live_sale(
@@ -2094,17 +2094,21 @@ def create_live_sale(
         db.refresh(tx)
         return {"success": True, "message": f"Devolución {sale.doc_number} registrada.", "id": tx.id}
 
-    # If it's a Credit Sale (Factura o Nota a Crédito)
+    # If it's a Credit Sale (Factura o Nota a Crédito / Pago Parcial)
     if sale.is_credit:
-        # Defaults to Efectivo USD as placeholder account for credit holding
-        placeholder_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
-        acc_id = placeholder_acc.id if placeholder_acc else 1
+        initial_amt = sale.initial_downpayment_amount or 0.0
+        initial_acc_id = sale.initial_downpayment_account_id or sale.account_id or 1
         
+        # Calculate pending credit balance
+        rem_credit = round(max(0.0, calc_usd - initial_amt), 2)
+        credit_status = "PAGADO" if rem_credit <= 0.001 else "PENDIENTE"
+        
+        # Primary Credit Transaction
         tx = Transaction(
             date=sale.date,
             movement_type="INGRESO",
-            subtype="VENTA_CREDITO_PENDIENTE",
-            account_id=acc_id,
+            subtype="VENTA_CREDITO_PENDIENTE" if rem_credit > 0 else "VENTA_CONTADO",
+            account_id=initial_acc_id if rem_credit == 0 else 1,
             amount_original=sale.amount_original,
             currency=sale.currency,
             exchange_rate=rate,
@@ -2115,18 +2119,45 @@ def create_live_sale(
             client_rif=sale.client_rif.strip() if sale.client_rif else "",
             beneficiary=sale.client_name.strip(),
             is_credit=True,
-            credit_status="PENDIENTE",
+            credit_status=credit_status,
             credit_original_amount_usd=calc_usd,
-            credit_balance_pending_usd=calc_usd,
+            credit_balance_pending_usd=rem_credit,
             reference_number=sale.reference_number.strip() if sale.reference_number else "",
-            description=sale.description.strip() or f"Venta a crédito ({sale.doc_type} N° {sale.doc_number})",
+            description=sale.description.strip() or (f"Venta a crédito ({sale.doc_type} N° {sale.doc_number})" + (f" con abono en caja de ${initial_amt:.2f}" if initial_amt > 0 else "")),
             status="REGISTRADO",
             created_by_id=current_user.id
         )
         db.add(tx)
         db.commit()
         db.refresh(tx)
-        return {"success": True, "message": f"Venta a crédito {sale.doc_type} {sale.doc_number} registrada en CxC.", "id": tx.id}
+        
+        # If the customer made a partial payment / abono today at checkout:
+        if initial_amt > 0:
+            tx_abono = Transaction(
+                date=sale.date,
+                movement_type="INGRESO",
+                subtype="ABONO_CXC",
+                account_id=initial_acc_id,
+                amount_original=initial_amt if sale.currency == "USD" else round(initial_amt * rate, 2),
+                currency=sale.currency,
+                exchange_rate=rate,
+                amount_usd=initial_amt,
+                doc_type=sale.doc_type,
+                doc_number=f"ABONO-INI-{sale.doc_number.strip()}",
+                client_name=sale.client_name.strip(),
+                client_rif=sale.client_rif.strip() if sale.client_rif else "",
+                beneficiary=sale.client_name.strip(),
+                parent_transaction_id=tx.id,
+                reference_number=sale.reference_number.strip() if sale.reference_number else "",
+                description=f"Abono inicial en caja al despachar ({sale.doc_type} N° {sale.doc_number})",
+                status="REGISTRADO",
+                created_by_id=current_user.id
+            )
+            db.add(tx_abono)
+            db.commit()
+            return {"success": True, "message": f"Venta registrada por ${calc_usd:.2f} con abono en caja de ${initial_amt:.2f}. Saldo pendiente en CxC: ${rem_credit:.2f}.", "id": tx.id}
+
+        return {"success": True, "message": f"Venta a crédito {sale.doc_type} {sale.doc_number} registrada en CxC (Saldo por cobrar: ${calc_usd:.2f}).", "id": tx.id}
 
     # If it's a Cash Sale (Venta de Contado o Venta con Cashea e Inicial)
     if not sale.account_id:
