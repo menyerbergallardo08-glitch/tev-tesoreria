@@ -681,7 +681,7 @@
             <!-- Botón de Registro en Caliente -->
             <button type="submit" class="w-full py-4 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 transition">
               <span>💾</span>
-              <span x-text="liveSaleForm.is_credit ? 'Guardar Venta a Crédito en CxC' : (liveSaleForm.doc_type === 'DEVOLUCION' ? 'Procesar Devolución en Caja' : 'Registrar Cobro en Caliente')"></span>
+              <span x-text="liveSaleForm.is_credit ? 'Guardar Venta a Crédito en CxC' : (liveSaleForm.doc_type === 'DEVOLUCION' ? 'Procesar Devolución en Caja' : '💾 Registrar Venta / Cobro')"></span>
             </button>
           </form>
         </div>
@@ -780,7 +780,7 @@
 
         <!-- Flujo de Ventas en Vivo (Live Stream de Operaciones) -->
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-3">
-          <h3 class="text-base font-black text-gray-900">⚡ Registro en Caliente de la Jornada</h3>
+          <h3 class="text-base font-black text-gray-900">⚡ Registro de Ventas del Turno</h3>
           <div class="overflow-x-auto max-h-80 overflow-y-auto">
             <table class="w-full text-xs text-left border-collapse">
               <thead>
@@ -3916,20 +3916,30 @@
               body: JSON.stringify(this.liveSaleForm)
             });
 
-            const d = await res.json();
-            if (res.ok) {
-              this.showToast('success', 'Venta Registrada', d.message || 'Cobro registrado exitosamente en caliente.');
+            let d = null;
+            try {
+              d = await res.json();
+            } catch (jsonErr) {
+              if (!res.ok) {
+                this.showToast('error', 'Servidor en Actualización', `El servidor se está desplegando (HTTP ${res.status}). Por favor intente en 3 segundos.`);
+                return;
+              }
+            }
+
+            if (res.ok && d) {
+              this.showToast('success', 'Venta Registrada', d.message || 'Cobro registrado exitosamente.');
               this.clearSaleDraft();
               this.liveSaleForm.doc_number = '';
               this.liveSaleForm.client_name = '';
               this.liveSaleForm.amount_original = '';
               this.liveSaleForm.reference_number = '';
+              this.liveSaleForm.pos_lot_number = '';
               this.liveSaleForm.tax_retention_amount = 0;
               this.liveSaleForm.tax_retention_proof = '';
               this.hasRetention = false;
               await this.loadInitialData();
             } else {
-              this.showToast('error', 'No se pudo registrar', d.detail || 'Ocurrió un error en la validación.');
+              this.showToast('error', 'No se pudo registrar', (d && d.detail) ? d.detail : 'Ocurrió un error en la validación.');
             }
           } catch (e) {
             this.showToast('error', 'Error al procesar', e.message || 'Verifique la conexión con el servidor.');
