@@ -239,24 +239,40 @@
         </div>
 
         <!-- PESTAÑAS DE NAVEGACIÓN CON SCROLL HORIZONTAL TÁCTIL SUAVE -->
-        <nav class="flex space-x-1 sm:space-x-3 border-t border-gray-100 overflow-x-auto py-1.5 sm:py-2 scrollbar-none no-scrollbar">
-          <button @click="activeTab = 'registro'"
-                  :class="activeTab === 'registro' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
-            <span>✍️ Registrar</span>
+        <nav class="flex space-x-1 sm:space-x-2 border-t border-gray-100 overflow-x-auto py-1.5 sm:py-2 scrollbar-none no-scrollbar">
+          <!-- 1. VENTA EN CALIENTE (POS VENTA POR VENTA) -->
+          <button @click="activeTab = 'pos_caliente'"
+                  :class="activeTab === 'pos_caliente' ? 'bg-tev-green text-white shadow ring-2 ring-emerald-300' : 'text-tev-darkgreen bg-emerald-50 hover:bg-emerald-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>🛒 Venta en Caliente</span>
           </button>
 
-          <button @click="activeTab = 'movimientos'"
-                  :class="activeTab === 'movimientos' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
-            <span>📋 Movimientos</span>
+          <!-- 2. MONITOR DE CAJA EN VIVO (2:00 PM / TIEMPO REAL) -->
+          <button @click="activeTab = 'live_monitor'; loadLiveMonitor()"
+                  :class="activeTab === 'live_monitor' ? 'bg-blue-700 text-white shadow ring-2 ring-blue-300' : 'text-blue-800 bg-blue-50 hover:bg-blue-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>🕒 Monitor en Vivo</span>
           </button>
 
-          <!-- NUEVA PESTAÑA: CUADRE DIARIO DE CAJA Y PUNTOS -->
+          <!-- 3. CUENTAS POR COBRAR Y ABONOS -->
+          <button @click="activeTab = 'cxc'; loadReceivables()"
+                  :class="activeTab === 'cxc' ? 'bg-purple-700 text-white shadow' : 'text-purple-800 bg-purple-50 hover:bg-purple-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>📑 Cuentas x Cobrar & Abonos</span>
+          </button>
+
+          <!-- 4. CIERRE Y CUADRE DIARIO -->
           <button @click="activeTab = 'cuadre'; loadCashCloseSummary()"
-                  :class="activeTab === 'cuadre' ? 'bg-blue-700 text-white shadow ring-2 ring-blue-300' : 'text-blue-800 bg-blue-50 hover:bg-blue-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  :class="activeTab === 'cuadre' ? 'bg-slate-800 text-white shadow' : 'text-gray-700 hover:bg-gray-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
             <span>🔒 Cuadre Diario</span>
+          </button>
+
+          <!-- 5. LIBRO DE MOVIMIENTOS -->
+          <button @click="activeTab = 'movimientos'"
+                  :class="activeTab === 'movimientos' ? 'bg-slate-800 text-white shadow' : 'text-gray-700 hover:bg-gray-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>📋 Movimientos</span>
           </button>
 
           <!-- NUEVA PESTAÑA: VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
@@ -318,6 +334,376 @@
 
     <!-- CONTENIDO PRINCIPAL -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+
+      <!-- ======================================================== -->
+      <!-- TAB: PUNTO DE VENTA EN CALIENTE (VENTA POR VENTA EN VIVO) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'pos_caliente'" class="space-y-6">
+        <div class="bg-white p-5 sm:p-7 rounded-3xl shadow-sm border border-gray-200">
+          
+          <div class="flex items-center justify-between pb-4 mb-5 border-b border-gray-100">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+                <span>🛒 Registro de Venta en Caliente</span>
+                <span class="text-xs px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">Mostrador TEV</span>
+              </h2>
+              <p class="text-xs text-gray-500">Cargue cada venta al momento exacto de despachar o cobrar al cliente</p>
+            </div>
+            <span class="text-xs font-black text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200" x-text="'Tasa BCV: Bs. ' + formatNumber(bcvRate)"></span>
+          </div>
+
+          <form @submit.prevent="submitLiveSale()" class="space-y-5">
+            
+            <!-- 1. TIPO DE DOCUMENTO FISCAL -->
+            <div>
+              <label class="block text-xs font-black text-gray-700 uppercase tracking-wider mb-2">1. Régimen y Tipo de Documento:</label>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button type="button" @click="liveSaleForm.doc_type = 'FACTURA_FISCAL'"
+                        :class="liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-700 text-white font-black ring-4 ring-emerald-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3.5 rounded-2xl flex items-center gap-3 transition text-left">
+                  <span class="text-2xl">🟢</span>
+                  <div>
+                    <p class="text-xs font-black">Factura Fiscal</p>
+                    <p class="text-[11px] opacity-80">Con IVA (Máquina / SENIAT)</p>
+                  </div>
+                </button>
+
+                <button type="button" @click="liveSaleForm.doc_type = 'NOTA_ENTREGA'"
+                        :class="liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-700 text-white font-black ring-4 ring-blue-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3.5 rounded-2xl flex items-center gap-3 transition text-left">
+                  <span class="text-2xl">🔵</span>
+                  <div>
+                    <p class="text-xs font-black">Nota de Entrega</p>
+                    <p class="text-[11px] opacity-80">Sin IVA / Control Interno</p>
+                  </div>
+                </button>
+
+                <button type="button" @click="liveSaleForm.doc_type = 'DEVOLUCION'"
+                        :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black ring-4 ring-rose-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3.5 rounded-2xl flex items-center gap-3 transition text-left">
+                  <span class="text-2xl">↩️</span>
+                  <div>
+                    <p class="text-xs font-black">Devolución / Reembolso</p>
+                    <p class="text-[11px] opacity-80">Mercancía devuelta</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. CONDICIÓN DE PAGO (CONTADO VS CRÉDITO) -->
+            <div x-show="liveSaleForm.doc_type !== 'DEVOLUCION'">
+              <label class="block text-xs font-black text-gray-700 uppercase tracking-wider mb-2">2. Condición de Cobro:</label>
+              <div class="grid grid-cols-2 gap-3">
+                <button type="button" @click="liveSaleForm.is_credit = false"
+                        :class="!liveSaleForm.is_credit ? 'bg-teal-700 text-white font-black ring-4 ring-teal-200' : 'bg-slate-50 text-gray-700 border border-gray-200'"
+                        class="p-3 rounded-xl flex items-center justify-center gap-2 text-xs transition">
+                  <span>💵</span>
+                  <span>Venta de Contado (Pagada ya)</span>
+                </button>
+
+                <button type="button" @click="liveSaleForm.is_credit = true"
+                        :class="liveSaleForm.is_credit ? 'bg-indigo-700 text-white font-black ring-4 ring-indigo-200' : 'bg-slate-50 text-gray-700 border border-gray-200'"
+                        class="p-3 rounded-xl flex items-center justify-center gap-2 text-xs transition">
+                  <span>📄</span>
+                  <span>Venta a Crédito (Queda en CxC)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. DATOS DE LA VENTA (CLIENTE, N° DOCUMENTO Y MONTO) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">👤 Cliente (Nombre / Empresa):</label>
+                <input type="text" x-model="liveSaleForm.client_name" required placeholder="Ej: Inversiones Eléctricas C.A."
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">🔖 N° de Factura o Nota:</label>
+                <input type="text" x-model="liveSaleForm.doc_number" required placeholder="Ej: 004821 / NE-1052"
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">💵 Moneda del Monto:</label>
+                <select x-model="liveSaleForm.currency" class="w-full input-large border border-gray-300 bg-white font-bold">
+                  <option value="USD">Dólares ($ USD)</option>
+                  <option value="VES">Bolívares (Bs. VES)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 4. MONTO Y CONVERSIÓN EN VIVO -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Monto a Cobrar / Despachar:</label>
+                <input type="number" step="0.01" min="0.01" x-model.number="liveSaleForm.amount_original" required placeholder="0.00"
+                       class="w-full input-large border border-gray-300 font-black text-xl text-tev-darkgreen bg-white">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Contravalor en Tiempo Real:</label>
+                <div class="input-large bg-emerald-50 border border-emerald-200 text-emerald-950 font-black text-xl flex items-center justify-between">
+                  <span x-text="liveSaleForm.currency === 'USD' ? 'Bs. Equivalente:' : '$ Equivalente:'"></span>
+                  <span x-text="liveSaleForm.currency === 'USD' ? 'Bs. ' + formatNumber(liveSaleForm.amount_original * bcvRate) : '$ ' + formatNumber(liveSaleForm.amount_original / bcvRate)"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. CANAL DE PAGO (SOLO SI ES CONTADO O DEVOLUCIÓN) -->
+            <div x-show="!liveSaleForm.is_credit" class="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
+              <label class="block text-xs font-black text-blue-950 uppercase">Forma de Pago / Canal Financiero:</label>
+              
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <template x-for="acc in accounts" :key="acc.id">
+                  <button type="button" @click="liveSaleForm.account_id = acc.id"
+                          :class="liveSaleForm.account_id === acc.id ? 'bg-blue-800 text-white font-black ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-200 hover:bg-blue-50'"
+                          class="p-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 justify-center">
+                    <span x-text="acc.currency === 'USD' ? '💵' : '🇻🇪'"></span>
+                    <span class="truncate" x-text="acc.name"></span>
+                  </button>
+                </template>
+              </div>
+
+              <!-- Si es Punto de Venta: Lote POS -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label class="text-[11px] font-bold text-blue-950">Terminal POS (si aplica):</label>
+                  <select x-model="liveSaleForm.pos_terminal" class="w-full p-2 border rounded-lg text-xs bg-white font-semibold">
+                    <option value="">-- No es Punto POS --</option>
+                    <option value="POS Banesco">POS Banesco</option>
+                    <option value="POS Bancaribe">POS Bancaribe</option>
+                    <option value="POS Banco de Venezuela">POS Banco de Venezuela</option>
+                    <option value="POS BNC">POS BNC</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[11px] font-bold text-blue-950">N° de Lote / Referencia:</label>
+                  <input type="text" x-model="liveSaleForm.pos_lot_number" placeholder="Ej: Lote 142 / Ref 59201" class="w-full p-2 border rounded-lg text-xs bg-white font-bold">
+                </div>
+              </div>
+
+              <!-- Retención de IVA Opcional -->
+              <div class="pt-2 border-t border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="text-[11px] font-bold text-purple-900">Monto Retención IVA ($ si aplica):</label>
+                  <input type="number" step="0.01" min="0" x-model.number="liveSaleForm.tax_retention_amount" placeholder="0.00" class="w-full p-2 border border-purple-200 rounded-lg text-xs font-bold bg-white">
+                </div>
+                <div>
+                  <label class="text-[11px] font-bold text-purple-900">N° Comprobante Retención:</label>
+                  <input type="text" x-model="liveSaleForm.tax_retention_proof" placeholder="Ej: 202609000123" class="w-full p-2 border border-purple-200 rounded-lg text-xs font-bold bg-white">
+                </div>
+              </div>
+            </div>
+
+            <!-- Botón de Registro en Caliente -->
+            <button type="submit" class="w-full py-4 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 transition">
+              <span>💾</span>
+              <span x-text="liveSaleForm.is_credit ? 'Guardar Venta a Crédito en CxC' : (liveSaleForm.doc_type === 'DEVOLUCION' ? 'Procesar Devolución en Caja' : 'Registrar Cobro en Caliente')"></span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB: MONITOR DE CAJA EN VIVO (2:00 PM / TIEMPO REAL) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'live_monitor'" class="space-y-6">
+        
+        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <span>🕒 Monitor de Fondos y Caja en Vivo</span>
+              <span class="text-xs px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold animate-pulse">EN VIVO</span>
+            </h2>
+            <p class="text-xs text-gray-500">Arqueo instantáneo de gaveta y saldos exactos a cualquier hora del día</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <p class="text-xs font-bold text-gray-400">Hora del Sistema:</p>
+              <p class="text-sm font-black text-gray-800" x-text="liveMonitorData?.time || '--:--'"></p>
+            </div>
+            <button @click="loadLiveMonitor()" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition flex items-center gap-1">
+              <span>🔄</span> Actualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Fondos Esperados en Este Segundo -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
+            <p class="text-[11px] font-bold text-emerald-800 uppercase">💵 Gaveta USD</p>
+            <p class="text-xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.cash_usd_expected || 0)"></p>
+            <p class="text-[10px] text-emerald-700 mt-0.5">Efectivo en gaveta</p>
+          </div>
+
+          <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
+            <p class="text-[11px] font-bold text-emerald-800 uppercase">🇻🇪 Gaveta VES</p>
+            <p class="text-xl font-black text-emerald-950 mt-1" x-text="'Bs. ' + formatNumber(liveMonitorData?.live_funds_expected?.cash_ves_expected || 0)"></p>
+            <p class="text-[10px] text-emerald-700 mt-0.5">Bolívares en gaveta</p>
+          </div>
+
+          <div class="p-4 bg-blue-50 rounded-2xl border border-blue-200 text-center">
+            <p class="text-[11px] font-bold text-blue-800 uppercase">💳 POS Banesco</p>
+            <p class="text-xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.pos_banesco || 0)"></p>
+            <p class="text-[10px] text-blue-700 mt-0.5">Acumulado punto</p>
+          </div>
+
+          <div class="p-4 bg-blue-50 rounded-2xl border border-blue-200 text-center">
+            <p class="text-[11px] font-bold text-blue-800 uppercase">💳 POS Bancaribe</p>
+            <p class="text-xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.pos_bancaribe || 0)"></p>
+            <p class="text-[10px] text-blue-700 mt-0.5">Acumulado punto</p>
+          </div>
+
+          <div class="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-center">
+            <p class="text-[11px] font-bold text-purple-800 uppercase">📲 Pago Móvil</p>
+            <p class="text-xl font-black text-purple-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.pago_movil_usd || 0)"></p>
+            <p class="text-[10px] text-purple-700 mt-0.5">Bancos recibidos</p>
+          </div>
+
+          <div class="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-center">
+            <p class="text-[11px] font-bold text-amber-800 uppercase">🟡 Cashea</p>
+            <p class="text-xl font-black text-amber-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.cashea_usd || 0)"></p>
+            <p class="text-[10px] text-amber-700 mt-0.5">BNC Cashea</p>
+          </div>
+        </div>
+
+        <!-- Resumen de Ventas Acumuladas hasta esta hora -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <h3 class="text-base font-black text-gray-900">📊 Desglose de Ventas del Día hasta este Minuto</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+            <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+              <p class="text-emerald-800 font-bold">🟢 Facturas Fiscales Contado:</p>
+              <p class="text-lg font-black text-emerald-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.fac_contado_usd || 0)"></p>
+            </div>
+
+            <div class="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+              <p class="text-emerald-800 font-bold">🟢 Facturas Fiscales a Crédito:</p>
+              <p class="text-lg font-black text-emerald-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.fac_credito_usd || 0)"></p>
+            </div>
+
+            <div class="p-3 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-blue-800 font-bold">🔵 Notas de Entrega Contado:</p>
+              <p class="text-lg font-black text-blue-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.not_contado_usd || 0)"></p>
+            </div>
+
+            <div class="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+              <p class="text-blue-800 font-bold">🔵 Notas de Entrega a Crédito:</p>
+              <p class="text-lg font-black text-blue-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.not_credito_usd || 0)"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flujo de Ventas en Vivo (Live Stream de Operaciones) -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-3">
+          <h3 class="text-base font-black text-gray-900">⚡ Registro en Caliente de la Jornada</h3>
+          <div class="overflow-x-auto max-h-80 overflow-y-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold sticky top-0 border-b">
+                  <th class="p-2.5">Hora</th>
+                  <th class="p-2.5">Documento</th>
+                  <th class="p-2.5">Cliente</th>
+                  <th class="p-2.5">Tipo Cobro</th>
+                  <th class="p-2.5">Cuenta / Punto</th>
+                  <th class="p-2.5 text-right">Monto ($)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="item in liveMonitorData?.recent_stream || []" :key="item.id">
+                  <tr class="hover:bg-slate-50">
+                    <td class="p-2.5 font-bold text-gray-500" x-text="item.created_at"></td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[10px]"
+                            :class="item.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-100 text-emerald-800' : (item.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800')"
+                            x-text="item.doc_type + ' (' + item.doc_number + ')'"></span>
+                    </td>
+                    <td class="p-2.5 font-semibold text-gray-800" x-text="item.client_name"></td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[10px]"
+                            :class="item.is_credit ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'"
+                            x-text="item.is_credit ? 'Crédito CxC' : 'Contado'"></span>
+                    </td>
+                    <td class="p-2.5 text-gray-600" x-text="item.account_name"></td>
+                    <td class="p-2.5 text-right font-black text-gray-900" x-text="'$' + formatNumber(item.amount_usd)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB: CUENTAS POR COBRAR & REGISTRO DE ABONOS -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'cxc'" class="space-y-6">
+        
+        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900">📑 Cartera de Cuentas por Cobrar (CxC)</h2>
+            <p class="text-xs text-gray-500">Facturas y Notas de Entrega a crédito con registro de abonos y pagos en cuotas</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="text" x-model="cxcSearch" @input="loadReceivables()" placeholder="🔍 Buscar cliente o factura..."
+                   class="p-2 border border-gray-300 rounded-xl text-xs font-semibold focus:outline-none w-48 sm:w-64">
+            
+            <select x-model="cxcStatusFilter" @change="loadReceivables()" class="p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+              <option value="">Pendientes y Parciales</option>
+              <option value="TODOS">Todas las CxC</option>
+              <option value="PAGADO">Totalmente Pagadas</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tabla de Cuentas por Cobrar -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-3">Fecha</th>
+                  <th class="p-3">Documento</th>
+                  <th class="p-3">Cliente</th>
+                  <th class="p-3 text-right">Monto Original</th>
+                  <th class="p-3 text-right">Abonado ($)</th>
+                  <th class="p-3 text-right">Saldo Pendiente ($)</th>
+                  <th class="p-3 text-center">Estado</th>
+                  <th class="p-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="item in receivablesList" :key="item.id">
+                  <tr class="hover:bg-slate-50">
+                    <td class="p-3 font-bold text-gray-500" x-text="item.date"></td>
+                    <td class="p-3 font-bold" x-text="item.doc_type + ' #' + item.doc_number"></td>
+                    <td class="p-3 font-semibold text-gray-800" x-text="item.client_name"></td>
+                    <td class="p-3 text-right font-bold text-gray-700" x-text="'$' + formatNumber(item.original_amount_usd)"></td>
+                    <td class="p-3 text-right font-bold text-emerald-700" x-text="'$' + formatNumber(item.total_abonado_usd)"></td>
+                    <td class="p-3 text-right font-black text-rose-700 text-sm" x-text="'$' + formatNumber(item.pending_balance_usd)"></td>
+                    <td class="p-3 text-center">
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="item.credit_status === 'PAGADO' ? 'bg-emerald-100 text-emerald-800' : (item.credit_status === 'PARCIALMENTE_PAGADO' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800')"
+                            x-text="item.credit_status"></span>
+                    </td>
+                    <td class="p-3 text-center">
+                      <button x-show="item.pending_balance_usd > 0.01" @click="openAbonoModal(item)" class="px-3 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-xs">
+                        ➕ Abonar
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
 
       <!-- ======================================================== -->
       <!-- TAB 1: REGISTRO DE MOVIMIENTOS (CON LAS 5 TARJETAS) -->
@@ -2869,6 +3255,38 @@
         dailyCashFlowTotals: {},
         dailyViewMode: 'matriz',
 
+        activeTab: 'pos_caliente',
+        liveSaleForm: {
+          date: new Date().toISOString().split('T')[0],
+          doc_type: 'FACTURA_FISCAL',
+          doc_number: '',
+          client_name: '',
+          client_rif: '',
+          is_credit: false,
+          amount_original: '',
+          currency: 'USD',
+          account_id: 1,
+          pos_terminal: '',
+          pos_lot_number: '',
+          tax_retention_amount: 0,
+          tax_retention_proof: '',
+          reference_number: '',
+          description: ''
+        },
+        liveMonitorData: null,
+        receivablesList: [],
+        cxcSearch: '',
+        cxcStatusFilter: '',
+        showAbonoModal: false,
+        selectedCreditObj: null,
+        abonoForm: {
+          date: new Date().toISOString().split('T')[0],
+          amount_original: '',
+          currency: 'USD',
+          account_id: 1,
+          reference_number: '',
+          description: ''
+        },
         cuadreDate: new Date().toISOString().split('T')[0],
         cashCloseSummary: null,
         cashCloseHistory: [],
@@ -3350,6 +3768,110 @@
             'COBRO_CXC': 'Registro de Cobro de Cuenta por Cobrar'
           };
           return map[this.form.subtype] || 'Registro de Movimiento';
+        },
+
+        async submitLiveSale() {
+          try {
+            const token = this.getToken();
+            const res = await fetch('/api/sales/live', {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(this.liveSaleForm)
+            });
+
+            if (res.ok) {
+              const d = await res.json();
+              this.showToast('success', 'Venta Registrada', d.message);
+              this.liveSaleForm.doc_number = '';
+              this.liveSaleForm.client_name = '';
+              this.liveSaleForm.amount_original = '';
+              this.liveSaleForm.reference_number = '';
+              this.liveSaleForm.tax_retention_amount = 0;
+              this.liveSaleForm.tax_retention_proof = '';
+              await this.loadInitialData();
+            } else {
+              const err = await res.json();
+              this.showToast('error', 'Error', err.detail || 'No se pudo registrar la venta');
+            }
+          } catch (e) {
+            this.showToast('error', 'Error', 'Error de conexión');
+          }
+        },
+
+        async loadLiveMonitor() {
+          try {
+            const token = this.getToken();
+            const res = await fetch(`/api/sales/live-monitor?date=${this.cuadreDate}`, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.liveMonitorData = await res.json();
+            }
+          } catch (e) {
+            console.error('Error loading live monitor:', e);
+          }
+        },
+
+        async loadReceivables() {
+          try {
+            const token = this.getToken();
+            const params = new URLSearchParams();
+            if (this.cxcStatusFilter) params.append('status_filter', this.cxcStatusFilter);
+            if (this.cxcSearch) params.append('search', this.cxcSearch);
+
+            const res = await fetch(`/api/receivables?${params.toString()}`, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.receivablesList = await res.json();
+            }
+          } catch (e) {
+            console.error('Error loading receivables:', e);
+          }
+        },
+
+        openAbonoModal(credit) {
+          this.selectedCreditObj = credit;
+          this.abonoForm = {
+            date: new Date().toISOString().split('T')[0],
+            amount_original: credit.pending_balance_usd,
+            currency: 'USD',
+            account_id: this.accounts.length > 0 ? this.accounts[0].id : 1,
+            reference_number: '',
+            description: `Abono a ${credit.doc_type} #${credit.doc_number}`
+          };
+          this.showAbonoModal = true;
+        },
+
+        async submitAbono() {
+          if (!this.selectedCreditObj) return;
+          try {
+            const token = this.getToken();
+            const res = await fetch(`/api/receivables/${this.selectedCreditObj.id}/abono`, {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(this.abonoForm)
+            });
+
+            if (res.ok) {
+              const d = await res.json();
+              this.showToast('success', 'Abono Registrado', d.message);
+              this.showAbonoModal = false;
+              await this.loadReceivables();
+              await this.loadInitialData();
+            } else {
+              const err = await res.json();
+              this.showToast('error', 'Error', err.detail || 'No se pudo registrar el abono');
+            }
+          } catch (e) {
+            this.showToast('error', 'Error', 'Error de conexión');
+          }
         },
 
         isAccountPOS() {
