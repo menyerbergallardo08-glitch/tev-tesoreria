@@ -355,7 +355,7 @@
               </h2>
               <p class="text-xs text-gray-500">Cargue cada venta al momento exacto de despachar o cobrar al cliente</p>
             </div>
-            <span class="text-xs font-black text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200" x-text="'Tasa BCV: Bs. ' + formatNumber(bcvRate)"></span>
+            <button type="button" @click="autoSyncBcvRate()" class="text-xs font-black text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-300 flex items-center gap-1 cursor-pointer"><span>🇻🇪 Tasa BCV: Bs. <strong x-text="formatNumber(bcvRate)"></strong></span><span class="text-[10px] text-emerald-700">🔄</span></button>
           </div>
 
           <form @submit.prevent="submitLiveSale()" class="space-y-5">
@@ -456,50 +456,139 @@
               </div>
             </div>
 
-            <!-- 5. CANAL DE PAGO (SOLO SI ES CONTADO O DEVOLUCIÓN) -->
-            <div x-show="!liveSaleForm.is_credit" class="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
-              <label class="block text-xs font-black text-blue-950 uppercase">Forma de Pago / Canal Financiero:</label>
+            <!-- 5. FORMA DE PAGO LIMPIA Y ERGONÓMICA (CERO SATURACIÓN VISUAL) -->
+            <div x-show="!liveSaleForm.is_credit" class="p-5 bg-slate-50/90 border border-slate-200 rounded-3xl space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-gray-200 pb-2">
+                <label class="block text-xs font-black text-gray-800 uppercase tracking-wider">
+                  💵 3. Forma de Pago / Canal de Cobro:
+                </label>
+                <span class="text-xs font-bold text-teal-900 bg-teal-100/70 px-2.5 py-1 rounded-lg border border-teal-200"
+                      x-text="'Destino: ' + getSelectedAccountNameForLive()"></span>
+              </div>
+
+              <!-- 5 Grandes Tarjetas de Método de Cobro -->
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                
+                <!-- 1. Efectivo USD -->
+                <button type="button" @click="setPaymentMethod('EFECTIVO_USD')"
+                        :class="paymentMethod === 'EFECTIVO_USD' ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">💵</span>
+                  <span class="text-xs font-bold">Efectivo USD</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Gaveta $</span>
+                </button>
+
+                <!-- 2. Efectivo VES -->
+                <button type="button" @click="setPaymentMethod('EFECTIVO_VES')"
+                        :class="paymentMethod === 'EFECTIVO_VES' ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">🇻🇪</span>
+                  <span class="text-xs font-bold">Efectivo VES</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Gaveta Bs.</span>
+                </button>
+
+                <!-- 3. Punto de Venta POS -->
+                <button type="button" @click="setPaymentMethod('POS')"
+                        :class="paymentMethod === 'POS' ? 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">💳</span>
+                  <span class="text-xs font-bold">Punto POS</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Tarjeta Déb/Créd</span>
+                </button>
+
+                <!-- 4. Pago Móvil / Transf -->
+                <button type="button" @click="setPaymentMethod('PAGO_MOVIL')"
+                        :class="paymentMethod === 'PAGO_MOVIL' ? 'bg-purple-700 text-white font-black shadow-md ring-4 ring-purple-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">📲</span>
+                  <span class="text-xs font-bold">Pago Móvil</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Transferencia</span>
+                </button>
+
+                <!-- 5. Cashea / Digital -->
+                <button type="button" @click="setPaymentMethod('DIGITAL')"
+                        :class="paymentMethod === 'DIGITAL' ? 'bg-amber-600 text-white font-black shadow-md ring-4 ring-amber-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">🟡</span>
+                  <span class="text-xs font-bold">Cashea / Zelle</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Billetera USDT</span>
+                </button>
+
+              </div>
+
+              <!-- SUB-CAMPOS DINÁMICOS SEGÚN EL MÉTODO -->
               
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <template x-for="acc in accounts" :key="acc.id">
-                  <button type="button" @click="liveSaleForm.account_id = acc.id"
-                          :class="liveSaleForm.account_id === acc.id ? 'bg-blue-800 text-white font-black ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-200 hover:bg-blue-50'"
-                          class="p-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 justify-center">
-                    <span x-text="acc.currency === 'USD' ? '💵' : '🇻🇪'"></span>
-                    <span class="truncate" x-text="acc.name"></span>
-                  </button>
-                </template>
-              </div>
-
-              <!-- Si es Punto de Venta: Lote POS -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div>
-                  <label class="text-[11px] font-bold text-blue-950">Terminal POS (si aplica):</label>
-                  <select x-model="liveSaleForm.pos_terminal" class="w-full p-2 border rounded-lg text-xs bg-white font-semibold">
-                    <option value="">-- No es Punto POS --</option>
-                    <option value="POS Banesco">POS Banesco</option>
-                    <option value="POS Bancaribe">POS Bancaribe</option>
-                    <option value="POS Banco de Venezuela">POS Banco de Venezuela</option>
-                    <option value="POS BNC">POS BNC</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="text-[11px] font-bold text-blue-950">N° de Lote / Referencia:</label>
-                  <input type="text" x-model="liveSaleForm.pos_lot_number" placeholder="Ej: Lote 142 / Ref 59201" class="w-full p-2 border rounded-lg text-xs bg-white font-bold">
+              <!-- SI ES PUNTO DE VENTA POS -->
+              <div x-show="paymentMethod === 'POS'" class="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-blue-950 mb-1">🏦 Banco del Punto de Venta:</label>
+                    <select x-model="liveSaleForm.pos_terminal" @change="onPosTerminalChange()"
+                            class="w-full p-2.5 border border-blue-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-blue-500">
+                      <option value="POS Banesco">POS Banesco (VES)</option>
+                      <option value="POS Bancaribe">POS Bancaribe (VES)</option>
+                      <option value="POS Banco de Venezuela">POS Banco de Venezuela (VES)</option>
+                      <option value="POS BNC">POS Banco Nacional de Crédito - BNC (VES)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-blue-950 mb-1">🔖 N° de Lote del Cierre POS (Para auditar):</label>
+                    <input type="text" x-model="liveSaleForm.pos_lot_number" placeholder="Ej: 004821"
+                           class="w-full p-2.5 border border-blue-300 rounded-xl text-xs bg-white font-black text-blue-950 focus:ring-2 focus:ring-blue-500">
+                  </div>
                 </div>
               </div>
 
-              <!-- Retención de IVA Opcional -->
-              <div class="pt-2 border-t border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- SI ES PAGO MÓVIL / TRANSFERENCIA -->
+              <div x-show="paymentMethod === 'PAGO_MOVIL'" class="p-4 bg-purple-50/80 border border-purple-200 rounded-2xl space-y-3">
                 <div>
-                  <label class="text-[11px] font-bold text-purple-900">Monto Retención IVA ($ si aplica):</label>
-                  <input type="number" step="0.01" min="0" x-model.number="liveSaleForm.tax_retention_amount" placeholder="0.00" class="w-full p-2 border border-purple-200 rounded-lg text-xs font-bold bg-white">
-                </div>
-                <div>
-                  <label class="text-[11px] font-bold text-purple-900">N° Comprobante Retención:</label>
-                  <input type="text" x-model="liveSaleForm.tax_retention_proof" placeholder="Ej: 202609000123" class="w-full p-2 border border-purple-200 rounded-lg text-xs font-bold bg-white">
+                  <label class="block text-xs font-bold text-purple-950 mb-1">🔖 N° de Referencia Bancaria (Últimos 4 o 6 dígitos):</label>
+                  <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: 994201"
+                         class="w-full p-2.5 border border-purple-300 rounded-xl text-xs bg-white font-black text-purple-950 focus:ring-2 focus:ring-purple-500">
                 </div>
               </div>
+
+              <!-- SI ES CASHEA / ZELLE / USDT -->
+              <div x-show="paymentMethod === 'DIGITAL'" class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1">Canal Digital Específico:</label>
+                    <select x-model="digitalChannel" @change="onDigitalChannelChange()"
+                            class="w-full p-2.5 border border-amber-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-amber-500">
+                      <option value="CASHEA">Cashea (Cuotas BNC)</option>
+                      <option value="ZELLE">Zelle / Custodia USD</option>
+                      <option value="BINANCE">Billetera Binance USDT</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1">N° Referencia / ID Operación:</label>
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: TX-194019"
+                           class="w-full p-2.5 border border-amber-300 rounded-xl text-xs bg-white font-bold">
+                  </div>
+                </div>
+              </div>
+
+              <!-- CHECKBOX TOGGLE PARA RETENCIÓN SENIAT (COLAPSABLE) -->
+              <div class="pt-2 border-t border-gray-200">
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" x-model="hasRetention" class="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500">
+                  <span class="text-xs font-bold text-purple-900">¿El cliente entregó Comprobante de Retención IVA / ISLR (Contribuyente Especial)?</span>
+                </label>
+
+                <div x-show="hasRetention" class="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-[11px] font-bold text-purple-900 mb-1">Monto Retenido ($ USD):</label>
+                    <input type="number" step="0.01" min="0" x-model.number="liveSaleForm.tax_retention_amount" placeholder="0.00"
+                           class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-bold text-purple-900 mb-1">N° Comprobante SENIAT:</label>
+                    <input type="text" x-model="liveSaleForm.tax_retention_proof" placeholder="Ej: 202609000123"
+                           class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             <!-- Botón de Registro en Caliente -->
@@ -3261,6 +3350,63 @@
         dailyViewMode: 'matriz',
 
         activeTab: 'pos_caliente',
+        
+        paymentMethod: 'EFECTIVO_USD',
+        digitalChannel: 'CASHEA',
+        hasRetention: false,
+        loadingBcv: false,
+
+        setPaymentMethod(method) {
+          this.paymentMethod = method;
+          if (method === 'EFECTIVO_USD') {
+            const acc = this.accounts.find(a => a.name.includes('Efectivo USD') && a.currency === 'USD') || this.accounts.find(a => a.currency === 'USD');
+            if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'EFECTIVO_VES') {
+            const acc = this.accounts.find(a => a.name.includes('Efectivo VES') && a.currency === 'VES') || this.accounts.find(a => a.currency === 'VES');
+            if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'POS') {
+            if (!this.liveSaleForm.pos_terminal) this.liveSaleForm.pos_terminal = 'POS Banesco';
+            this.onPosTerminalChange();
+          } else if (method === 'PAGO_MOVIL') {
+            const acc = this.accounts.find(a => a.name.includes('Pago Móvil')) || this.accounts.find(a => a.currency === 'VES');
+            if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'DIGITAL') {
+            this.onDigitalChannelChange();
+          }
+        },
+
+        onPosTerminalChange() {
+          const t = this.liveSaleForm.pos_terminal || 'POS Banesco';
+          let match = null;
+          if (t.includes('Banesco')) match = this.accounts.find(a => a.name.includes('Banesco'));
+          else if (t.includes('Bancaribe')) match = this.accounts.find(a => a.name.includes('Bancaribe'));
+          else if (t.includes('Venezuela')) match = this.accounts.find(a => a.name.includes('Venezuela'));
+          else if (t.includes('BNC')) match = this.accounts.find(a => a.name.includes('BNC'));
+          
+          if (match) this.liveSaleForm.account_id = match.id;
+          else if (this.accounts.length > 0) this.liveSaleForm.account_id = this.accounts[0].id;
+        },
+
+        onDigitalChannelChange() {
+          let match = null;
+          if (this.digitalChannel === 'CASHEA') match = this.accounts.find(a => a.name.includes('Cashea'));
+          else if (this.digitalChannel === 'ZELLE') match = this.accounts.find(a => a.name.includes('Zelle'));
+          else if (this.digitalChannel === 'BINANCE') match = this.accounts.find(a => a.name.includes('Binance') || a.currency === 'USDT');
+          
+          if (match) this.liveSaleForm.account_id = match.id;
+        },
+
+        getSelectedAccountNameForLive() {
+          const acc = this.accounts.find(a => a.id === this.liveSaleForm.account_id);
+          return acc ? `${acc.name} (${acc.currency})` : 'Caja Principal';
+        },
+
         liveSaleForm: {
           date: new Date().toISOString().split('T')[0],
           doc_type: 'FACTURA_FISCAL',
@@ -3780,6 +3926,20 @@
         },
 
         async submitLiveSale() {
+          const amt = parseFloat(this.liveSaleForm.amount_original);
+          if (isNaN(amt) || amt <= 0) {
+            this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a 0.00 a cobrar.');
+            return;
+          }
+          if (!this.liveSaleForm.doc_number || !this.liveSaleForm.doc_number.trim()) {
+            this.showToast('warning', 'N° Documento Requerido', 'Por favor ingrese el número de Factura o Nota.');
+            return;
+          }
+          if (!this.liveSaleForm.client_name || !this.liveSaleForm.client_name.trim()) {
+            this.showToast('warning', 'Cliente Requerido', 'Por favor ingrese el nombre del cliente o empresa.');
+            return;
+          }
+
           try {
             const token = this.getToken();
             const res = await fetch('/api/sales/live', {
@@ -3791,9 +3951,9 @@
               body: JSON.stringify(this.liveSaleForm)
             });
 
+            const d = await res.json();
             if (res.ok) {
-              const d = await res.json();
-              this.showToast('success', 'Venta Registrada', d.message);
+              this.showToast('success', 'Venta Registrada', d.message || 'Cobro registrado exitosamente en caliente.');
               this.clearSaleDraft();
               this.liveSaleForm.doc_number = '';
               this.liveSaleForm.client_name = '';
@@ -3801,13 +3961,13 @@
               this.liveSaleForm.reference_number = '';
               this.liveSaleForm.tax_retention_amount = 0;
               this.liveSaleForm.tax_retention_proof = '';
+              this.hasRetention = false;
               await this.loadInitialData();
             } else {
-              const err = await res.json();
-              this.showToast('error', 'Error', err.detail || 'No se pudo registrar la venta');
+              this.showToast('error', 'No se pudo registrar', d.detail || 'Ocurrió un error en la validación.');
             }
           } catch (e) {
-            this.showToast('error', 'Error', 'Error de conexión');
+            this.showToast('error', 'Error al procesar', e.message || 'Verifique la conexión con el servidor.');
           }
         },
 
@@ -4029,25 +4189,25 @@
         },
 
         async autoSyncBcvRate() {
+          this.loadingBcv = true;
           try {
             const token = this.getToken();
-            const res = await fetch('/api/bcv-rate/sync', {
-              headers: { 'Authorization': 'Bearer ' + token }
-            });
+            const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+            const res = await fetch('/api/bcv-rate/sync', { headers });
             if (res.ok) {
               const data = await res.json();
               if (data && data.rate) {
-                this.bcvRate = data.rate;
-                this.newBcvRate = data.rate;
-                if (this.form) this.form.exchange_rate = data.rate;
-                if (this.transferForm) this.transferForm.exchange_rate = data.rate;
-                if (data.synced) {
-                  console.log(`[BCV SYNC] Tasa actualizada a ${data.rate}`);
-                }
+                this.bcvRate = parseFloat(data.rate);
+                this.newBcvRate = parseFloat(data.rate);
+                if (this.form) this.form.exchange_rate = parseFloat(data.rate);
+                if (this.transferForm) this.transferForm.exchange_rate = parseFloat(data.rate);
+                this.showToast('success', 'Tasa BCV Sincronizada', `Bs. ${parseFloat(data.rate).toFixed(2)} (${data.policy || 'Oficial'})`);
               }
             }
           } catch (e) {
             console.error('Error in autoSyncBcvRate:', e);
+          } finally {
+            this.loadingBcv = false;
           }
         },
 
