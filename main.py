@@ -135,6 +135,42 @@ class TransactionCreate(BaseModel):
     reference_number: Optional[str] = ""
     beneficiary: Optional[str] = ""
     description: Optional[str] = ""
+    doc_type: Optional[str] = "FACTURA_FISCAL"
+    doc_number: Optional[str] = ""
+    is_credit: Optional[bool] = False
+    credit_status: Optional[str] = "PAGADO"
+    tax_retention_amount: Optional[float] = 0.0
+    tax_retention_proof: Optional[str] = ""
+    pos_terminal: Optional[str] = ""
+    pos_lot_number: Optional[str] = ""
+
+
+class DailyCashCloseCreate(BaseModel):
+    date: datetime.date
+    cajero_name: str
+    verified_by: Optional[str] = "Administración"
+    status: Optional[str] = "CUADRADO"
+    profit_sales_total_usd: Optional[float] = 0.0
+    sales_fiscal_iva_usd: Optional[float] = 0.0
+    sales_notes_credit_usd: Optional[float] = 0.0
+    sales_notes_collected_usd: Optional[float] = 0.0
+    returns_total_usd: Optional[float] = 0.0
+    net_sales_usd: Optional[float] = 0.0
+    cash_usd_physical: Optional[float] = 0.0
+    cash_ves_physical: Optional[float] = 0.0
+    pos_total_usd: Optional[float] = 0.0
+    bank_transfers_usd: Optional[float] = 0.0
+    cashea_usd: Optional[float] = 0.0
+    retentions_iva_usd: Optional[float] = 0.0
+    retentions_islr_usd: Optional[float] = 0.0
+    expenses_caja_usd: Optional[float] = 0.0
+    total_collected_real_usd: Optional[float] = 0.0
+    total_expected_usd: Optional[float] = 0.0
+    difference_usd: Optional[float] = 0.0
+    arqueo_usd_json: Optional[str] = "{}"
+    arqueo_ves_json: Optional[str] = "{}"
+    pos_details_json: Optional[str] = "{}"
+    notes: Optional[str] = ""
 
 class TransferCreate(BaseModel):
     date: datetime.date
@@ -1131,6 +1167,14 @@ def create_transaction(
         reference_number=tx_in.reference_number.strip() if tx_in.reference_number else "",
         beneficiary=benef,
         description=desc,
+        doc_type=tx_in.doc_type or "FACTURA_FISCAL",
+        doc_number=tx_in.doc_number.strip() if tx_in.doc_number else "",
+        is_credit=tx_in.is_credit or False,
+        credit_status="PENDIENTE" if tx_in.is_credit else "PAGADO",
+        tax_retention_amount=tx_in.tax_retention_amount or 0.0,
+        tax_retention_proof=tx_in.tax_retention_proof.strip() if tx_in.tax_retention_proof else "",
+        pos_terminal=tx_in.pos_terminal.strip() if tx_in.pos_terminal else "",
+        pos_lot_number=tx_in.pos_lot_number.strip() if tx_in.pos_lot_number else "",
         status="REGISTRADO",
         created_by_id=current_user.id
     )
@@ -1526,6 +1570,278 @@ def reset_system_demo(
         "transactions_deleted": tx_count,
         "accounts_reset": len(accounts),
         "message": "Sistema reseteado exitosamente. Todos los movimientos de prueba fueron eliminados y las cuentas quedaron en 0.00 para iniciar operaciones reales."
+    }
+
+
+# -------------------------------------------------------------
+# Keep-Alive & Health Check Endpoint
+# -------------------------------------------------------------
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "ok",
+        "app": "Todo Eléctrico Valencia - Tesorería y Flujo de Caja",
+        "timestamp": datetime.datetime.utcnow().isoformat()
+    }
+
+
+# -------------------------------------------------------------
+# Cuadre de Caja Diario & Conciliación Multicanal Endpoints
+# -------------------------------------------------------------
+@app.get("/api/cash-close/summary")
+def get_cash_close_summary(
+    date: Optional[datetime.date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target_date = date or datetime.date.today()
+    
+    # 1. Fetch transactions for this date
+    txs = db.query(Transaction).filter(
+        Transaction.date == target_date,
+        Transaction.status != "ANULADO"
+    ).all()
+    
+    # Check if close already exists
+    existing_close = db.query(DailyCashClose).filter(DailyCashClose.date == target_date).first()
+    
+    # Totales por tipo y canal
+    sales_fiscal_iva_usd = 0.0
+    sales_notes_credit_usd = 0.0
+    sales_notes_collected_usd = 0.0
+    returns_total_usd = 0.0
+    expenses_caja_usd = 0.0
+    
+    cash_usd_in = 0.0
+    cash_usd_out = 0.0
+    cash_ves_in = 0.0
+    cash_ves_out = 0.0
+    
+    pos_breakdown = {"Banesco": 0.0, "Bancaribe": 0.0, "BDV": 0.0, "BNC": 0.0, "Otros": 0.0}
+    pos_total_usd = 0.0
+    
+    bank_transfers_usd = 0.0
+    cashea_usd = 0.0
+    retentions_iva_usd = 0.0
+    retentions_islr_usd = 0.0
+    
+    for t in txs:
+        acc = t.account
+        acc_name = acc.name.upper() if acc else ""
+        
+        # Ventas y Notas
+        if t.movement_type == "INGRESO":
+            if t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
+                sales_fiscal_iva_usd += t.amount_usd
+            elif t.doc_type == "NOTA_ENTREGA":
+                if t.is_credit:
+                    sales_notes_credit_usd += t.amount_usd
+                else:
+                    sales_notes_collected_usd += t.amount_usd
+            elif t.subtype == "COBRO_CXC":
+                sales_notes_collected_usd += t.amount_usd
+            
+            # Retenciones
+            if t.tax_retention_amount > 0:
+                retentions_iva_usd += t.tax_retention_amount
+                
+            # Cobranza por canal
+            if "EFECTIVO USD" in acc_name:
+                cash_usd_in += t.amount_original
+            elif "EFECTIVO VES" in acc_name:
+                cash_ves_in += t.amount_original
+            elif "CASHEA" in acc_name:
+                cashea_usd += t.amount_usd
+            elif "BANCO" in acc_name or "PUNTO" in acc_name or "POS" in acc_name:
+                if t.pos_terminal:
+                    p_term = t.pos_terminal
+                    if "BANESCO" in p_term.upper():
+                        pos_breakdown["Banesco"] += t.amount_usd
+                    elif "BANCARIBE" in p_term.upper():
+                        pos_breakdown["Bancaribe"] += t.amount_usd
+                    elif "VENEZUELA" in p_term.upper() or "BDV" in p_term.upper():
+                        pos_breakdown["BDV"] += t.amount_usd
+                    elif "BNC" in p_term.upper():
+                        pos_breakdown["BNC"] += t.amount_usd
+                    else:
+                        pos_breakdown["Otros"] += t.amount_usd
+                    pos_total_usd += t.amount_usd
+                else:
+                    bank_transfers_usd += t.amount_usd
+            else:
+                bank_transfers_usd += t.amount_usd
+                
+        elif t.movement_type == "EGRESO":
+            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+                returns_total_usd += t.amount_usd
+            elif t.subtype == "GASTO_OPERATIVO":
+                expenses_caja_usd += t.amount_usd
+                
+            if "EFECTIVO USD" in acc_name:
+                cash_usd_out += t.amount_original
+            elif "EFECTIVO VES" in acc_name:
+                cash_ves_out += t.amount_original
+                
+    net_sales_usd = round(sales_fiscal_iva_usd + sales_notes_credit_usd - returns_total_usd, 2)
+    total_collected_real_usd = round(cash_usd_in + (cash_ves_in / (36.80)) + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
+    
+    return {
+        "date": target_date.isoformat(),
+        "is_closed": bool(existing_close),
+        "existing_close": {
+            "id": existing_close.id,
+            "status": existing_close.status,
+            "cajero_name": existing_close.cajero_name,
+            "verified_by": existing_close.verified_by,
+            "created_at": existing_close.created_at.strftime("%Y-%m-%d %H:%M:%S") if existing_close else "",
+            "profit_sales_total_usd": existing_close.profit_sales_total_usd,
+            "net_sales_usd": existing_close.net_sales_usd,
+            "difference_usd": existing_close.difference_usd,
+            "notes": existing_close.notes
+        } if existing_close else None,
+        "sales_summary": {
+            "fiscal_iva_usd": round(sales_fiscal_iva_usd, 2),
+            "notes_credit_usd": round(sales_notes_credit_usd, 2),
+            "notes_collected_usd": round(sales_notes_collected_usd, 2),
+            "returns_total_usd": round(returns_total_usd, 2),
+            "net_sales_usd": net_sales_usd
+        },
+        "collections_summary": {
+            "cash_usd_in": round(cash_usd_in, 2),
+            "cash_usd_out": round(cash_usd_out, 2),
+            "cash_usd_net": round(cash_usd_in - cash_usd_out, 2),
+            "cash_ves_in": round(cash_ves_in, 2),
+            "cash_ves_out": round(cash_ves_out, 2),
+            "cash_ves_net": round(cash_ves_in - cash_ves_out, 2),
+            "pos_total_usd": round(pos_total_usd, 2),
+            "pos_breakdown": pos_breakdown,
+            "bank_transfers_usd": round(bank_transfers_usd, 2),
+            "cashea_usd": round(cashea_usd, 2),
+            "retentions_iva_usd": round(retentions_iva_usd, 2),
+            "retentions_islr_usd": round(retentions_islr_usd, 2),
+            "expenses_caja_usd": round(expenses_caja_usd, 2),
+            "total_collected_real_usd": total_collected_real_usd
+        },
+        "transactions_count": len(txs)
+    }
+
+
+@app.post("/api/cash-close")
+def save_daily_cash_close(
+    close_in: DailyCashCloseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    existing = db.query(DailyCashClose).filter(DailyCashClose.date == close_in.date).first()
+    if existing:
+        # Update existing
+        for k, v in close_in.dict().items():
+            setattr(existing, k, v)
+        existing.cajero_name = current_user.full_name
+        db.commit()
+        db.refresh(existing)
+        return {"success": True, "message": f"Cuadre de caja del {close_in.date} actualizado.", "id": existing.id}
+    else:
+        new_close = DailyCashClose(
+            **close_in.dict()
+        )
+        new_close.cajero_name = current_user.full_name
+        db.add(new_close)
+        db.commit()
+        db.refresh(new_close)
+        return {"success": True, "message": f"Cuadre de caja del {close_in.date} cerrado y registrado con éxito.", "id": new_close.id}
+
+
+@app.get("/api/cash-close/history")
+def list_cash_close_history(
+    limit: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    closes = db.query(DailyCashClose).order_by(DailyCashClose.date.desc()).limit(limit).all()
+    res = []
+    for c in closes:
+        res.append({
+            "id": c.id,
+            "date": c.date.isoformat(),
+            "cajero_name": c.cajero_name,
+            "status": c.status,
+            "profit_sales_total_usd": round(c.profit_sales_total_usd, 2),
+            "net_sales_usd": round(c.net_sales_usd, 2),
+            "cash_usd_physical": round(c.cash_usd_physical, 2),
+            "cash_ves_physical": round(c.cash_ves_physical, 2),
+            "total_collected_real_usd": round(c.total_collected_real_usd, 2),
+            "difference_usd": round(c.difference_usd, 2),
+            "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else ""
+        })
+    return res
+
+
+# -------------------------------------------------------------
+# Ventas Acumuladas & Panel SENIAT
+# -------------------------------------------------------------
+@app.get("/api/sales/accumulated")
+def get_accumulated_sales(
+    month: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if month:
+        try:
+            year, m = map(int, month.split("-"))
+            start_date = datetime.date(year, m, 1)
+            if m == 12:
+                end_date = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
+            else:
+                end_date = datetime.date(year, m + 1, 1) - datetime.timedelta(days=1)
+        except Exception:
+            start_date = datetime.date.today().replace(day=1)
+            end_date = datetime.date.today()
+    else:
+        start_date = datetime.date.today().replace(day=1)
+        end_date = datetime.date.today()
+
+    txs = db.query(Transaction).filter(
+        Transaction.date >= start_date,
+        Transaction.date <= end_date,
+        Transaction.status != "ANULADO"
+    ).all()
+
+    total_fiscal_iva_usd = 0.0
+    total_notes_credit_usd = 0.0
+    total_notes_collected_usd = 0.0
+    total_retentions_iva_usd = 0.0
+    total_retentions_islr_usd = 0.0
+    total_returns_usd = 0.0
+
+    for t in txs:
+        if t.movement_type == "INGRESO":
+            if t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
+                total_fiscal_iva_usd += t.amount_usd
+            elif t.doc_type == "NOTA_ENTREGA":
+                if t.is_credit:
+                    total_notes_credit_usd += t.amount_usd
+                else:
+                    total_notes_collected_usd += t.amount_usd
+            elif t.subtype == "COBRO_CXC":
+                total_notes_collected_usd += t.amount_usd
+            
+            if t.tax_retention_amount > 0:
+                total_retentions_iva_usd += t.tax_retention_amount
+        elif t.movement_type == "EGRESO":
+            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+                total_returns_usd += t.amount_usd
+
+    return {
+        "month": month or start_date.strftime("%Y-%m"),
+        "period": f"{start_date.isoformat()} al {end_date.isoformat()}",
+        "total_fiscal_iva_usd": round(total_fiscal_iva_usd, 2),
+        "total_notes_credit_usd": round(total_notes_credit_usd, 2),
+        "total_notes_collected_usd": round(total_notes_collected_usd, 2),
+        "total_retentions_iva_usd": round(total_retentions_iva_usd, 2),
+        "total_returns_usd": round(total_returns_usd, 2),
+        "net_sales_usd": round(total_fiscal_iva_usd + total_notes_credit_usd - total_returns_usd, 2),
+        "total_collected_real_usd": round(total_fiscal_iva_usd + total_notes_collected_usd - total_returns_usd, 2)
     }
 
 if __name__ == "__main__":
