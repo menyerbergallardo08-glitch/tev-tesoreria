@@ -108,7 +108,7 @@ def resolve_effective_bcv_rate(db: Session) -> dict:
     setting_friday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes').first()
     setting_next_monday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_proximo_lunes').first()
 
-    current_val = float(setting_active.value) if (setting_active and setting_active.value) else 36.80
+    current_val = float(setting_active.value) if (setting_active and setting_active.value) else 827.74
     
     # 1. Regla de Viernes por la tarde (después de 4:30 PM) y fin de semana (Sábado y Domingo antes de 00:00 Lunes)
     if weekday == 4 and current_minutes >= cutoff_430:
@@ -1140,7 +1140,7 @@ class BcvRateUpdate(BaseModel):
 @app.get("/api/settings/bcv-rate")
 def get_bcv_rate(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    rate_val = float(setting.value) if (setting and setting.value) else 36.80
+    rate_val = float(setting.value) if (setting and setting.value) else 827.74
     return {
         "rate": rate_val,
         "updated_at": setting.updated_at.isoformat() if setting and setting.updated_at else None,
@@ -1319,7 +1319,7 @@ def create_transaction(
 
     # 3. Tasa BCV Oficial Obligatoria (salvo cambio de divisas que es negociado)
     bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 827.74
 
     if tx_in.currency == "VES":
         if tx_in.subtype != "CAMBIO_DIVISAS":
@@ -1542,7 +1542,7 @@ def get_daily_closing(
 
     # Obtener tasa BCV activa
     setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(setting.value) if setting and setting.value else 36.80
+    active_bcv = float(setting.value) if setting and setting.value else 827.74
 
     tx_items = []
     for t in txs:
@@ -1889,7 +1889,7 @@ def get_cash_close_summary(
                 cash_ves_out += t.amount_original
                 
     net_sales_usd = round(sales_fiscal_iva_usd + sales_notes_credit_usd - returns_total_usd, 2)
-    total_collected_real_usd = round(cash_usd_in + (cash_ves_in / (36.80)) + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
+    total_collected_real_usd = round(cash_usd_in + (cash_ves_in / (827.74)) + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
     
     return {
         "date": target_date.isoformat(),
@@ -2064,7 +2064,7 @@ def create_live_sale(
         raise HTTPException(status_code=400, detail="El monto debe ser mayor a 0.00")
         
     bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 827.74
     
     if sale.currency == "VES":
         rate = active_bcv
@@ -2288,7 +2288,7 @@ def get_live_monitor(
     ).order_by(Transaction.id.desc()).all()
 
     bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 827.74
 
     fac_contado_usd = 0.0
     fac_credito_usd = 0.0
@@ -2500,7 +2500,7 @@ def create_abono(
         raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
 
     bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 827.74
 
     if abono_in.currency == "VES":
         rate = active_bcv
