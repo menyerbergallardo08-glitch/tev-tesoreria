@@ -63,26 +63,56 @@ def record_audit(
         print(f"[WARN] Failed to write audit log: {e}")
 
 def fetch_bcv_official_rate() -> Optional[float]:
-    """Consulta fuentes oficiales/estandarizadas para obtener la tasa BCV en tiempo real"""
-    urls = [
-        "https://ve.dolarapi.com/v1/dolares/oficial",
-        "https://pydolarve.org/api/v1/dollar?page=bcv"
-    ]
-    for url in urls:
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.status == 200:
-                    data = json.loads(response.read().decode("utf-8"))
-                    if "promedio" in data and isinstance(data["promedio"], (int, float)):
-                        return float(data["promedio"])
-                    if "monitors" in data and "bcv" in data["monitors"] and "price" in data["monitors"]["bcv"]:
-                        return float(data["monitors"]["bcv"]["price"])
-                    if "price" in data and isinstance(data["price"], (int, float)):
-                        return float(data["price"])
-        except Exception as e:
-            print(f"[DEBUG] Fetch rate fallback error on {url}: {e}")
-            continue
+    """
+    CONSULTA DIRECTA Y PRIORITARIA AL PORTAL DEL BANCO CENTRAL DE VENEZUELA (BCV)
+    Con fallbacks automáticos en DolarAPI y PyDolar.
+    """
+    import ssl
+    import re
+    
+    # 1. FUENTE PRIMARIA: Web Oficial del BCV (bcv.org.ve)
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
+        req = urllib.request.Request(
+            "https://www.bcv.org.ve/",
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=8, context=ctx) as response:
+            if response.status == 200:
+                html = response.read().decode("utf-8", errors="ignore")
+                idx = html.find('id="dolar"')
+                if idx != -1:
+                    chunk = html[idx:idx+800]
+                    # Buscar número en formato venezolano (ej: 832,48830000 o 832.4883)
+                    m = re.search(r'<strong[^>]*>\s*([0-9.,]+)\s*<\/strong>', chunk)
+                    if m:
+                        raw_str = m.group(1).strip()
+                        # Normalizar formato venezolano (832,4883 -> 832.4883)
+                        norm_str = raw_str.replace('.', '').replace(',', '.') if ',' in raw_str else raw_str
+                        rate_val = float(norm_str)
+                        if rate_val > 10.0:
+                            print(f"[BCV LIVE AUTO-SCRAPER] Tasa oficial directa de bcv.org.ve: Bs. {rate_val:.4f}")
+                            return round(rate_val, 4)
+    except Exception as e:
+        print(f"[WARN] Error al consultar directamente www.bcv.org.ve: {e}")
+
+    # 2. FUENTE SECUNDARIA: DolarAPI
+    try:
+        req = urllib.request.Request("https://ve.dolarapi.com/v1/dolares/oficial", headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                if "promedio" in data and isinstance(data["promedio"], (int, float)):
+                    return round(float(data["promedio"]), 4)
+    except Exception as e:
+        print(f"[WARN] Error DolarAPI fallback: {e}")
+
     return None
 
 def resolve_effective_bcv_rate(db: Session) -> dict:
@@ -2796,3 +2826,24 @@ def sync_bcv_rate(db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+# -------------------------------------------------------------
+# BACKGROUND DAEMON: AUTO-SYNC BCV RATE CONTINUOUSLY
+# -------------------------------------------------------------
+import threading
+import time
+
+def bcv_background_worker():
+    """Hilo en segundo plano que consulta el portal del BCV cada 3 minutos"""
+    time.sleep(10) # Esperar arranque del servidor
+    while True:
+        try:
+            db_session = SessionLocal()
+            resolve_effective_bcv_rate(db_session)
+            db_session.close()
+        except Exception as err:
+            print(f"[BCV DAEMON ERROR]: {err}")
+        time.sleep(180) # Consulta cada 3 minutos de forma 100% automática
+
+bcv_thread = threading.Thread(target=bcv_background_worker, daemon=True)
+bcv_thread.start()
