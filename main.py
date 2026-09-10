@@ -312,6 +312,8 @@ class LiveSaleCreate(BaseModel):
     tax_retention_proof: Optional[str] = ""
     reference_number: Optional[str] = ""
     description: Optional[str] = ""
+    initial_downpayment_amount: Optional[float] = 0.0
+    initial_downpayment_account_id: Optional[int] = None
 
 class AbonoCreate(BaseModel):
     date: datetime.date
@@ -2126,7 +2128,7 @@ def create_live_sale(
         db.refresh(tx)
         return {"success": True, "message": f"Venta a crédito {sale.doc_type} {sale.doc_number} registrada en CxC.", "id": tx.id}
 
-    # If it's a Cash Sale (Venta de Contado)
+    # If it's a Cash Sale (Venta de Contado o Venta con Cashea e Inicial)
     if not sale.account_id:
         raise HTTPException(status_code=400, detail="Para ventas de contado debe seleccionar la caja, banco o punto de cobro.")
 
@@ -2138,6 +2140,69 @@ def create_live_sale(
     net_usd = calc_usd
     if sale.tax_retention_amount and sale.tax_retention_amount > 0:
         net_usd = max(0.0, calc_usd - sale.tax_retention_amount)
+
+    # SOPORTE CASHEA CON INICIAL COBRADA EN TIENDA
+    initial_amt = sale.initial_downpayment_amount or 0.0
+    if initial_amt > 0 and initial_amt < calc_usd:
+        initial_acc_id = sale.initial_downpayment_account_id or 1
+        financed_amt = round(calc_usd - initial_amt, 2)
+        
+        # 1. Movimiento de la Inicial en Tienda (Efectivo o POS)
+        tx_initial = Transaction(
+            date=sale.date,
+            movement_type="INGRESO",
+            subtype="VENTA_CALIENTE",
+            account_id=initial_acc_id,
+            amount_original=initial_amt if sale.currency == "USD" else round(initial_amt * rate, 2),
+            currency=sale.currency,
+            exchange_rate=rate,
+            amount_usd=initial_amt,
+            doc_type=sale.doc_type,
+            doc_number=f"{sale.doc_number.strip()} (Inicial Tienda)",
+            client_name=sale.client_name.strip(),
+            client_rif=sale.client_rif.strip() if sale.client_rif else "",
+            beneficiary=sale.client_name.strip(),
+            is_credit=False,
+            credit_status="PAGADO",
+            pos_terminal=sale.pos_terminal.strip() if sale.pos_terminal else "",
+            pos_lot_number=sale.pos_lot_number.strip() if sale.pos_lot_number else "",
+            reference_number=sale.reference_number.strip() if sale.reference_number else "",
+            description=f"Inicial cobrada en tienda ({sale.doc_type} N° {sale.doc_number})",
+            status="REGISTRADO",
+            created_by_id=current_user.id
+        )
+        db.add(tx_initial)
+
+        # 2. Movimiento del Saldo Financiado por Cashea
+        tx_financed = Transaction(
+            date=sale.date,
+            movement_type="INGRESO",
+            subtype="VENTA_CALIENTE",
+            account_id=acc.id,
+            amount_original=financed_amt if sale.currency == "USD" else round(financed_amt * rate, 2),
+            currency=sale.currency,
+            exchange_rate=rate,
+            amount_usd=financed_amt,
+            doc_type=sale.doc_type,
+            doc_number=f"{sale.doc_number.strip()} (Cashea Cuotas)",
+            client_name=sale.client_name.strip(),
+            client_rif=sale.client_rif.strip() if sale.client_rif else "",
+            beneficiary=sale.client_name.strip(),
+            is_credit=False,
+            credit_status="PAGADO",
+            reference_number=sale.reference_number.strip() if sale.reference_number else "",
+            description=f"Saldo financiado por Cashea ({sale.doc_type} N° {sale.doc_number})",
+            status="REGISTRADO",
+            created_by_id=current_user.id
+        )
+        db.add(tx_financed)
+        db.commit()
+        db.refresh(tx_initial)
+        return {
+            "success": True,
+            "message": f"Venta Cashea registrada con éxito: Inicial en tienda (${initial_amt:.2f}) + Saldo Cashea (${financed_amt:.2f}) = Total ${calc_usd:.2f}",
+            "id": tx_initial.id
+        }
 
     tx = Transaction(
         date=sale.date,
