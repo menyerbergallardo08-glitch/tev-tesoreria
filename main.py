@@ -173,12 +173,14 @@ def resolve_effective_bcv_rate(db: Session) -> dict:
         }
 
     # 2. Regla de Lunes a Jueves (o Lunes desde las 00:01 AM)
-    # Si es Lunes después de medianoche y teníamos tasa guardada para el lunes, la aplicamos
-    effective_rate = fresh_rate or current_val
+    # Si tenemos tasa en DB y es mayor o más reciente que el fallback, respetamos la tasa vigente
+    effective_rate = current_val
+    if fresh_rate and fresh_rate > 0:
+        # Si el scraper del BCV trajo una tasa válida
+        if fresh_rate >= current_val or (current_val == 827.74 and fresh_rate > 0):
+            effective_rate = fresh_rate
     if weekday == 0 and setting_next_monday and setting_next_monday.value:
         effective_rate = float(setting_next_monday.value)
-    elif fresh_rate and fresh_rate > 0:
-        effective_rate = fresh_rate
 
     # Actualizar tasa activa en el sistema
     if not setting_active:
