@@ -243,47 +243,47 @@
           </div>
         </div>
 
-        <!-- PESTAÑAS DE NAVEGACIÓN CON SCROLL HORIZONTAL TÁCTIL SUAVE -->
-        <nav class="flex space-x-1 sm:space-x-2 border-t border-gray-100 overflow-x-auto py-1.5 sm:py-2 scrollbar-none no-scrollbar">
+        <!-- PESTAÑAS DE NAVEGACIÓN TOTALMENTE RESPONSIVAS (CALZAN PERFECTO EN PANTALLA) -->
+        <nav class="flex flex-wrap items-center gap-1 sm:gap-2 border-t border-gray-100 py-2 w-full">
           <!-- 1. PUNTO DE VENTA Y CAJA (VENTAS Y COBROS) -->
           <button @click="activeTab = 'pos_caliente'"
                   :class="activeTab === 'pos_caliente' ? 'bg-tev-green text-white shadow ring-2 ring-emerald-300' : 'text-tev-darkgreen bg-emerald-50 hover:bg-emerald-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>🛒 Punto de Venta y Caja</span>
           </button>
 
           <!-- 2. MONITOR DE CAJA EN VIVO (2:00 PM / TIEMPO REAL) -->
           <button @click="activeTab = 'live_monitor'; loadLiveMonitor()"
                   :class="activeTab === 'live_monitor' ? 'bg-blue-700 text-white shadow ring-2 ring-blue-300' : 'text-blue-800 bg-blue-50 hover:bg-blue-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>🕒 Monitor en Vivo</span>
           </button>
 
           <!-- 3. CUENTAS POR COBRAR Y ABONOS -->
           <button @click="activeTab = 'cxc'; loadReceivables()"
                   :class="activeTab === 'cxc' ? 'bg-purple-700 text-white shadow' : 'text-purple-800 bg-purple-50 hover:bg-purple-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>📑 Cuentas x Cobrar & Abonos</span>
           </button>
 
           <!-- 4. ARQUEO Y CUADRE DIARIO INTEGRAL -->
           <button @click="activeTab = 'cuadre'; loadCashCloseSummary(); loadAccounts()"
                   :class="activeTab === 'cuadre' ? 'bg-slate-800 text-white shadow ring-2 ring-slate-400' : 'text-gray-700 bg-slate-50 hover:bg-slate-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>🔒 Arqueo & Cuadre Diario</span>
           </button>
 
           <!-- 5. LIBRO DE MOVIMIENTOS -->
           <button @click="activeTab = 'movimientos'"
                   :class="activeTab === 'movimientos' ? 'bg-slate-800 text-white shadow' : 'text-gray-700 hover:bg-gray-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>💸 Pagos, Gastos & Egresos</span>
           </button>
 
           <!-- NUEVA PESTAÑA: VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
           <button @click="activeTab = 'ventas_acum'; loadSalesAccumulated()"
                   :class="activeTab === 'ventas_acum' ? 'bg-indigo-700 text-white shadow' : 'text-indigo-800 bg-indigo-50 hover:bg-indigo-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                  class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>📈 Ventas & Retenciones</span>
           </button>
 
@@ -291,7 +291,7 @@
           <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
             <button @click="activeTab = 'flujo'; loadCashFlowAll()"
                     :class="activeTab === 'flujo' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                    class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                    class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
               <span>🌊 Flujo Integral</span>
             </button>
           </template>
@@ -299,7 +299,7 @@
           <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
             <button @click="activeTab = 'presupuesto'"
                     :class="activeTab === 'presupuesto' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                    class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                    class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
               <span>📊 Presupuesto</span>
             </button>
           </template>
@@ -309,7 +309,7 @@
           <template x-if="currentUser?.role === 'directivo'">
             <button @click="activeTab = 'usuarios'; loadUsers()"
                     :class="activeTab === 'usuarios' ? 'bg-purple-700 text-white shadow' : 'text-purple-700 hover:bg-purple-50'"
-                    class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+                    class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
               <span>👥 Usuarios</span>
             </button>
           </template>
@@ -1582,47 +1582,153 @@
       <!-- TAB VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
       <!-- ======================================================== -->
       <div x-show="activeTab === 'ventas_acum'" class="space-y-6">
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        
+        <!-- Header con Selector de Modo: Por Día vs Por Mes -->
+        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 class="text-xl sm:text-2xl font-black text-gray-900">📈 Ventas Acumuladas & Retenciones SENIAT</h2>
-            <p class="text-xs text-gray-500">Control comercial en tiempo real y balance para declaración fiscal</p>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <span>📈 Ventas Acumuladas & Reporte SENIAT</span>
+              <span class="text-xs px-2.5 py-0.5 bg-indigo-100 text-indigo-900 rounded-full font-bold" x-text="salesAccumulatedData?.period_label || 'Ventas'"></span>
+            </h2>
+            <p class="text-xs text-gray-500">Auditoría de facturas fiscales, notas de entrega (contado/crédito) y retenciones</p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white cursor-pointer shadow-sm">
-              <option value="2026-09">Septiembre 2026 (Actual)</option>
-              <option value="2026-08">Agosto 2026</option>
-              <option value="2026-10">Octubre 2026</option>
-            </select>
+          <div class="flex flex-wrap items-center gap-2">
+            
+            <!-- Selector de Modo (Día vs Mes) -->
+            <div class="flex items-center bg-slate-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
+              <button type="button" @click="salesFilterMode = 'dia'; loadSalesAccumulated()"
+                      :class="salesFilterMode === 'dia' ? 'bg-indigo-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                      class="px-3 py-1.5 rounded-xl text-xs transition cursor-pointer">
+                📅 Por Día
+              </button>
+              <button type="button" @click="salesFilterMode = 'mes'; loadSalesAccumulated()"
+                      :class="salesFilterMode === 'mes' ? 'bg-indigo-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                      class="px-3 py-1.5 rounded-xl text-xs transition cursor-pointer">
+                📆 Por Mes
+              </button>
+            </div>
+
+            <!-- Input Fecha si es Por Día -->
+            <div x-show="salesFilterMode === 'dia'" class="flex items-center gap-1 bg-white border border-gray-300 rounded-xl px-2.5 py-1.5 text-xs font-bold shadow-sm">
+              <span>Día:</span>
+              <input type="date" x-model="salesFilterDate" @change="loadSalesAccumulated()" class="border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none">
+            </div>
+
+            <!-- Select Mes si es Por Mes -->
+            <div x-show="salesFilterMode === 'mes'">
+              <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white cursor-pointer shadow-sm">
+                <option value="2026-09">Septiembre 2026 (Actual)</option>
+                <option value="2026-08">Agosto 2026</option>
+                <option value="2026-10">Octubre 2026</option>
+              </select>
+            </div>
+
+            <button type="button" @click="loadSalesAccumulated()" class="p-2 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Refrescar">
+              🔄
+            </button>
           </div>
         </div>
 
-        <!-- 4 Tarjetas de Métricas Ejecutivas -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-200">
-            <p class="text-xs font-bold text-emerald-800 uppercase">Facturación Fiscal (con IVA)</p>
-            <p class="text-2xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_fiscal_iva_usd || 0)"></p>
-            <p class="text-[11px] text-emerald-700 mt-1">Total emitido en Libro de Ventas</p>
+        <!-- 5 Tarjetas Claras y Precisas de Métricas Comerciales -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          
+          <!-- 1. Facturación Fiscal -->
+          <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-emerald-900 uppercase">Facturación Fiscal (IVA)</p>
+              <p class="text-xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_fiscal_iva_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-emerald-700 font-semibold mt-2">Libro de Ventas SENIAT</p>
           </div>
 
-          <div class="bg-blue-50 p-5 rounded-2xl border border-blue-200">
-            <p class="text-xs font-bold text-blue-800 uppercase">Notas de Entrega Activas (CxC)</p>
-            <p class="text-2xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_notes_credit_usd || 0)"></p>
-            <p class="text-[11px] text-blue-700 mt-1">Créditos pendientes por cobrar</p>
+          <!-- 2. Notas de Entrega de Contado -->
+          <div class="bg-blue-50 p-4 rounded-2xl border border-blue-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-blue-900 uppercase">Notas Contado (Caja)</p>
+              <p class="text-xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_notes_contado_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-blue-700 font-semibold mt-2">Cobradas al momento</p>
           </div>
 
-          <div class="bg-purple-50 p-5 rounded-2xl border border-purple-200">
-            <p class="text-xs font-bold text-purple-800 uppercase">Retenciones IVA SENIAT Recibidas</p>
-            <p class="text-2xl font-black text-purple-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_retentions_iva_usd || 0)"></p>
-            <p class="text-[11px] text-purple-700 mt-1">Crédito fiscal a descontar</p>
+          <!-- 3. Notas de Entrega a Crédito -->
+          <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-indigo-900 uppercase">Notas Crédito (CxC)</p>
+              <p class="text-xl font-black text-indigo-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_notes_credit_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-indigo-700 font-semibold mt-2">Pendientes por cobrar</p>
           </div>
 
-          <div class="bg-slate-900 text-white p-5 rounded-2xl">
-            <p class="text-xs font-bold text-gray-300 uppercase">Venta Neta Acumulada</p>
-            <p class="text-2xl font-black text-emerald-400 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.net_sales_usd || 0)"></p>
-            <p class="text-[11px] text-gray-400 mt-1">Ventas totales menos devoluciones</p>
+          <!-- 4. Retenciones SENIAT -->
+          <div class="bg-purple-50 p-4 rounded-2xl border border-purple-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-purple-900 uppercase">Retenciones IVA SENIAT</p>
+              <p class="text-xl font-black text-purple-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_retentions_iva_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-purple-700 font-semibold mt-2">Comprobantes recibidos</p>
+          </div>
+
+          <!-- 5. Venta Neta Total -->
+          <div class="bg-slate-900 text-white p-4 rounded-2xl flex flex-col justify-between shadow-md">
+            <div>
+              <p class="text-[11px] font-black text-emerald-300 uppercase">Venta Neta Total</p>
+              <p class="text-xl font-black text-emerald-400 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.net_sales_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-gray-300 font-semibold mt-2">Facturas + Notas - Devoluciones</p>
           </div>
         </div>
+
+        <!-- Tabla Detallada de Documentos Emitidos en el Periodo -->
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200 space-y-3">
+          <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+            <h3 class="text-sm font-black text-gray-900">📑 Detalle de Ventas y Documentos del Periodo</h3>
+            <span class="text-xs text-gray-500 font-bold" x-text="(salesAccumulatedData?.records?.length || 0) + ' documentos'"></span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-2.5">Fecha</th>
+                  <th class="p-2.5">Documento</th>
+                  <th class="p-2.5">N° Control / Factura</th>
+                  <th class="p-2.5">Cliente</th>
+                  <th class="p-2.5 text-center">Condición</th>
+                  <th class="p-2.5 text-right">Monto Original</th>
+                  <th class="p-2.5 text-right">Monto ($ USD)</th>
+                  <th class="p-2.5 text-right">Retención ($)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="rec in salesAccumulatedData?.records" :key="rec.id">
+                  <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-2.5 font-bold" x-text="rec.date"></td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black"
+                            :class="rec.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-100 text-emerald-800' : (rec.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800')"
+                            x-text="rec.doc_type === 'FACTURA_FISCAL' ? 'Factura Fiscal' : (rec.doc_type === 'NOTA_ENTREGA' ? 'Nota Entrega' : rec.doc_type)"></span>
+                    </td>
+                    <td class="p-2.5 font-mono font-bold" x-text="rec.doc_number"></td>
+                    <td class="p-2.5 font-semibold text-gray-800" x-text="rec.client_name"></td>
+                    <td class="p-2.5 text-center">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="rec.is_credit ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'"
+                            x-text="rec.is_credit ? 'Crédito (CxC)' : 'Contado'"></span>
+                    </td>
+                    <td class="p-2.5 text-right font-semibold" x-text="(rec.currency === 'USD' ? '$' : 'Bs. ') + formatNumber(rec.amount_original)"></td>
+                    <td class="p-2.5 text-right font-black text-gray-900" x-text="'$' + formatNumber(rec.amount_usd)"></td>
+                    <td class="p-2.5 text-right font-bold text-purple-900" x-text="rec.tax_retention_amount > 0 ? '$' + formatNumber(rec.tax_retention_amount) : '-'"></td>
+                  </tr>
+                </template>
+                <tr x-show="!salesAccumulatedData?.records || salesAccumulatedData?.records.length === 0">
+                  <td colspan="8" class="p-6 text-center text-gray-400">No se encontraron ventas para este periodo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- ======================================================== -->
@@ -3277,6 +3383,8 @@
         transactions: [],
         usersList: [],
         filterMonth: '2026-09',
+        salesFilterMode: 'mes',
+        salesFilterDate: new Date().toISOString().split('T')[0],
         filterType: '',
         filterCategoryStatus: 'all',
 
@@ -4129,7 +4237,13 @@
         async loadSalesAccumulated() {
           try {
             const token = this.getToken();
-            const res = await fetch(`/api/sales/accumulated?month=${this.filterMonth}`, {
+            let url = `/api/sales/accumulated?filter_mode=${this.salesFilterMode}`;
+            if (this.salesFilterMode === 'dia') {
+              url += `&date=${this.salesFilterDate}`;
+            } else {
+              url += `&month=${this.filterMonth}`;
+            }
+            const res = await fetch(url, {
               headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
