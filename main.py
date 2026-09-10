@@ -1152,7 +1152,7 @@ def get_bcv_rate(db: Session = Depends(get_db), current_user: User = Depends(get
 def update_bcv_rate(
     payload: BcvRateUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["administradora", "directivo"]))
+    current_user: User = Depends(get_current_user)
 ):
     if payload.rate <= 0:
         raise HTTPException(status_code=400, detail="La tasa debe ser mayor a 0.00")
@@ -1164,6 +1164,16 @@ def update_bcv_rate(
         setting.value = str(payload.rate)
         setting.updated_by = current_user.username
         setting.updated_at = datetime.datetime.utcnow()
+    
+    tasa_setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
+    if not tasa_setting:
+        tasa_setting = SystemSetting(key='tasa_bcv', value=str(payload.rate), updated_by=current_user.username)
+        db.add(tasa_setting)
+    else:
+        tasa_setting.value = str(payload.rate)
+        tasa_setting.updated_by = current_user.username
+        tasa_setting.updated_at = datetime.datetime.utcnow()
+
     db.commit()
     return {"message": "Tasa BCV actualizada exitosamente", "rate": payload.rate}
 
