@@ -22,6 +22,19 @@ def run_migrations():
             ('transactions', 'cash_register_id', 'INTEGER'),
             ('daily_cash_closes', 'branch_id', 'INTEGER'),
             ('daily_cash_closes', 'cash_register_id', 'INTEGER'),
+            ('transactions', 'doc_type', 'VARCHAR(30)'),
+            ('transactions', 'doc_number', 'VARCHAR(100)'),
+            ('transactions', 'client_name', 'VARCHAR(150)'),
+            ('transactions', 'client_rif', 'VARCHAR(50)'),
+            ('transactions', 'is_credit', 'BOOLEAN'),
+            ('transactions', 'credit_status', 'VARCHAR(20)'),
+            ('transactions', 'credit_original_amount_usd', 'FLOAT'),
+            ('transactions', 'credit_balance_pending_usd', 'FLOAT'),
+            ('transactions', 'parent_transaction_id', 'INTEGER'),
+            ('transactions', 'pos_terminal', 'VARCHAR(50)'),
+            ('transactions', 'pos_lot_number', 'VARCHAR(50)'),
+            ('transactions', 'tax_retention_amount', 'FLOAT'),
+            ('transactions', 'tax_retention_proof', 'VARCHAR(100)')
         ]
 
         for table, col, coltype in columns_to_add:
