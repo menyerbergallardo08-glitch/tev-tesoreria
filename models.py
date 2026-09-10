@@ -71,9 +71,9 @@ class Transaction(Base):
     # 'INGRESO', 'EGRESO', 'TRASPASO'
     movement_type = Column(String(20), nullable=False, index=True)
     
-    # Subtipos
-    # INGRESO: 'VENTA_DIARIA', 'COBRO_CXC', 'APORTE_CAPITAL', 'PRESTAMO_RECIBIDO', 'DEVOLUCION_PROVEEDOR', 'OTRO_INGRESO'
-    # EGRESO: 'GASTO_OPERATIVO', 'PAGO_PROVEEDOR', 'RETIRO_ACCIONISTA', 'PAGO_PRESTAMO', 'DEVOLUCION_VENTA', 'OTRO_EGRESO'
+    # Subtipos:
+    # INGRESO: 'VENTA_DIARIA', 'VENTA_CALIENTE', 'COBRO_CXC', 'ABONO_CXC', 'APORTE_CAPITAL', 'PRESTAMO_RECIBIDO', 'OTRO_INGRESO'
+    # EGRESO: 'GASTO_OPERATIVO', 'PAGO_PROVEEDOR', 'RETIRO_ACCIONISTA', 'PAGO_PRESTAMO', 'DEVOLUCION_VENTA', 'VALE_CAJA', 'OTRO_EGRESO'
     # TRASPASO: 'CAMBIO_DIVISAS', 'TRASPASO_CUENTAS'
     subtype = Column(String(50), nullable=False, index=True)
 
@@ -90,15 +90,22 @@ class Transaction(Base):
     beneficiary = Column(String(150), default='')
     description = Column(Text, default='')
 
-    # Dualidad Fiscal y Retenciones
-    doc_type = Column(String(30), default='FACTURA_FISCAL') # 'FACTURA_FISCAL', 'NOTA_ENTREGA', 'COBRO_RETENCION', 'DEVOLUCION'
+    # Dualidad Fiscal, Cuentas por Cobrar y Abonos
+    doc_type = Column(String(30), default='FACTURA_FISCAL') # 'FACTURA_FISCAL', 'NOTA_ENTREGA', 'ABONO_CXC', 'COBRO_RETENCION', 'DEVOLUCION'
     doc_number = Column(String(50), nullable=True, index=True)
+    client_name = Column(String(150), nullable=True)
+    client_rif = Column(String(30), nullable=True)
+    
     is_credit = Column(Boolean, default=False)
-    credit_status = Column(String(20), default='PAGADO') # 'PENDIENTE', 'PAGADO', 'ANULADO'
-    tax_retention_amount = Column(Float, default=0.0) # Retención IVA / ISLR
-    tax_retention_proof = Column(String(50), nullable=True) # N° comprobante retención
-    pos_terminal = Column(String(50), nullable=True) # 'Banesco', 'Bancaribe', 'BDV', 'BNC', 'N/A'
-    pos_lot_number = Column(String(30), nullable=True) # N° lote POS
+    credit_status = Column(String(20), default='PAGADO') # 'PENDIENTE', 'PARCIALMENTE_PAGADO', 'PAGADO', 'ANULADO'
+    credit_original_amount_usd = Column(Float, default=0.0)
+    credit_balance_pending_usd = Column(Float, default=0.0)
+    parent_transaction_id = Column(Integer, ForeignKey('transactions.id'), nullable=True)
+    
+    tax_retention_amount = Column(Float, default=0.0)
+    tax_retention_proof = Column(String(50), nullable=True)
+    pos_terminal = Column(String(50), nullable=True) # 'POS Banesco', 'POS Bancaribe', 'POS Banco de Venezuela', 'POS BNC'
+    pos_lot_number = Column(String(30), nullable=True)
     
     # 'REGISTRADO', 'VERIFICADO', 'ANULADO'
     status = Column(String(20), default='REGISTRADO', index=True)
