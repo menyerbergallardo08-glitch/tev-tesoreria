@@ -2272,7 +2272,7 @@ def create_live_sale(
     db.add(tx)
     db.commit()
     db.refresh(tx)
-    return {"success": True, "message": f"Venta {sale.doc_type} {sale.doc_number} cobrada y registrada en caliente.", "id": tx.id}
+    return {"success": True, "message": f"Venta {sale.doc_type} {sale.doc_number} cobrada y registrada exitosamente.", "id": tx.id}
 
 
 @app.get("/api/sales/live-monitor")
