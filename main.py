@@ -314,6 +314,7 @@ class LiveSaleCreate(BaseModel):
     description: Optional[str] = ""
     initial_downpayment_amount: Optional[float] = 0.0
     initial_downpayment_account_id: Optional[int] = None
+    original_sale_date: Optional[str] = None
 
 class AbonoCreate(BaseModel):
     date: datetime.date
@@ -2128,6 +2129,12 @@ def create_live_sale(
             raise HTTPException(status_code=400, detail="Debe indicar la caja o banco de donde se realizó el reembolso.")
         
         acc_id = sale.account_id or 1
+        dev_desc = sale.description.strip() if sale.description else ""
+        if sale.original_sale_date:
+            dev_desc = f"Devolución de venta original del {sale.original_sale_date} ({sale.doc_number}). {dev_desc}".strip()
+        elif not dev_desc:
+            dev_desc = f"Devolución / Reembolso de mercancía ({sale.doc_number})"
+
         tx = Transaction(
             date=sale.date,
             movement_type="EGRESO",
@@ -2143,7 +2150,7 @@ def create_live_sale(
             client_rif=sale.client_rif.strip() if sale.client_rif else "",
             beneficiary=sale.client_name.strip(),
             reference_number=sale.reference_number.strip() if sale.reference_number else "",
-            description=sale.description.strip() or f"Devolución de mercancía ({sale.doc_number})",
+            description=dev_desc,
             status="REGISTRADO",
             created_by_id=current_user.id
         )
