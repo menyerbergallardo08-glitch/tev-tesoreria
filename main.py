@@ -73,10 +73,8 @@ def fetch_bcv_official_rate() -> Optional[float]:
             with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode("utf-8"))
-                    # DolarAPI format: {"promedio": 36.85, ...}
                     if "promedio" in data and isinstance(data["promedio"], (int, float)):
                         return float(data["promedio"])
-                    # PyDolar format: {"monitors": {"bcv": {"price": 36.85}}}
                     if "monitors" in data and "bcv" in data["monitors"] and "price" in data["monitors"]["bcv"]:
                         return float(data["monitors"]["bcv"]["price"])
                     if "price" in data and isinstance(data["price"], (int, float)):
@@ -85,6 +83,95 @@ def fetch_bcv_official_rate() -> Optional[float]:
             print(f"[DEBUG] Fetch rate fallback error on {url}: {e}")
             continue
     return None
+
+def resolve_effective_bcv_rate(db: Session) -> dict:
+    """
+    POLÍTICA OFICIAL DE TASA BCV - TODO ELÉCTRICO VALENCIA:
+    - Lunes a Jueves a partir de las 4:30 PM:
+      Se activa de inmediato la nueva tasa publicada por el BCV para resguardar las ventas de la tarde.
+    - Viernes después de las 4:30 PM, Sábado y Domingo:
+      Se mantiene la tasa oficial del Viernes (cierre de semana).
+    - Domingo a las 12:00 de la noche (Lunes 00:01 AM):
+      Se activa automáticamente la nueva tasa del Lunes emitida por el BCV.
+    """
+    tz_ve = datetime.timezone(datetime.timedelta(hours=-4))
+    now_ve = datetime.datetime.now(tz_ve)
+    weekday = now_ve.weekday() # 0=Lun, 1=Mar, 2=Mie, 3=Jue, 4=Vie, 5=Sab, 6=Dom
+    current_minutes = now_ve.hour * 60 + now_ve.minute
+    cutoff_430 = 16 * 60 + 30 # 4:30 PM = 990 minutos
+
+    fresh_rate = fetch_bcv_official_rate()
+    
+    # Obtener tasa guardada actualmente y tasa congelada de viernes si aplica
+    setting_active = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
+    setting_friday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes').first()
+    setting_next_monday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_proximo_lunes').first()
+
+    current_val = float(setting_active.value) if (setting_active and setting_active.value) else 36.80
+    
+    # 1. Regla de Viernes por la tarde (después de 4:30 PM) y fin de semana (Sábado y Domingo antes de 00:00 Lunes)
+    if weekday == 4 and current_minutes >= cutoff_430:
+        # Es Viernes después de las 4:30 PM -> Guardar la nueva tasa para el Lunes, pero mantener vigente la del Viernes
+        if fresh_rate and fresh_rate > 0:
+            if not setting_friday:
+                db.add(SystemSetting(key='tasa_bcv_viernes', value=str(current_val)))
+            else:
+                setting_friday.value = str(current_val)
+            
+            if not setting_next_monday:
+                db.add(SystemSetting(key='tasa_bcv_proximo_lunes', value=str(fresh_rate)))
+            else:
+                setting_next_monday.value = str(fresh_rate)
+            db.commit()
+            
+        return {
+            "rate": current_val,
+            "policy_applied": "Viernes tarde / Fin de semana (Se mantiene tasa de cierre del Viernes hasta el Domingo 12:00 de la noche)",
+            "next_rate_monday": float(setting_next_monday.value) if setting_next_monday else fresh_rate,
+            "synced": True
+        }
+
+    elif weekday in (5, 6):
+        # Es Sábado o Domingo antes de medianoche
+        friday_val = float(setting_friday.value) if (setting_friday and setting_friday.value) else current_val
+        return {
+            "rate": friday_val,
+            "policy_applied": "Fin de Semana (Operando con tasa de Viernes)",
+            "next_rate_monday": float(setting_next_monday.value) if setting_next_monday else fresh_rate,
+            "synced": True
+        }
+
+    # 2. Regla de Lunes a Jueves (o Lunes desde las 00:01 AM)
+    # Si es Lunes después de medianoche y teníamos tasa guardada para el lunes, la aplicamos
+    effective_rate = fresh_rate or current_val
+    if weekday == 0 and setting_next_monday and setting_next_monday.value:
+        effective_rate = float(setting_next_monday.value)
+    elif fresh_rate and fresh_rate > 0:
+        effective_rate = fresh_rate
+
+    # Actualizar tasa activa en el sistema
+    if not setting_active:
+        setting_active = SystemSetting(key='tasa_bcv', value=str(effective_rate))
+        db.add(setting_active)
+    else:
+        setting_active.value = str(effective_rate)
+        setting_active.updated_at = datetime.datetime.utcnow()
+
+    setting2 = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    if setting2:
+        setting2.value = str(effective_rate)
+    
+    db.commit()
+
+    is_vespertina = (weekday in (0, 1, 2, 3) and current_minutes >= cutoff_430)
+    policy_msg = "Tasa Vespertina Activa (Lunes-Jueves después de 4:30 PM)" if is_vespertina else "Tasa Oficial Activa del Día"
+
+    return {
+        "rate": effective_rate,
+        "policy_applied": policy_msg,
+        "synced": True
+    }
+
 
 app = FastAPI(
     title="Todo Eléctrico Valencia - Sistema de Tesorería, Gastos y Flujo de Caja",
@@ -2458,39 +2545,19 @@ def sync_bcv_rate(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user)
 ):
-    rate = fetch_bcv_official_rate()
-    if not rate or rate <= 0:
-        # Fallback to existing setting or default
-        setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
-        current_val = float(setting.value) if setting else 36.80
-        return {
-            "rate": current_val,
-            "synced": False,
-            "message": "No se pudo conectar a la fuente en vivo. Se mantiene la tasa actual."
-        }
-    
-    # Update system setting
-    setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
-    if not setting:
-        setting = SystemSetting(key='tasa_bcv', value=str(rate))
-        db.add(setting)
-    else:
-        setting.value = str(rate)
-        setting.updated_at = datetime.datetime.utcnow()
-    
-    # Also update bcv_rate key if exists
-    setting2 = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    if setting2:
-        setting2.value = str(rate)
-    
-    record_audit(db, current_user, "SYNC_BCV_RATE", "SystemSetting", "tasa_bcv", {"new_rate": rate})
+    res = resolve_effective_bcv_rate(db)
+    record_audit(db, current_user, "SYNC_BCV_RATE", "SystemSetting", "tasa_bcv", {
+        "rate": res["rate"],
+        "policy": res.get("policy_applied", "")
+    })
     db.commit()
-    
     return {
-        "rate": rate,
-        "synced": True,
+        "rate": res["rate"],
+        "synced": res.get("synced", True),
+        "policy": res.get("policy_applied", ""),
+        "next_rate_monday": res.get("next_rate_monday"),
         "timestamp": datetime.datetime.utcnow().isoformat(),
-        "message": f"Tasa BCV sincronizada oficialmente a {rate:.4f} VES/USD"
+        "message": f"Tasa BCV activa: {res['rate']:.4f} VES/USD ({res.get('policy_applied', '')})"
     }
 
 if __name__ == "__main__":
