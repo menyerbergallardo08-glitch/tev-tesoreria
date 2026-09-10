@@ -145,6 +145,41 @@ class TransactionCreate(BaseModel):
     pos_lot_number: Optional[str] = ""
 
 
+
+# -------------------------------------------------------------
+# Schemas para Venta en Caliente y Abonos CxC
+# -------------------------------------------------------------
+class LiveSaleCreate(BaseModel):
+    date: datetime.date
+    doc_type: str  # 'FACTURA_FISCAL', 'NOTA_ENTREGA', 'DEVOLUCION'
+    doc_number: str
+    client_name: str
+    client_rif: Optional[str] = ""
+    is_credit: bool = False
+    amount_original: float
+    currency: str = "USD"  # 'USD', 'VES'
+    exchange_rate: Optional[float] = 1.0
+    account_id: Optional[int] = None  # None if credit
+    pos_terminal: Optional[str] = ""
+    pos_lot_number: Optional[str] = ""
+    tax_retention_amount: Optional[float] = 0.0
+    tax_retention_proof: Optional[str] = ""
+    reference_number: Optional[str] = ""
+    description: Optional[str] = ""
+
+class AbonoCreate(BaseModel):
+    date: datetime.date
+    amount_original: float
+    currency: str = "USD"
+    exchange_rate: Optional[float] = 1.0
+    account_id: int
+    pos_terminal: Optional[str] = ""
+    pos_lot_number: Optional[str] = ""
+    reference_number: Optional[str] = ""
+    tax_retention_amount: Optional[float] = 0.0
+    tax_retention_proof: Optional[str] = ""
+    description: Optional[str] = ""
+
 class DailyCashCloseCreate(BaseModel):
     date: datetime.date
     cajero_name: str
@@ -1842,6 +1877,414 @@ def get_accumulated_sales(
         "total_returns_usd": round(total_returns_usd, 2),
         "net_sales_usd": round(total_fiscal_iva_usd + total_notes_credit_usd - total_returns_usd, 2),
         "total_collected_real_usd": round(total_fiscal_iva_usd + total_notes_collected_usd - total_returns_usd, 2)
+    }
+
+
+# -------------------------------------------------------------
+# Live Point-of-Sale (Venta en Caliente Venta por Venta) Endpoints
+# -------------------------------------------------------------
+@app.post("/api/sales/live")
+def create_live_sale(
+    sale: LiveSaleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if sale.amount_original <= 0:
+        raise HTTPException(status_code=400, detail="El monto debe ser mayor a 0.00")
+        
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    
+    if sale.currency == "VES":
+        rate = active_bcv
+        calc_usd = round(sale.amount_original / rate, 2)
+    else:
+        rate = 1.0
+        calc_usd = round(sale.amount_original, 2)
+
+    # If it's a Devolución
+    if sale.doc_type == "DEVOLUCION":
+        if not sale.account_id and not sale.is_credit:
+            raise HTTPException(status_code=400, detail="Debe indicar la caja o banco de donde se realizó el reembolso.")
+        
+        acc_id = sale.account_id or 1
+        tx = Transaction(
+            date=sale.date,
+            movement_type="EGRESO",
+            subtype="DEVOLUCION_VENTA",
+            account_id=acc_id,
+            amount_original=sale.amount_original,
+            currency=sale.currency,
+            exchange_rate=rate,
+            amount_usd=calc_usd,
+            doc_type="DEVOLUCION",
+            doc_number=sale.doc_number.strip(),
+            client_name=sale.client_name.strip(),
+            client_rif=sale.client_rif.strip() if sale.client_rif else "",
+            beneficiary=sale.client_name.strip(),
+            reference_number=sale.reference_number.strip() if sale.reference_number else "",
+            description=sale.description.strip() or f"Devolución de mercancía ({sale.doc_number})",
+            status="REGISTRADO",
+            created_by_id=current_user.id
+        )
+        db.add(tx)
+        db.commit()
+        db.refresh(tx)
+        return {"success": True, "message": f"Devolución {sale.doc_number} registrada.", "id": tx.id}
+
+    # If it's a Credit Sale (Factura o Nota a Crédito)
+    if sale.is_credit:
+        # Defaults to Efectivo USD as placeholder account for credit holding
+        placeholder_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
+        acc_id = placeholder_acc.id if placeholder_acc else 1
+        
+        tx = Transaction(
+            date=sale.date,
+            movement_type="INGRESO",
+            subtype="VENTA_CREDITO_PENDIENTE",
+            account_id=acc_id,
+            amount_original=sale.amount_original,
+            currency=sale.currency,
+            exchange_rate=rate,
+            amount_usd=calc_usd,
+            doc_type=sale.doc_type,
+            doc_number=sale.doc_number.strip(),
+            client_name=sale.client_name.strip(),
+            client_rif=sale.client_rif.strip() if sale.client_rif else "",
+            beneficiary=sale.client_name.strip(),
+            is_credit=True,
+            credit_status="PENDIENTE",
+            credit_original_amount_usd=calc_usd,
+            credit_balance_pending_usd=calc_usd,
+            reference_number=sale.reference_number.strip() if sale.reference_number else "",
+            description=sale.description.strip() or f"Venta a crédito ({sale.doc_type} N° {sale.doc_number})",
+            status="REGISTRADO",
+            created_by_id=current_user.id
+        )
+        db.add(tx)
+        db.commit()
+        db.refresh(tx)
+        return {"success": True, "message": f"Venta a crédito {sale.doc_type} {sale.doc_number} registrada en CxC.", "id": tx.id}
+
+    # If it's a Cash Sale (Venta de Contado)
+    if not sale.account_id:
+        raise HTTPException(status_code=400, detail="Para ventas de contado debe seleccionar la caja, banco o punto de cobro.")
+
+    acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == sale.account_id).first()
+    if not acc:
+        raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
+
+    # Deduct retention if applicable
+    net_usd = calc_usd
+    if sale.tax_retention_amount and sale.tax_retention_amount > 0:
+        net_usd = max(0.0, calc_usd - sale.tax_retention_amount)
+
+    tx = Transaction(
+        date=sale.date,
+        movement_type="INGRESO",
+        subtype="VENTA_CALIENTE",
+        account_id=acc.id,
+        amount_original=sale.amount_original,
+        currency=sale.currency,
+        exchange_rate=rate,
+        amount_usd=calc_usd,
+        doc_type=sale.doc_type,
+        doc_number=sale.doc_number.strip(),
+        client_name=sale.client_name.strip(),
+        client_rif=sale.client_rif.strip() if sale.client_rif else "",
+        beneficiary=sale.client_name.strip(),
+        is_credit=False,
+        credit_status="PAGADO",
+        tax_retention_amount=sale.tax_retention_amount or 0.0,
+        tax_retention_proof=sale.tax_retention_proof.strip() if sale.tax_retention_proof else "",
+        pos_terminal=sale.pos_terminal.strip() if sale.pos_terminal else "",
+        pos_lot_number=sale.pos_lot_number.strip() if sale.pos_lot_number else "",
+        reference_number=sale.reference_number.strip() if sale.reference_number else "",
+        description=sale.description.strip() or f"Venta de contado ({sale.doc_type} N° {sale.doc_number})",
+        status="REGISTRADO",
+        created_by_id=current_user.id
+    )
+    db.add(tx)
+    db.commit()
+    db.refresh(tx)
+    return {"success": True, "message": f"Venta {sale.doc_type} {sale.doc_number} cobrada y registrada en caliente.", "id": tx.id}
+
+
+@app.get("/api/sales/live-monitor")
+def get_live_monitor(
+    date: Optional[datetime.date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    target_date = date or datetime.date.today()
+    txs = db.query(Transaction).filter(
+        Transaction.date == target_date,
+        Transaction.status != "ANULADO"
+    ).order_by(Transaction.id.desc()).all()
+
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+
+    fac_contado_usd = 0.0
+    fac_credito_usd = 0.0
+    not_contado_usd = 0.0
+    not_credito_usd = 0.0
+    abonos_today_usd = 0.0
+    returns_today_usd = 0.0
+    expenses_today_usd = 0.0
+
+    cash_usd_expected = 0.0
+    cash_ves_expected = 0.0
+    pos_banesco = 0.0
+    pos_bancaribe = 0.0
+    pos_bdv = 0.0
+    pos_bnc = 0.0
+    pago_movil_usd = 0.0
+    cashea_usd = 0.0
+
+    recent_stream = []
+
+    for t in txs:
+        acc = t.account
+        acc_name = acc.name.upper() if acc else ""
+
+        if t.movement_type == "INGRESO":
+            if t.doc_type == "FACTURA_FISCAL":
+                if t.is_credit:
+                    fac_credito_usd += t.amount_usd
+                else:
+                    fac_contado_usd += t.amount_usd
+            elif t.doc_type == "NOTA_ENTREGA":
+                if t.is_credit:
+                    not_credito_usd += t.amount_usd
+                else:
+                    not_contado_usd += t.amount_usd
+            elif t.subtype in ["ABONO_CXC", "COBRO_CXC"]:
+                abonos_today_usd += t.amount_usd
+
+            # Fondos reales por canal
+            if not t.is_credit:
+                if "EFECTIVO USD" in acc_name:
+                    cash_usd_expected += t.amount_original
+                elif "EFECTIVO VES" in acc_name:
+                    cash_ves_expected += t.amount_original
+                elif "CASHEA" in acc_name:
+                    cashea_usd += t.amount_usd
+                elif t.pos_terminal:
+                    p = t.pos_terminal.upper()
+                    if "BANESCO" in p:
+                        pos_banesco += t.amount_usd
+                    elif "BANCARIBE" in p:
+                        pos_bancaribe += t.amount_usd
+                    elif "VENEZUELA" in p or "BDV" in p:
+                        pos_bdv += t.amount_usd
+                    else:
+                        pos_bnc += t.amount_usd
+                else:
+                    pago_movil_usd += t.amount_usd
+
+        elif t.movement_type == "EGRESO":
+            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+                returns_today_usd += t.amount_usd
+            elif t.subtype in ["GASTO_OPERATIVO", "VALE_CAJA"]:
+                expenses_today_usd += t.amount_usd
+
+            if "EFECTIVO USD" in acc_name:
+                cash_usd_expected -= t.amount_original
+            elif "EFECTIVO VES" in acc_name:
+                cash_ves_expected -= t.amount_original
+
+        recent_stream.append({
+            "id": t.id,
+            "created_at": t.created_at.strftime("%I:%M %p") if t.created_at else "",
+            "doc_type": t.doc_type,
+            "doc_number": t.doc_number or "-",
+            "client_name": t.client_name or t.beneficiary or "Cliente Mostrador",
+            "is_credit": t.is_credit,
+            "movement_type": t.movement_type,
+            "subtype": t.subtype,
+            "account_name": t.account.name if t.account else "CxC",
+            "amount_original": round(t.amount_original, 2),
+            "currency": t.currency,
+            "amount_usd": round(t.amount_usd, 2)
+        })
+
+    total_sales_today = fac_contado_usd + fac_credito_usd + not_contado_usd + not_credito_usd - returns_today_usd
+    total_cash_and_pos_expected = round(
+        cash_usd_expected + (cash_ves_expected / active_bcv) + pos_banesco + pos_bancaribe + pos_bdv + pos_bnc + pago_movil_usd + cashea_usd,
+        2
+    )
+
+    return {
+        "date": target_date.isoformat(),
+        "time": datetime.datetime.now().strftime("%I:%M:%S %p"),
+        "bcv_rate": active_bcv,
+        "sales": {
+            "fac_contado_usd": round(fac_contado_usd, 2),
+            "fac_credito_usd": round(fac_credito_usd, 2),
+            "not_contado_usd": round(not_contado_usd, 2),
+            "not_credito_usd": round(not_credito_usd, 2),
+            "abonos_today_usd": round(abonos_today_usd, 2),
+            "returns_today_usd": round(returns_today_usd, 2),
+            "expenses_today_usd": round(expenses_today_usd, 2),
+            "total_sales_today": round(total_sales_today, 2),
+            "total_contado_today": round(fac_contado_usd + not_contado_usd + abonos_today_usd - returns_today_usd - expenses_today_usd, 2),
+            "total_credito_today": round(fac_credito_usd + not_credito_usd, 2)
+        },
+        "live_funds_expected": {
+            "cash_usd_expected": round(cash_usd_expected, 2),
+            "cash_ves_expected": round(cash_ves_expected, 2),
+            "pos_banesco": round(pos_banesco, 2),
+            "pos_bancaribe": round(pos_bancaribe, 2),
+            "pos_bdv": round(pos_bdv, 2),
+            "pos_bnc": round(pos_bnc, 2),
+            "pos_total": round(pos_banesco + pos_bancaribe + pos_bdv + pos_bnc, 2),
+            "pago_movil_usd": round(pago_movil_usd, 2),
+            "cashea_usd": round(cashea_usd, 2),
+            "total_funds_usd": total_cash_and_pos_expected
+        },
+        "recent_stream": recent_stream[:50]
+    }
+
+
+# -------------------------------------------------------------
+# Cuentas por Cobrar (CxC) & Abonos Endpoints
+# -------------------------------------------------------------
+@app.get("/api/receivables")
+def list_receivables(
+    status_filter: Optional[str] = None, # 'PENDIENTE', 'PARCIALMENTE_PAGADO', 'PAGADO', 'TODOS'
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    q = db.query(Transaction).filter(
+        Transaction.is_credit == True,
+        Transaction.status != "ANULADO"
+    )
+
+    if status_filter and status_filter != 'TODOS':
+        q = q.filter(Transaction.credit_status == status_filter)
+    elif not status_filter:
+        q = q.filter(Transaction.credit_status.in_(["PENDIENTE", "PARCIALMENTE_PAGADO"]))
+
+    if search:
+        s = f"%{search.strip()}%"
+        q = q.filter(
+            (Transaction.client_name.ilike(s)) |
+            (Transaction.doc_number.ilike(s)) |
+            (Transaction.client_rif.ilike(s))
+        )
+
+    credits = q.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+    res = []
+    for c in credits:
+        # Calculate abonos linked to this parent transaction
+        abonos = db.query(Transaction).filter(
+            Transaction.parent_transaction_id == c.id,
+            Transaction.status != "ANULADO"
+        ).order_by(Transaction.date.asc()).all()
+
+        total_abonado = sum(a.amount_usd for a in abonos)
+        pending = max(0.0, c.amount_usd - total_abonado)
+
+        res.append({
+            "id": c.id,
+            "date": c.date.isoformat(),
+            "doc_type": c.doc_type,
+            "doc_number": c.doc_number,
+            "client_name": c.client_name or c.beneficiary,
+            "client_rif": c.client_rif or "-",
+            "original_amount_usd": round(c.amount_usd, 2),
+            "total_abonado_usd": round(total_abonado, 2),
+            "pending_balance_usd": round(pending, 2),
+            "credit_status": "PAGADO" if pending <= 0.01 else ("PARCIALMENTE_PAGADO" if total_abonado > 0 else "PENDIENTE"),
+            "abonos_count": len(abonos),
+            "abonos_history": [
+                {
+                    "id": a.id,
+                    "date": a.date.isoformat(),
+                    "amount_usd": round(a.amount_usd, 2),
+                    "amount_orig": round(a.amount_original, 2),
+                    "currency": a.currency,
+                    "account_name": a.account.name if a.account else "",
+                    "reference": a.reference_number
+                } for a in abonos
+            ]
+        })
+    return res
+
+
+@app.post("/api/receivables/{credit_id}/abono")
+def create_abono(
+    credit_id: int,
+    abono_in: AbonoCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    parent = db.query(Transaction).filter(Transaction.id == credit_id, Transaction.is_credit == True).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Cuenta por cobrar no encontrada.")
+
+    account = db.query(TreasuryAccount).filter(TreasuryAccount.id == abono_in.account_id).first()
+    if not account:
+        raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
+
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+
+    if abono_in.currency == "VES":
+        rate = active_bcv
+        calc_usd = round(abono_in.amount_original / rate, 2)
+    else:
+        rate = 1.0
+        calc_usd = round(abono_in.amount_original, 2)
+
+    # Register Abono Transaction
+    tx = Transaction(
+        date=abono_in.date,
+        movement_type="INGRESO",
+        subtype="ABONO_CXC",
+        account_id=account.id,
+        amount_original=abono_in.amount_original,
+        currency=abono_in.currency,
+        exchange_rate=rate,
+        amount_usd=calc_usd,
+        doc_type="ABONO_CXC",
+        doc_number=f"ABONO-{parent.doc_number}",
+        client_name=parent.client_name,
+        client_rif=parent.client_rif,
+        beneficiary=parent.client_name,
+        parent_transaction_id=parent.id,
+        tax_retention_amount=abono_in.tax_retention_amount or 0.0,
+        tax_retention_proof=abono_in.tax_retention_proof.strip() if abono_in.tax_retention_proof else "",
+        pos_terminal=abono_in.pos_terminal.strip() if abono_in.pos_terminal else "",
+        pos_lot_number=abono_in.pos_lot_number.strip() if abono_in.pos_lot_number else "",
+        reference_number=abono_in.reference_number.strip() if abono_in.reference_number else "",
+        description=abono_in.description.strip() or f"Abono a {parent.doc_type} N° {parent.doc_number} ({parent.client_name})",
+        status="REGISTRADO",
+        created_by_id=current_user.id
+    )
+    db.add(tx)
+
+    # Check updated balance
+    all_abonos = db.query(Transaction).filter(
+        Transaction.parent_transaction_id == parent.id,
+        Transaction.status != "ANULADO"
+    ).all()
+    total_ab = sum(a.amount_usd for a in all_abonos) + calc_usd
+    rem = max(0.0, parent.amount_usd - total_ab)
+    parent.credit_balance_pending_usd = rem
+    parent.credit_status = "PAGADO" if rem <= 0.01 else "PARCIALMENTE_PAGADO"
+
+    db.commit()
+    db.refresh(tx)
+
+    return {
+        "success": True,
+        "message": f"Abono de ${calc_usd:.2f} registrado con éxito. Saldo restante: ${rem:.2f}",
+        "abono_id": tx.id,
+        "remaining_balance_usd": round(rem, 2),
+        "status": parent.credit_status
     }
 
 if __name__ == "__main__":
