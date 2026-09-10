@@ -363,34 +363,43 @@
             <!-- 1. TIPO DE DOCUMENTO FISCAL -->
             <div>
               <label class="block text-xs font-black text-gray-700 uppercase tracking-wider mb-2">1. Régimen y Tipo de Documento:</label>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button type="button" @click="liveSaleForm.doc_type = 'FACTURA_FISCAL'"
-                        :class="liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-700 text-white font-black ring-4 ring-emerald-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-slate-100'"
-                        class="p-3.5 rounded-2xl flex items-center gap-3 transition text-left">
+                        :class="liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">🟢</span>
                   <div>
                     <p class="text-xs font-black">Factura Fiscal</p>
-                    <p class="text-[11px] opacity-80">Con IVA (Máquina / SENIAT)</p>
+                    <p class="text-[10px] opacity-80">Con IVA (Máquina/SENIAT)</p>
                   </div>
                 </button>
 
                 <button type="button" @click="liveSaleForm.doc_type = 'NOTA_ENTREGA'"
-                        :class="liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-700 text-white font-black ring-4 ring-blue-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-slate-100'"
-                        class="p-3.5 rounded-2xl flex items-center gap-3 transition text-left">
+                        :class="liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">🔵</span>
                   <div>
                     <p class="text-xs font-black">Nota de Entrega</p>
-                    <p class="text-[11px] opacity-80">Sin IVA / Control Interno</p>
+                    <p class="text-[10px] opacity-80">Sin IVA / Despacho</p>
+                  </div>
+                </button>
+
+                <button type="button" @click="activeTab = 'cxc'; loadReceivables()"
+                        class="p-3 rounded-2xl bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 flex items-center gap-2.5 transition text-left cursor-pointer">
+                  <span class="text-2xl">📥</span>
+                  <div>
+                    <p class="text-xs font-black">Abono de Cliente</p>
+                    <p class="text-[10px] opacity-80">Pagar cuenta por cobrar</p>
                   </div>
                 </button>
 
                 <button type="button" @click="liveSaleForm.doc_type = 'DEVOLUCION'"
-                        :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black ring-4 ring-rose-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-slate-100'"
-                        class="p-3.5 rounded-2xl flex items-center gap-3 transition text-left">
+                        :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">↩️</span>
                   <div>
-                    <p class="text-xs font-black">Devolución / Reembolso</p>
-                    <p class="text-[11px] opacity-80">Mercancía devuelta</p>
+                    <p class="text-xs font-black">Devolución</p>
+                    <p class="text-[10px] opacity-80">Reembolso a cliente</p>
                   </div>
                 </button>
               </div>
@@ -548,22 +557,57 @@
                 </div>
               </div>
 
-              <!-- SI ES CASHEA / ZELLE / USDT -->
-              <div x-show="paymentMethod === 'DIGITAL'" class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3">
+              <!-- SI ES CASHEA / ZELLE / USDT (CON SOPORTE DE CUOTA INICIAL EN TIENDA) -->
+              <div x-show="paymentMethod === 'DIGITAL'" class="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label class="block text-xs font-bold text-amber-950 mb-1">Canal Digital Específico:</label>
                     <select x-model="digitalChannel" @change="onDigitalChannelChange()"
                             class="w-full p-2.5 border border-amber-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-amber-500">
-                      <option value="CASHEA">Cashea (Cuotas BNC)</option>
-                      <option value="ZELLE">Zelle / Custodia USD</option>
-                      <option value="BINANCE">Billetera Binance USDT</option>
+                      <option value="CASHEA">🟡 Cashea (App / Financiamiento BNC)</option>
+                      <option value="ZELLE">💵 Zelle / Custodia USD</option>
+                      <option value="BINANCE">🪙 Billetera Binance USDT</option>
                     </select>
                   </div>
                   <div>
                     <label class="block text-xs font-bold text-amber-950 mb-1">N° Referencia / ID Operación:</label>
-                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: TX-194019"
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: TX-194019 / Cashea #8410"
                            class="w-full p-2.5 border border-amber-300 rounded-xl text-xs bg-white font-bold">
+                  </div>
+                </div>
+
+                <!-- DESGLOSE DE CUOTA INICIAL COBRADA EN TIENDA (EXCLUSIVO CASHEA) -->
+                <div x-show="digitalChannel === 'CASHEA'" class="p-3 bg-white rounded-xl border border-amber-300 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" x-model="hasCasheaDownpayment" class="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500">
+                      <span class="text-xs font-black text-amber-950">¿El cliente pagó Cuota Inicial en tienda (Efectivo o POS)?</span>
+                    </label>
+                  </div>
+
+                  <div x-show="hasCasheaDownpayment" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-amber-100">
+                    <div>
+                      <label class="block text-[11px] font-bold text-amber-900 mb-1">Monto de la Inicial Pagada ($ USD):</label>
+                      <input type="number" step="0.01" min="0" x-model.number="liveSaleForm.initial_downpayment_amount" placeholder="Ej: 40.00"
+                             class="w-full p-2 border border-amber-300 rounded-lg text-xs font-black bg-amber-50 text-amber-950">
+                    </div>
+                    <div>
+                      <label class="block text-[11px] font-bold text-amber-900 mb-1">¿Dónde cobró la inicial?</label>
+                      <select x-model="liveSaleForm.initial_downpayment_account_id" class="w-full p-2 border border-amber-300 rounded-lg text-xs font-bold bg-white">
+                        <option value="1">💵 Gaveta Efectivo USD</option>
+                        <option value="2">🇻🇪 Gaveta Efectivo VES</option>
+                        <option value="3">💳 POS Banesco (VES)</option>
+                        <option value="4">💳 POS Bancaribe (VES)</option>
+                        <option value="5">💳 POS Banco de Venezuela (VES)</option>
+                        <option value="6">💳 POS BNC (VES)</option>
+                        <option value="7">📲 Pago Móvil VES</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div x-show="hasCasheaDownpayment && (liveSaleForm.initial_downpayment_amount || 0) > 0" class="text-xs text-amber-900 font-semibold flex justify-between bg-amber-100/60 p-2 rounded-lg">
+                    <span>💵 En Caja Tienda: <strong>$<span x-text="formatNumber(liveSaleForm.initial_downpayment_amount || 0)"></span></strong></span>
+                    <span>🟡 Saldo Cashea: <strong>$<span x-text="formatNumber(Math.max(0, (liveSaleForm.amount_original || 0) - (liveSaleForm.initial_downpayment_amount || 0)))"></span></strong></span>
                   </div>
                 </div>
               </div>
@@ -3354,6 +3398,7 @@
         paymentMethod: 'EFECTIVO_USD',
         digitalChannel: 'CASHEA',
         hasRetention: false,
+        hasCasheaDownpayment: false,
         loadingBcv: false,
 
         setPaymentMethod(method) {
