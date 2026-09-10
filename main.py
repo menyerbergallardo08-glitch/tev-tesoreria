@@ -1988,11 +1988,23 @@ def list_cash_close_history(
 # -------------------------------------------------------------
 @app.get("/api/sales/accumulated")
 def get_accumulated_sales(
+    filter_mode: Optional[str] = "mes", # 'dia' o 'mes'
+    date: Optional[str] = None,
     month: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if month:
+    if filter_mode == "dia" and date:
+        try:
+            target_d = datetime.date.fromisoformat(date)
+            start_date = target_d
+            end_date = target_d
+            period_label = f"Día {target_d.strftime('%d/%m/%Y')}"
+        except Exception:
+            start_date = datetime.date.today()
+            end_date = start_date
+            period_label = f"Día {start_date.strftime('%d/%m/%Y')}"
+    elif month:
         try:
             year, m = map(int, month.split("-"))
             start_date = datetime.date(year, m, 1)
@@ -2000,25 +2012,29 @@ def get_accumulated_sales(
                 end_date = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
             else:
                 end_date = datetime.date(year, m + 1, 1) - datetime.timedelta(days=1)
+            period_label = f"Mes {start_date.strftime('%B %Y')}"
         except Exception:
             start_date = datetime.date.today().replace(day=1)
             end_date = datetime.date.today()
+            period_label = f"Mes {start_date.strftime('%B %Y')}"
     else:
         start_date = datetime.date.today().replace(day=1)
         end_date = datetime.date.today()
+        period_label = f"Mes {start_date.strftime('%B %Y')}"
 
     txs = db.query(Transaction).filter(
         Transaction.date >= start_date,
         Transaction.date <= end_date,
         Transaction.status != "ANULADO"
-    ).all()
+    ).order_by(Transaction.id.desc()).all()
 
     total_fiscal_iva_usd = 0.0
+    total_notes_contado_usd = 0.0
     total_notes_credit_usd = 0.0
-    total_notes_collected_usd = 0.0
+    total_abonos_cxc_usd = 0.0
     total_retentions_iva_usd = 0.0
-    total_retentions_islr_usd = 0.0
     total_returns_usd = 0.0
+    recent_records = []
 
     for t in txs:
         if t.movement_type == "INGRESO":
@@ -2028,26 +2044,45 @@ def get_accumulated_sales(
                 if t.is_credit:
                     total_notes_credit_usd += t.amount_usd
                 else:
-                    total_notes_collected_usd += t.amount_usd
-            elif t.subtype == "COBRO_CXC":
-                total_notes_collected_usd += t.amount_usd
+                    total_notes_contado_usd += t.amount_usd
+            elif t.subtype in ["COBRO_CXC", "ABONO_CXC"]:
+                total_abonos_cxc_usd += t.amount_usd
             
-            if t.tax_retention_amount > 0:
+            if t.tax_retention_amount and t.tax_retention_amount > 0:
                 total_retentions_iva_usd += t.tax_retention_amount
         elif t.movement_type == "EGRESO":
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
                 total_returns_usd += t.amount_usd
 
+        recent_records.append({
+            "id": t.id,
+            "date": t.date.isoformat() if t.date else "",
+            "doc_type": t.doc_type or "-",
+            "doc_number": t.doc_number or "-",
+            "client_name": t.client_name or t.beneficiary or "Cliente Mostrador",
+            "is_credit": t.is_credit,
+            "amount_usd": round(t.amount_usd, 2),
+            "amount_original": round(t.amount_original, 2),
+            "currency": t.currency,
+            "tax_retention_amount": round(t.tax_retention_amount or 0.0, 2)
+        })
+
+    net_sales_usd = total_fiscal_iva_usd + total_notes_contado_usd + total_notes_credit_usd - total_returns_usd
+
     return {
+        "filter_mode": filter_mode,
+        "date": date or start_date.isoformat(),
         "month": month or start_date.strftime("%Y-%m"),
+        "period_label": period_label,
         "period": f"{start_date.isoformat()} al {end_date.isoformat()}",
         "total_fiscal_iva_usd": round(total_fiscal_iva_usd, 2),
+        "total_notes_contado_usd": round(total_notes_contado_usd, 2),
         "total_notes_credit_usd": round(total_notes_credit_usd, 2),
-        "total_notes_collected_usd": round(total_notes_collected_usd, 2),
+        "total_abonos_cxc_usd": round(total_abonos_cxc_usd, 2),
         "total_retentions_iva_usd": round(total_retentions_iva_usd, 2),
         "total_returns_usd": round(total_returns_usd, 2),
-        "net_sales_usd": round(total_fiscal_iva_usd + total_notes_credit_usd + total_notes_collected_usd - total_returns_usd, 2),
-        "total_collected_real_usd": round(total_fiscal_iva_usd + total_notes_collected_usd - total_returns_usd, 2)
+        "net_sales_usd": round(net_sales_usd, 2),
+        "records": recent_records[:100]
     }
 
 
