@@ -2230,55 +2230,61 @@ def create_live_sale(
     if sale.tax_retention_amount and sale.tax_retention_amount > 0:
         net_usd = max(0.0, calc_usd - sale.tax_retention_amount)
 
-    # SOPORTE CASHEA CON INICIAL COBRADA EN TIENDA
+    # SOPORTE CASHEA: INICIAL EN TIENDA + SALDO A CxC CASHEA
     initial_amt = sale.initial_downpayment_amount or 0.0
-    if initial_amt > 0 and initial_amt < calc_usd:
-        initial_acc_id = sale.initial_downpayment_account_id or 1
-        financed_amt = round(calc_usd - initial_amt, 2)
-        
-        # 1. Movimiento de la Inicial en Tienda (Efectivo o POS)
-        tx_initial = Transaction(
-            date=sale.date,
-            movement_type="INGRESO",
-            subtype="VENTA_CALIENTE",
-            account_id=initial_acc_id,
-            amount_original=initial_amt if sale.currency == "USD" else round(initial_amt * rate, 2),
-            currency=sale.currency,
-            exchange_rate=rate,
-            amount_usd=initial_amt,
-            doc_type=sale.doc_type,
-            doc_number=f"{sale.doc_number.strip()} (Inicial Tienda)",
-            client_name=sale.client_name.strip(),
-            client_rif=sale.client_rif.strip() if sale.client_rif else "",
-            beneficiary=sale.client_name.strip(),
-            is_credit=False,
-            credit_status="PAGADO",
-            pos_terminal=sale.pos_terminal.strip() if sale.pos_terminal else "",
-            pos_lot_number=sale.pos_lot_number.strip() if sale.pos_lot_number else "",
-            reference_number=sale.reference_number.strip() if sale.reference_number else "",
-            description=f"Inicial cobrada en tienda ({sale.doc_type} N° {sale.doc_number})",
-            status="REGISTRADO",
-            created_by_id=current_user.id
-        )
-        db.add(tx_initial)
+    is_cashea_sale = "CASHEA" in (acc.name.upper() if acc else "") or "CASHEA" in (sale.description.upper() if sale.description else "") or "CASHEA" in (sale.reference_number.upper() if sale.reference_number else "") or sale.pos_terminal == "CASHEA"
 
-        # 2. Movimiento del Saldo Financiado por Cashea
+    if is_cashea_sale or (initial_amt > 0 and initial_amt < calc_usd):
+        initial_acc_id = sale.initial_downpayment_account_id or 1
+        financed_amt = round(max(0.0, calc_usd - initial_amt), 2)
+        
+        tx_initial = None
+        # 1. Movimiento de la Inicial en Tienda (Efectivo o POS)
+        if initial_amt > 0:
+            tx_initial = Transaction(
+                date=sale.date,
+                movement_type="INGRESO",
+                subtype="VENTA_CALIENTE",
+                account_id=initial_acc_id,
+                amount_original=initial_amt if sale.currency == "USD" else round(initial_amt * rate, 2),
+                currency=sale.currency,
+                exchange_rate=rate,
+                amount_usd=initial_amt,
+                doc_type=sale.doc_type,
+                doc_number=f"{sale.doc_number.strip()} (Inicial Tienda)",
+                client_name=sale.client_name.strip(),
+                client_rif=sale.client_rif.strip() if sale.client_rif else "",
+                beneficiary=sale.client_name.strip(),
+                is_credit=False,
+                credit_status="PAGADO",
+                pos_terminal=sale.pos_terminal.strip() if sale.pos_terminal else "",
+                pos_lot_number=sale.pos_lot_number.strip() if sale.pos_lot_number else "",
+                reference_number=sale.reference_number.strip() if sale.reference_number else "",
+                description=f"Inicial cobrada en tienda ({sale.doc_type} N° {sale.doc_number})",
+                status="REGISTRADO",
+                created_by_id=current_user.id
+            )
+            db.add(tx_initial)
+
+        # 2. Movimiento del Saldo Financiado por Cashea (Registrado en CxC Cashea)
         tx_financed = Transaction(
             date=sale.date,
             movement_type="INGRESO",
-            subtype="VENTA_CALIENTE",
-            account_id=acc.id,
+            subtype="VENTA_CASHEA_PENDIENTE",
+            account_id=acc.id if acc else 1,
             amount_original=financed_amt if sale.currency == "USD" else round(financed_amt * rate, 2),
             currency=sale.currency,
             exchange_rate=rate,
             amount_usd=financed_amt,
             doc_type=sale.doc_type,
-            doc_number=f"{sale.doc_number.strip()} (Cashea Cuotas)",
-            client_name=sale.client_name.strip(),
-            client_rif=sale.client_rif.strip() if sale.client_rif else "",
-            beneficiary=sale.client_name.strip(),
-            is_credit=False,
-            credit_status="PAGADO",
+            doc_number=f"{sale.doc_number.strip()} (Cashea)",
+            client_name=f"CASHEA (BNC) - {sale.client_name.strip()}",
+            client_rif=sale.client_rif.strip() if sale.client_rif else "J-CASHEA",
+            beneficiary="CASHEA (BNC)",
+            is_credit=True,
+            credit_status="PENDIENTE" if financed_amt > 0 else "PAGADO",
+            credit_original_amount_usd=financed_amt,
+            credit_balance_pending_usd=financed_amt,
             reference_number=sale.reference_number.strip() if sale.reference_number else "",
             description=f"Saldo financiado por Cashea ({sale.doc_type} N° {sale.doc_number})",
             status="REGISTRADO",
@@ -2286,11 +2292,11 @@ def create_live_sale(
         )
         db.add(tx_financed)
         db.commit()
-        db.refresh(tx_initial)
+        db.refresh(tx_financed)
         return {
             "success": True,
-            "message": f"Venta Cashea registrada con éxito: Inicial en tienda (${initial_amt:.2f}) + Saldo Cashea (${financed_amt:.2f}) = Total ${calc_usd:.2f}",
-            "id": tx_initial.id
+            "message": f"Venta Cashea registrada con éxito: Inicial en tienda (${initial_amt:.2f}) + Saldo en CxC Cashea (${financed_amt:.2f}) = Total ${calc_usd:.2f}",
+            "id": tx_financed.id
         }
 
     tx = Transaction(
@@ -2467,6 +2473,7 @@ def get_live_monitor(
 @app.get("/api/receivables")
 def list_receivables(
     status_filter: Optional[str] = None, # 'PENDIENTE', 'PARCIALMENTE_PAGADO', 'PAGADO', 'TODOS'
+    channel: Optional[str] = None, # 'CLIENTES', 'CASHEA', 'TODOS'
     search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -2481,6 +2488,19 @@ def list_receivables(
     elif not status_filter:
         q = q.filter(Transaction.credit_status.in_(["PENDIENTE", "PARCIALMENTE_PAGADO"]))
 
+    if channel == 'CASHEA':
+        q = q.filter(
+            (Transaction.client_name.ilike("%CASHEA%")) | 
+            (Transaction.subtype == "VENTA_CASHEA_PENDIENTE") | 
+            (Transaction.doc_number.ilike("%Cashea%"))
+        )
+    elif channel == 'CLIENTES':
+        q = q.filter(
+            ~Transaction.client_name.ilike("%CASHEA%"),
+            Transaction.subtype != "VENTA_CASHEA_PENDIENTE",
+            ~Transaction.doc_number.ilike("%Cashea%")
+        )
+
     if search:
         s = f"%{search.strip()}%"
         q = q.filter(
@@ -2490,9 +2510,38 @@ def list_receivables(
         )
 
     credits = q.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
-    res = []
+    
+    total_original_all = 0.0
+    total_abonado_all = 0.0
+    total_pending_all = 0.0
+    
+    total_clientes_pending = 0.0
+    total_cashea_pending = 0.0
+
+    # Calculate all credits in DB for KPIs
+    all_active_credits = db.query(Transaction).filter(
+        Transaction.is_credit == True,
+        Transaction.status != "ANULADO"
+    ).all()
+
+    for ac in all_active_credits:
+        abonos_ac = db.query(Transaction).filter(
+            Transaction.parent_transaction_id == ac.id,
+            Transaction.status != "ANULADO"
+        ).all()
+        tot_ab_ac = sum(a.amount_usd for a in abonos_ac)
+        pend_ac = max(0.0, ac.amount_usd - tot_ab_ac)
+        
+        is_cashea_ac = ("CASHEA" in (ac.client_name.upper() if ac.client_name else "")) or (ac.subtype == "VENTA_CASHEA_PENDIENTE") or ("CASHEA" in (ac.doc_number.upper() if ac.doc_number else ""))
+        if is_cashea_ac:
+            total_cashea_pending += pend_ac
+        else:
+            total_clientes_pending += pend_ac
+            
+        total_pending_all += pend_ac
+
+    res_items = []
     for c in credits:
-        # Calculate abonos linked to this parent transaction
         abonos = db.query(Transaction).filter(
             Transaction.parent_transaction_id == c.id,
             Transaction.status != "ANULADO"
@@ -2500,14 +2549,18 @@ def list_receivables(
 
         total_abonado = sum(a.amount_usd for a in abonos)
         pending = max(0.0, c.amount_usd - total_abonado)
+        
+        is_cashea = ("CASHEA" in (c.client_name.upper() if c.client_name else "")) or (c.subtype == "VENTA_CASHEA_PENDIENTE") or ("CASHEA" in (c.doc_number.upper() if c.doc_number else ""))
 
-        res.append({
+        res_items.append({
             "id": c.id,
             "date": c.date.isoformat(),
             "doc_type": c.doc_type,
             "doc_number": c.doc_number,
             "client_name": c.client_name or c.beneficiary,
             "client_rif": c.client_rif or "-",
+            "is_cashea": is_cashea,
+            "channel_label": "🟡 CxC Cashea (BNC)" if is_cashea else "👤 CxC Cliente Directo",
             "original_amount_usd": round(c.amount_usd, 2),
             "total_abonado_usd": round(total_abonado, 2),
             "pending_balance_usd": round(pending, 2),
@@ -2525,7 +2578,16 @@ def list_receivables(
                 } for a in abonos
             ]
         })
-    return res
+
+    return {
+        "kpis": {
+            "total_pending_usd": round(total_pending_all, 2),
+            "total_clientes_pending_usd": round(total_clientes_pending, 2),
+            "total_cashea_pending_usd": round(total_cashea_pending, 2),
+            "items_count": len(res_items)
+        },
+        "items": res_items
+    }
 
 
 @app.post("/api/receivables/{credit_id}/abono")
