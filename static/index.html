@@ -266,11 +266,11 @@
             <span>📑 Cuentas x Cobrar & Abonos</span>
           </button>
 
-          <!-- 4. CIERRE Y CUADRE DIARIO -->
-          <button @click="activeTab = 'cuadre'; loadCashCloseSummary()"
-                  :class="activeTab === 'cuadre' ? 'bg-slate-800 text-white shadow' : 'text-gray-700 hover:bg-gray-100'"
+          <!-- 4. ARQUEO Y CUADRE DIARIO INTEGRAL -->
+          <button @click="activeTab = 'cuadre'; loadCashCloseSummary(); loadAccounts()"
+                  :class="activeTab === 'cuadre' ? 'bg-slate-800 text-white shadow ring-2 ring-slate-400' : 'text-gray-700 bg-slate-50 hover:bg-slate-100'"
                   class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
-            <span>🔒 Cuadre Diario</span>
+            <span>🔒 Arqueo & Cuadre Diario</span>
           </button>
 
           <!-- 5. LIBRO DE MOVIMIENTOS -->
@@ -304,11 +304,7 @@
             </button>
           </template>
 
-          <button @click="activeTab = 'cajas'"
-                  :class="activeTab === 'cajas' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
-            <span>🏦 Cajas & Arqueo</span>
-          </button>
+
 
           <template x-if="currentUser?.role === 'directivo'">
             <button @click="activeTab = 'usuarios'; loadUsers()"
@@ -1304,7 +1300,7 @@
 
 
       <!-- ======================================================== -->
-      <!-- TAB CUADRE DIARIO INTEGRAL (PUNTOS, BANCOS, GAVETA, CASHEA) -->
+      <!-- TAB CUADRE DIARIO INTEGRAL & ARQUEO DE CAJA -->
       <!-- ======================================================== -->
       <div x-show="activeTab === 'cuadre'" class="space-y-6">
         
@@ -1312,10 +1308,10 @@
         <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
-              <span>🔒 Cuadre y Cierre Diario de Caja</span>
+              <span>🔒 Arqueo Físico y Cuadre Diario de Caja</span>
               <span x-show="cashCloseSummary?.is_closed" class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs rounded-full font-bold">CERRADO</span>
             </h2>
-            <p class="text-xs text-gray-500">Conciliación de Puntos de Venta (POS), Bancos, Gaveta, Cashea y Ventas Profit</p>
+            <p class="text-xs text-gray-500">Conciliación integral: Arqueo en mano, Puntos POS, Bancos, Gaveta, Cashea y Facturación Profit</p>
           </div>
 
           <div class="flex items-center gap-2">
@@ -1324,7 +1320,7 @@
               <input type="date" x-model="cuadreDate" @change="loadCashCloseSummary()" class="bg-transparent border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none">
             </div>
 
-            <button @click="openCashCloseReceipt()" class="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 transition">
+            <button @click="openCashCloseReceipt()" class="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 transition cursor-pointer">
               <span>🖨️</span> Ver Comprobante (1 Hoja)
             </button>
           </div>
@@ -1337,7 +1333,7 @@
           <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-gray-100">
               <h3 class="text-base font-black text-gray-800 flex items-center gap-2">
-                <span>📊 Resumen Comercial (Profit Plus)</span>
+                <span>📊 1. Resumen Comercial (Profit Plus)</span>
               </h3>
               <span class="text-xs font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-lg" x-text="cuadreDate"></span>
             </div>
@@ -1374,7 +1370,7 @@
           <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-gray-100">
               <h3 class="text-base font-black text-gray-800 flex items-center gap-2">
-                <span>🏦 Fondos y Cobranzas por Canal</span>
+                <span>🏦 2. Fondos y Cobranzas por Canal</span>
               </h3>
               <span class="text-xs font-bold text-gray-500" x-text="(cashCloseSummary?.transactions_count || 0) + ' transacciones'"></span>
             </div>
@@ -1430,15 +1426,175 @@
           </div>
         </div>
 
-        <!-- Bloque C: Conciliación de Arqueo Físico & Guardado del Cierre -->
+        <!-- ======================================================== -->
+        <!-- BLOQUE C: HOJA DE ARQUEO FÍSICO DE GAVETA (BILLETES $ Y BS) -->
+        <!-- ======================================================== -->
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
+          <div class="flex flex-wrap items-center justify-between pb-4 border-b border-gray-100 gap-4">
+            <div>
+              <h3 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
+                <span>🧮 3. Hoja de Arqueo Físico en Gaveta</span>
+                <span class="text-xs px-2.5 py-0.5 bg-teal-100 text-teal-800 rounded-full font-bold">Conteo en Mano</span>
+              </h3>
+              <p class="text-xs text-gray-500">Cuente físicamente los billetes de la gaveta para cotejar contra el sistema</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- Selector de Moneda para el Arqueo -->
+              <div class="flex items-center bg-gray-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
+                <button type="button" @click="arqueoCurrency = 'USD'"
+                        :class="arqueoCurrency === 'USD' ? 'bg-teal-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                        class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer">
+                  <span>💵</span> Dólares ($ USD)
+                </button>
+                <button type="button" @click="arqueoCurrency = 'VES'"
+                        :class="arqueoCurrency === 'VES' ? 'bg-blue-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                        class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer">
+                  <span>🇻🇪</span> Bolívares (Bs. VES)
+                </button>
+              </div>
+              <button type="button" @click="resetArqueo()" class="text-xs text-rose-600 font-bold hover:underline cursor-pointer">Reiniciar Conteo</button>
+            </div>
+          </div>
+
+          <!-- 1. ARQUEO EN DOLARES ($ USD) -->
+          <div x-show="arqueoCurrency === 'USD'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-50 p-5 rounded-2xl border border-gray-200">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center justify-between text-xs sm:text-sm">
+                <span>💵 Billetes en Dólares ($ USD)</span>
+                <span class="text-xs text-gray-400 font-normal">Cantidad de piezas</span>
+              </h4>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Billetes $100:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b100" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Billetes $50:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b50" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Billetes $20:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b20" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Billetes $10:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b10" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Billetes $5:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b5" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Billetes $1:</label>
+                  <input type="number" min="0" x-model.number="arqueo.b1" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col justify-between bg-teal-50 p-5 rounded-2xl border border-teal-200">
+              <div class="space-y-2">
+                <h4 class="font-bold text-teal-900 text-xs sm:text-sm">Total Físico en Gaveta ($ USD):</h4>
+                <div class="text-3xl font-black text-teal-950">
+                  $<span x-text="formatNumber(calculatePhysicalUsd())"></span>
+                </div>
+                <div class="pt-2.5 border-t border-teal-200 text-xs space-y-1 text-teal-900">
+                  <div class="flex justify-between">
+                    <span>Saldo Esperado del Día (USD):</span>
+                    <span class="font-bold" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cash_usd_net || 0)"></span>
+                  </div>
+                  <div class="flex justify-between font-bold"
+                       :class="(calculatePhysicalUsd() - (cashCloseSummary?.collections_summary?.cash_usd_net || 0)) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+                    <span>Diferencia Físico vs Sistema:</span>
+                    <span x-text="((calculatePhysicalUsd() - (cashCloseSummary?.collections_summary?.cash_usd_net || 0)) >= 0 ? '+$' : '-$') + formatNumber(Math.abs(calculatePhysicalUsd() - (cashCloseSummary?.collections_summary?.cash_usd_net || 0)))"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-3 border-t border-teal-200">
+                <button type="button" @click="printArqueo()" class="w-full py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl shadow font-bold text-xs flex items-center justify-center gap-1.5 transition">
+                  <span>🧾</span> Imprimir Conteo ($ USD)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. ARQUEO EN BOLIVARES (Bs. VES) -->
+          <div x-show="arqueoCurrency === 'VES'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-50 p-5 rounded-2xl border border-gray-200">
+              <h4 class="font-bold text-gray-800 mb-3 flex items-center justify-between text-xs sm:text-sm">
+                <span>🇻🇪 Billetes en Bolívares (Bs. VES)</span>
+                <span class="text-xs text-gray-400 font-normal">Cantidad de piezas</span>
+              </h4>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Bs. 500:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b500" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Bs. 200:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b200" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Bs. 100:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b100" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Bs. 50:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b50" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Bs. 20:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b20" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+                <div>
+                  <label class="text-[11px] font-semibold text-gray-600">Bs. 10:</label>
+                  <input type="number" min="0" x-model.number="arqueoVES.b10" class="w-full p-2 border rounded-xl font-bold">
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col justify-between bg-blue-50 p-5 rounded-2xl border border-blue-200">
+              <div class="space-y-2">
+                <h4 class="font-bold text-blue-900 text-xs sm:text-sm">Total Físico en Gaveta (Bs. VES):</h4>
+                <div class="text-3xl font-black text-blue-950">
+                  Bs. <span x-text="formatNumber(calculatePhysicalVes())"></span>
+                </div>
+                <p class="text-xs text-blue-700 font-semibold">
+                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (bcvRate || 36.80))"></span> USD</strong>
+                </p>
+                <div class="pt-2.5 border-t border-blue-200 text-xs space-y-1 text-blue-900">
+                  <div class="flex justify-between">
+                    <span>Saldo Esperado del Día (VES):</span>
+                    <span class="font-bold" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves_net || 0)"></span>
+                  </div>
+                  <div class="flex justify-between font-bold"
+                       :class="(calculatePhysicalVes() - (cashCloseSummary?.collections_summary?.cash_ves_net || 0)) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+                    <span>Diferencia Físico vs Sistema:</span>
+                    <span x-text="((calculatePhysicalVes() - (cashCloseSummary?.collections_summary?.cash_ves_net || 0)) >= 0 ? '+Bs. ' : '-Bs. ') + formatNumber(Math.abs(calculatePhysicalVes() - (cashCloseSummary?.collections_summary?.cash_ves_net || 0)))"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-3 border-t border-blue-200">
+                <button type="button" @click="printArqueoVES()" class="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl shadow font-bold text-xs flex items-center justify-center gap-1.5 transition">
+                  <span>🧾</span> Imprimir Conteo (Bs. VES)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- BLOQUE D: CONCILIACIÓN Y GUARDADO DEFINITIVO DEL CIERRE -->
+        <!-- ======================================================== -->
         <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
           <div class="flex items-center justify-between pb-4 border-b border-gray-100">
             <div>
-              <h3 class="text-lg sm:text-xl font-black text-gray-900">🧮 Conciliación y Veredicto de Cuadre</h3>
-              <p class="text-xs text-gray-500">Cotejo entre dinero físico real y saldo esperado</p>
+              <h3 class="text-lg sm:text-xl font-black text-gray-900">🔒 4. Veredicto Final y Cierre Diario</h3>
+              <p class="text-xs text-gray-500">Cierre formal y bloqueo de las operaciones del día</p>
             </div>
             <div class="text-right">
-              <span class="text-xs font-bold text-gray-500">Estado de Cuadre:</span>
+              <span class="text-xs font-bold text-gray-500">Estado del Cuadre:</span>
               <div class="text-sm font-black"
                    :class="calculateCuadreDifference() === 0 ? 'text-emerald-700' : 'text-rose-700'"
                    x-text="calculateCuadreDifference() === 0 ? '🟢 CAJA CUADRADA ($0.00)' : (calculateCuadreDifference() > 0 ? '🟡 SOBRANTE (+$' + formatNumber(calculateCuadreDifference()) + ')' : '🔴 FALTANTE (-$' + formatNumber(Math.abs(calculateCuadreDifference())) + ')')">
@@ -1458,10 +1614,55 @@
             </div>
 
             <div class="flex flex-col justify-end space-y-2">
-              <button @click="executeSaveDailyCashClose()" class="w-full py-3 bg-tev-green hover:bg-tev-darkgreen text-white font-black rounded-xl text-sm shadow flex items-center justify-center gap-2">
+              <button @click="executeSaveDailyCashClose()" class="w-full py-3 bg-tev-green hover:bg-tev-darkgreen text-white font-black rounded-xl text-sm shadow flex items-center justify-center gap-2 transition cursor-pointer">
                 <span>🔒</span> Guardar y Cerrar Cuadre Diario
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- BLOQUE E: SALDOS EN CUENTAS Y CAJAS DE TESORERÍA -->
+        <!-- ======================================================== -->
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <div class="flex flex-wrap items-center justify-between pb-3 border-b border-gray-100 gap-4">
+            <div>
+              <h3 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
+                <span>🏦 5. Saldos Globales en Cuentas y Cajas</span>
+              </h3>
+              <p class="text-xs text-gray-500">Disponibilidad total en efectivo, puntos y cuentas bancarias corporativas</p>
+            </div>
+            <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+              <button @click="openNewAccountModal()" class="px-3.5 py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition cursor-pointer">
+                <span>➕</span> Nueva Caja / Cuenta
+              </button>
+            </template>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 pt-2">
+            <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
+              <div class="bg-slate-50 p-4 rounded-2xl border border-gray-200 flex flex-col justify-between relative group hover:border-teal-400 transition">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-slate-700 border border-gray-200" x-text="acc.currency"></span>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[10px] text-gray-400" x-text="acc.account_type"></span>
+                      <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                        <button @click="openEditAccountModal(acc)" class="text-xs text-gray-400 hover:text-teal-700 p-0.5" title="Editar cuenta">✏️</button>
+                      </template>
+                    </div>
+                  </div>
+                  <h4 class="text-xs font-black text-gray-800 line-clamp-1" x-text="acc.name"></h4>
+                </div>
+                <div class="mt-3 pt-2.5 border-t border-gray-200">
+                  <p class="text-[10px] text-gray-400 font-bold">Saldo Disponible:</p>
+                  <p class="text-lg font-black text-gray-900 mt-0.5">
+                    <span x-text="acc.currency === 'USD' ? '$' : acc.currency === 'USDT' ? '₮' : 'Bs'"></span>
+                    <span x-text="formatNumber(acc.current_balance)"></span>
+                  </p>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -1478,35 +1679,40 @@
                   <th class="p-3 text-right">Total Cobrado ($)</th>
                   <th class="p-3 text-right">Diferencia</th>
                   <th class="p-3 text-center">Estado</th>
-                  <th class="p-3 text-center">Acciones</th>
+                  <th class="p-3 text-center">Acción</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100">
-                <template x-for="c in cashCloseHistory" :key="c.id">
-                  <tr class="hover:bg-slate-50">
-                    <td class="p-3 font-bold" x-text="c.date"></td>
-                    <td class="p-3" x-text="c.cajero_name"></td>
-                    <td class="p-3 text-right font-bold" x-text="'$' + formatNumber(c.net_sales_usd)"></td>
-                    <td class="p-3 text-right font-bold text-tev-green" x-text="'$' + formatNumber(c.total_collected_real_usd)"></td>
-                    <td class="p-3 text-right font-black" :class="c.difference_usd === 0 ? 'text-emerald-700' : 'text-rose-700'" x-text="'$' + formatNumber(c.difference_usd)"></td>
+              <tbody>
+                <template x-for="item in cashCloseHistory" :key="item.id">
+                  <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 font-bold" x-text="item.date"></td>
+                    <td class="p-3" x-text="item.cajero_name"></td>
+                    <td class="p-3 text-right font-black" x-text="'$' + formatNumber(item.net_sales_usd)"></td>
+                    <td class="p-3 text-right font-black text-tev-darkgreen" x-text="'$' + formatNumber(item.total_collected_real_usd)"></td>
+                    <td class="p-3 text-right font-bold"
+                        :class="item.difference_usd === 0 ? 'text-emerald-700' : 'text-rose-700'"
+                        x-text="item.difference_usd === 0 ? '$0.00' : (item.difference_usd > 0 ? '+$' : '-$') + formatNumber(Math.abs(item.difference_usd))"></td>
                     <td class="p-3 text-center">
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            :class="c.status === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
-                            x-text="c.status"></span>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black"
+                            :class="item.status === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                            x-text="item.status"></span>
                     </td>
                     <td class="p-3 text-center">
-                      <button @click="cuadreDate = c.date; loadCashCloseSummary(); openCashCloseReceipt()" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg font-bold text-[11px]">
-                        🧾 Imprimir
+                      <button @click="cuadreDate = item.date; loadCashCloseSummary(); openCashCloseReceipt()" class="text-blue-700 hover:underline font-bold cursor-pointer">
+                        📄 Comprobante
                       </button>
                     </td>
                   </tr>
                 </template>
+                <tr x-show="!cashCloseHistory || cashCloseHistory.length === 0">
+                  <td colspan="7" class="p-6 text-center text-gray-400">No hay cierres registrados en el historial</td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
-
       </div>
+
 
       <!-- ======================================================== -->
       <!-- TAB VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
@@ -2063,203 +2269,6 @@
                 </tr>
               </tfoot>
             </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ======================================================== -->
-      <!-- TAB 5: CAJAS Y ARQUEO -->
-      <!-- ======================================================== -->
-      <div x-show="activeTab === 'cajas'" class="space-y-6">
-        <div>
-          <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div>
-              <h2 class="text-xl font-bold text-gray-800">Saldos en Cuentas y Cajas</h2>
-              <p class="text-sm text-gray-500">Supervise y cree cajas de monedas y cuentas bancarias de la empresa</p>
-            </div>
-            <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
-              <button @click="openNewAccountModal()" class="px-4 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition">
-                <span class="text-base">➕</span> Nueva Caja / Cuenta
-              </button>
-            </template>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <template x-for="acc in accounts" :key="acc.id">
-              <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between relative group hover:border-teal-300 transition">
-                <div>
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700" x-text="acc.currency"></span>
-                    <div class="flex items-center gap-1.5">
-                      <span class="text-xs text-gray-400" x-text="acc.account_type"></span>
-                      <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
-                        <button @click="openEditAccountModal(acc)" class="text-xs text-gray-400 hover:text-teal-700 p-0.5" title="Editar cuenta">✏️</button>
-                      </template>
-                    </div>
-                  </div>
-                  <h4 class="text-base font-bold text-gray-800" x-text="acc.name"></h4>
-                </div>
-                <div class="mt-4 pt-4 border-t border-gray-100">
-                  <p class="text-xs text-gray-400">Saldo Disponible:</p>
-                  <p class="text-2xl font-black text-gray-800 mt-1">
-                    <span x-text="acc.currency === 'USD' ? '$' : acc.currency === 'USDT' ? '₮' : 'Bs'"></span>
-                    <span x-text="formatNumber(acc.current_balance)"></span>
-                  </p>
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
-          <div class="flex flex-wrap items-center justify-between pb-4 mb-6 border-b border-gray-100 gap-4">
-            <div>
-              <h3 class="text-2xl font-black text-gray-800">🧮 Hoja de Arqueo Físico de Gaveta</h3>
-              <p class="text-sm text-gray-500">Conteo de efectivo físico en mano para el cierre de turno</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
-              <!-- Selector de Moneda para el Arqueo -->
-              <div class="flex items-center bg-gray-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
-                <button @click="arqueoCurrency = 'USD'"
-                        :class="arqueoCurrency === 'USD' ? 'bg-teal-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5">
-                  <span>💵</span> Dólares ($ USD)
-                </button>
-                <button @click="arqueoCurrency = 'VES'"
-                        :class="arqueoCurrency === 'VES' ? 'bg-blue-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-1.5">
-                  <span>🇻🇪</span> Bolívares (Bs. VES)
-                </button>
-              </div>
-              <button @click="resetArqueo()" class="text-xs text-rose-600 font-bold hover:underline">Reiniciar Conteo</button>
-            </div>
-          </div>
-
-          <!-- 1. ARQUEO EN DOLARES ($ USD) -->
-          <div x-show="arqueoCurrency === 'USD'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="bg-slate-50 p-6 rounded-2xl border border-gray-200">
-              <h4 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
-                <span>💵 Billetes en Dólares ($ USD)</span>
-                <span class="text-xs text-gray-400 font-normal">Cantidad de piezas</span>
-              </h4>
-              <div class="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de $100:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b100" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de $50:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b50" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de $20:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b20" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de $10:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b10" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de $5:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b5" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de $1:</label>
-                  <input type="number" min="0" x-model.number="arqueo.b1" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-              </div>
-            </div>
-
-            <div class="flex flex-col justify-between bg-teal-50 p-6 rounded-2xl border border-teal-200">
-              <div class="space-y-3">
-                <h4 class="font-bold text-teal-900">Total Físico en Gaveta (USD):</h4>
-                <div class="text-4xl font-black text-teal-950">
-                  $<span x-text="formatNumber(calculatePhysicalUsd())"></span>
-                </div>
-                <div class="pt-3 border-t border-teal-200 text-xs space-y-1 text-teal-900">
-                  <div class="flex justify-between">
-                    <span>Saldo Sistema (Efectivo USD):</span>
-                    <span class="font-bold" x-text="'$' + formatNumber(getAccountBalance('Efectivo USD'))"></span>
-                  </div>
-                  <div class="flex justify-between font-bold"
-                       :class="(calculatePhysicalUsd() - getAccountBalance('Efectivo USD')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
-                    <span>Diferencia:</span>
-                    <span x-text="((calculatePhysicalUsd() - getAccountBalance('Efectivo USD')) >= 0 ? '+$' : '-$') + formatNumber(Math.abs(calculatePhysicalUsd() - getAccountBalance('Efectivo USD')))"></span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-6 pt-6 border-t border-teal-200">
-                <button @click="printArqueo()" class="w-full btn-large bg-teal-700 hover:bg-teal-800 text-white shadow font-bold text-sm flex items-center justify-center gap-2">
-                  <span>🧾</span> Ver e Imprimir Comprobante ($ USD)
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. ARQUEO EN BOLIVARES (Bs. VES) -->
-          <div x-show="arqueoCurrency === 'VES'" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="bg-slate-50 p-6 rounded-2xl border border-gray-200">
-              <h4 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
-                <span>🇻🇪 Billetes en Bolívares (Bs. VES)</span>
-                <span class="text-xs text-gray-400 font-normal">Cantidad de piezas</span>
-              </h4>
-              <div class="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 500:</label>
-                  <input type="number" min="0" x-model.number="arqueoVES.b500" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 200:</label>
-                  <input type="number" min="0" x-model.number="arqueoVES.b200" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 100:</label>
-                  <input type="number" min="0" x-model.number="arqueoVES.b100" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 50:</label>
-                  <input type="number" min="0" x-model.number="arqueoVES.b50" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 20:</label>
-                  <input type="number" min="0" x-model.number="arqueoVES.b20" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Billetes de Bs. 10:</label>
-                  <input type="number" min="0" x-model.number="arqueoVES.b10" class="w-full p-2.5 border rounded-xl font-bold">
-                </div>
-              </div>
-            </div>
-
-            <div class="flex flex-col justify-between bg-blue-50 p-6 rounded-2xl border border-blue-200">
-              <div class="space-y-3">
-                <h4 class="font-bold text-blue-900">Total Físico en Gaveta (Bolívares):</h4>
-                <div class="text-4xl font-black text-blue-950">
-                  Bs. <span x-text="formatNumber(calculatePhysicalVes())"></span>
-                </div>
-                <p class="text-xs text-blue-700 font-semibold">
-                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (bcvRate || 36.80))"></span> USD</strong>
-                </p>
-                <div class="pt-3 border-t border-blue-200 text-xs space-y-1 text-blue-900">
-                  <div class="flex justify-between">
-                    <span>Saldo Sistema (Efectivo VES):</span>
-                    <span class="font-bold" x-text="'Bs. ' + formatNumber(getAccountBalance('Efectivo VES'))"></span>
-                  </div>
-                  <div class="flex justify-between font-bold"
-                       :class="(calculatePhysicalVes() - getAccountBalance('Efectivo VES')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
-                    <span>Diferencia:</span>
-                    <span x-text="((calculatePhysicalVes() - getAccountBalance('Efectivo VES')) >= 0 ? '+Bs. ' : '-Bs. ') + formatNumber(Math.abs(calculatePhysicalVes() - getAccountBalance('Efectivo VES')))"></span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-6 pt-6 border-t border-blue-200">
-                <button @click="showArqueoVesReceiptModal = true" class="w-full btn-large bg-blue-700 hover:bg-blue-800 text-white shadow font-bold text-sm flex items-center justify-center gap-2">
-                  <span>🧾</span> Ver e Imprimir Comprobante (Bs. VES)
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
