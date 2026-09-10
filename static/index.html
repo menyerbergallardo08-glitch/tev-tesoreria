@@ -544,8 +544,9 @@
             <!-- 5. FORMA DE PAGO LIMPIA Y ERGONÓMICA (CERO SATURACIÓN VISUAL) -->
             <div x-show="!liveSaleForm.is_credit" class="p-5 bg-slate-50/90 border border-slate-200 rounded-3xl space-y-4">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-gray-200 pb-2">
-                <label class="block text-xs font-black text-gray-800 uppercase tracking-wider">
-                  💵 3. Forma de Pago / Canal de Cobro:
+                <label class="block text-xs font-black uppercase tracking-wider"
+                       :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'text-rose-900' : 'text-gray-800'"
+                       x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? '💸 3. Medio de Reembolso / Modalidad de Devolución:' : '💵 3. Forma de Pago / Canal de Cobro:'">
                 </label>
                 <span class="text-xs font-bold text-teal-900 bg-teal-100/70 px-2.5 py-1 rounded-lg border border-teal-200"
                       x-text="'Destino: ' + getSelectedAccountNameForLive()"></span>
@@ -556,47 +557,47 @@
                 
                 <!-- 1. Efectivo USD -->
                 <button type="button" @click="setPaymentMethod('EFECTIVO_USD')"
-                        :class="paymentMethod === 'EFECTIVO_USD' ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'EFECTIVO_USD' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">💵</span>
-                  <span class="text-xs font-bold">Efectivo USD</span>
+                  <span class="text-xs font-bold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Reembolso USD' : 'Efectivo USD'"></span>
                   <span class="text-[10px] opacity-80 font-semibold">Gaveta $</span>
                 </button>
 
                 <!-- 2. Efectivo VES -->
                 <button type="button" @click="setPaymentMethod('EFECTIVO_VES')"
-                        :class="paymentMethod === 'EFECTIVO_VES' ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'EFECTIVO_VES' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">🇻🇪</span>
-                  <span class="text-xs font-bold">Efectivo VES</span>
+                  <span class="text-xs font-bold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Reembolso VES' : 'Efectivo VES'"></span>
                   <span class="text-[10px] opacity-80 font-semibold">Gaveta Bs.</span>
                 </button>
 
-                <!-- 3. Punto de Venta POS -->
+                <!-- 3. Punto de Venta POS / Reverso -->
                 <button type="button" @click="setPaymentMethod('POS')"
-                        :class="paymentMethod === 'POS' ? 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'POS' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-blue-800 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">💳</span>
-                  <span class="text-xs font-bold">Punto POS</span>
-                  <span class="text-[10px] opacity-80 font-semibold">Tarjeta Déb/Créd</span>
+                  <span class="text-xs font-bold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Reverso POS' : 'Punto POS'"></span>
+                  <span class="text-[10px] opacity-80 font-semibold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Anulación Punto' : 'Tarjeta Déb/Créd'"></span>
                 </button>
 
                 <!-- 4. Pago Móvil / Transf -->
                 <button type="button" @click="setPaymentMethod('PAGO_MOVIL')"
-                        :class="paymentMethod === 'PAGO_MOVIL' ? 'bg-purple-700 text-white font-black shadow-md ring-4 ring-purple-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'PAGO_MOVIL' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-purple-800 text-white font-black shadow-md ring-4 ring-purple-200' : 'bg-purple-700 text-white font-black shadow-md ring-4 ring-purple-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">📲</span>
                   <span class="text-xs font-bold">Pago Móvil</span>
-                  <span class="text-[10px] opacity-80 font-semibold">Transferencia</span>
+                  <span class="text-[10px] opacity-80 font-semibold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Emisión / Transf' : 'Transferencia'"></span>
                 </button>
 
-                <!-- 5. CASHEA DEDICADO Y EXCLUSIVO -->
-                <button type="button" @click="setPaymentMethod('CASHEA')"
-                        :class="paymentMethod === 'CASHEA' ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
+                <!-- 5. CASHEA / SALDO A FAVOR (NOTA DE CRÉDITO) -->
+                <button type="button" @click="liveSaleForm.doc_type === 'DEVOLUCION' ? setPaymentMethod('NOTA_CREDITO') : setPaymentMethod('CASHEA')"
+                        :class="(paymentMethod === 'CASHEA' || paymentMethod === 'NOTA_CREDITO') ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
-                  <span class="text-2xl">🟡</span>
-                  <span class="text-xs font-black">Cashea</span>
-                  <span class="text-[10px] font-bold text-amber-900">Cuotas / App BNC</span>
+                  <span class="text-2xl" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? '📑' : '🟡'"></span>
+                  <span class="text-xs font-black" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Saldo a Favor' : 'Cashea'"></span>
+                  <span class="text-[10px] font-bold text-amber-900" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Nota de Crédito' : 'Cuotas / App BNC'"></span>
                 </button>
 
               </div>
@@ -630,6 +631,20 @@
                   <label class="block text-xs font-bold text-purple-950 mb-1">🔖 N° de Referencia Bancaria (Últimos 4 o 6 dígitos):</label>
                   <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: 994201"
                          class="w-full p-2.5 border border-purple-300 rounded-xl text-xs bg-white font-black text-purple-950 focus:ring-2 focus:ring-purple-500">
+                </div>
+              </div>
+
+              
+              <!-- SI ES SALDO A FAVOR / NOTA DE CRÉDITO APLICABLE (SIN SALIDA DE DINERO FÍSICO) -->
+              <div x-show="paymentMethod === 'NOTA_CREDITO'" class="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-xl">ℹ️</span>
+                  <div class="text-xs text-amber-950">
+                    <strong class="font-black text-amber-900">Nota de Crédito / Saldo a Favor del Cliente:</strong>
+                    <p class="mt-0.5 text-amber-800">
+                      Esta opción rebaja la venta neta pero <strong>NO descuenta dinero físico de la gaveta ni del banco</strong>, ya que el cliente conserva el saldo a favor para aplicarlo en compras futuras o cruzarse contra otra factura en CxC.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -3588,6 +3603,11 @@
           } else if (method === 'CASHEA') {
             const acc = this.accounts.find(a => a.name.includes('Cashea')) || this.accounts.find(a => a.name.includes('BNC')) || (this.accounts.length > 0 ? this.accounts[0] : null);
             if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'NOTA_CREDITO') {
+            this.liveSaleForm.account_id = null;
+            this.liveSaleForm.is_credit = true;
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'DIGITAL') {
