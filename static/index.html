@@ -1589,9 +1589,10 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+            <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white cursor-pointer shadow-sm">
+              <option value="2026-09">Septiembre 2026 (Actual)</option>
               <option value="2026-08">Agosto 2026</option>
-              <option value="2026-09">Septiembre 2026</option>
+              <option value="2026-10">Octubre 2026</option>
             </select>
           </div>
         </div>
@@ -3275,7 +3276,7 @@
         categories: [],
         transactions: [],
         usersList: [],
-        filterMonth: '2026-08',
+        filterMonth: '2026-09',
         filterType: '',
         filterCategoryStatus: 'all',
 
