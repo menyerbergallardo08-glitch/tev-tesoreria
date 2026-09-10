@@ -518,7 +518,7 @@
                       x-text="'Destino: ' + getSelectedAccountNameForLive()"></span>
               </div>
 
-              <!-- 5 Grandes Tarjetas de Método de Cobro -->
+              <!-- 5 Grandes Tarjetas de Método de Cobro (Cashea Dedicado) -->
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 
                 <!-- 1. Efectivo USD -->
@@ -557,13 +557,13 @@
                   <span class="text-[10px] opacity-80 font-semibold">Transferencia</span>
                 </button>
 
-                <!-- 5. Cashea / Digital -->
-                <button type="button" @click="setPaymentMethod('DIGITAL')"
-                        :class="paymentMethod === 'DIGITAL' ? 'bg-amber-600 text-white font-black shadow-md ring-4 ring-amber-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                <!-- 5. CASHEA DEDICADO Y EXCLUSIVO -->
+                <button type="button" @click="setPaymentMethod('CASHEA')"
+                        :class="paymentMethod === 'CASHEA' ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">🟡</span>
-                  <span class="text-xs font-bold">Cashea / Zelle</span>
-                  <span class="text-[10px] opacity-80 font-semibold">Billetera USDT</span>
+                  <span class="text-xs font-black">Cashea</span>
+                  <span class="text-[10px] font-bold text-amber-900">Cuotas / App BNC</span>
                 </button>
 
               </div>
@@ -1424,7 +1424,7 @@
                   Bs. <span x-text="formatNumber(calculatePhysicalVes())"></span>
                 </div>
                 <p class="text-xs text-blue-700 font-semibold">
-                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (bcvRate || 36.80))"></span> USD</strong>
+                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (bcvRate || 827.74))"></span> USD</strong>
                 </p>
                 <div class="pt-2.5 border-t border-blue-200 text-xs space-y-1 text-blue-900">
                   <div class="flex justify-between">
@@ -2803,7 +2803,7 @@
             </div>
             <div class="flex justify-between text-blue-800 text-[11px]">
               <span>Equivalente BCV ($):</span>
-              <span class="font-bold" x-text="'$' + formatNumber(calculatePhysicalVes() / (bcvRate || 36.80)) + ' USD'"></span>
+              <span class="font-bold" x-text="'$' + formatNumber(calculatePhysicalVes() / (bcvRate || 827.74)) + ' USD'"></span>
             </div>
             <div class="flex justify-between text-gray-600 pt-1 border-t border-blue-200 text-[11px]">
               <span>Saldo Sistema (Efectivo VES):</span>
@@ -3342,6 +3342,11 @@
             if (acc) this.liveSaleForm.account_id = acc.id;
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'CASHEA') {
+            const acc = this.accounts.find(a => a.name.includes('Cashea')) || this.accounts.find(a => a.name.includes('BNC')) || (this.accounts.length > 0 ? this.accounts[0] : null);
+            if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'DIGITAL') {
             this.onDigitalChannelChange();
           }
@@ -3422,8 +3427,8 @@
         duplicateWarning: false,
         duplicateWarningMessage: '',
 
-        bcvRate: 36.80,
-        newBcvRate: 36.80,
+        bcvRate: parseFloat(localStorage.getItem('tev_bcv_rate')) || 827.74,
+        newBcvRate: parseFloat(localStorage.getItem('tev_bcv_rate')) || 827.74,
         showBcvRateModal: false,
         suppliers: [],
         selectedSupplierId: '',
@@ -3864,7 +3869,7 @@
             this.form.currency = acc.currency;
             if (acc.currency === 'VES') {
               if (this.form.subtype !== 'CAMBIO_DIVISAS') {
-                this.form.exchange_rate = this.bcvRate || 36.80;
+                this.form.exchange_rate = this.bcvRate || 827.74;
               }
             } else {
               this.form.exchange_rate = 1.0;
@@ -4647,7 +4652,7 @@
 
         calculateVesEquivalent() {
           const amt = parseFloat(this.form.amount_original) || 0;
-          const rate = parseFloat(this.form.exchange_rate || this.bcvRate) || 36.80;
+          const rate = parseFloat(this.form.exchange_rate || this.bcvRate) || 827.74;
           return this.formatNumber(amt * rate);
         },
 
