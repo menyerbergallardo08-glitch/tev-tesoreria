@@ -2028,9 +2028,10 @@ def get_accumulated_sales(
         Transaction.status != "ANULADO"
     ).order_by(Transaction.id.desc()).all()
 
-    total_fiscal_iva_usd = 0.0
-    total_notes_contado_usd = 0.0
-    total_notes_credit_usd = 0.0
+    fac_contado_usd = 0.0
+    fac_credito_usd = 0.0
+    not_contado_usd = 0.0
+    not_credito_usd = 0.0
     total_abonos_cxc_usd = 0.0
     total_retentions_iva_usd = 0.0
     total_returns_usd = 0.0
@@ -2039,12 +2040,15 @@ def get_accumulated_sales(
     for t in txs:
         if t.movement_type == "INGRESO":
             if t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
-                total_fiscal_iva_usd += t.amount_usd
+                if t.is_credit:
+                    fac_credito_usd += t.amount_usd
+                else:
+                    fac_contado_usd += t.amount_usd
             elif t.doc_type == "NOTA_ENTREGA":
                 if t.is_credit:
-                    total_notes_credit_usd += t.amount_usd
+                    not_credito_usd += t.amount_usd
                 else:
-                    total_notes_contado_usd += t.amount_usd
+                    not_contado_usd += t.amount_usd
             elif t.subtype in ["COBRO_CXC", "ABONO_CXC"]:
                 total_abonos_cxc_usd += t.amount_usd
             
@@ -2061,13 +2065,18 @@ def get_accumulated_sales(
             "doc_number": t.doc_number or "-",
             "client_name": t.client_name or t.beneficiary or "Cliente Mostrador",
             "is_credit": t.is_credit,
+            "condition_label": "A Crédito (CxC)" if t.is_credit else "De Contado",
             "amount_usd": round(t.amount_usd, 2),
             "amount_original": round(t.amount_original, 2),
             "currency": t.currency,
             "tax_retention_amount": round(t.tax_retention_amount or 0.0, 2)
         })
 
-    net_sales_usd = total_fiscal_iva_usd + total_notes_contado_usd + total_notes_credit_usd - total_returns_usd
+    total_fiscal_iva_usd = fac_contado_usd + fac_credito_usd
+    total_notes_despacho_usd = not_contado_usd + not_credito_usd
+    total_sales_contado_usd = fac_contado_usd + not_contado_usd
+    total_sales_credito_usd = fac_credito_usd + not_credito_usd
+    net_sales_usd = total_fiscal_iva_usd + total_notes_despacho_usd - total_returns_usd
 
     return {
         "filter_mode": filter_mode,
@@ -2076,8 +2085,13 @@ def get_accumulated_sales(
         "period_label": period_label,
         "period": f"{start_date.isoformat()} al {end_date.isoformat()}",
         "total_fiscal_iva_usd": round(total_fiscal_iva_usd, 2),
-        "total_notes_contado_usd": round(total_notes_contado_usd, 2),
-        "total_notes_credit_usd": round(total_notes_credit_usd, 2),
+        "fac_contado_usd": round(fac_contado_usd, 2),
+        "fac_credito_usd": round(fac_credito_usd, 2),
+        "total_notes_despacho_usd": round(total_notes_despacho_usd, 2),
+        "not_contado_usd": round(not_contado_usd, 2),
+        "not_credito_usd": round(not_credito_usd, 2),
+        "total_sales_contado_usd": round(total_sales_contado_usd, 2),
+        "total_sales_credito_usd": round(total_sales_credito_usd, 2),
         "total_abonos_cxc_usd": round(total_abonos_cxc_usd, 2),
         "total_retentions_iva_usd": round(total_retentions_iva_usd, 2),
         "total_returns_usd": round(total_returns_usd, 2),
