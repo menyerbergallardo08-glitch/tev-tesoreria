@@ -252,6 +252,20 @@
             <span>📋 Movimientos</span>
           </button>
 
+          <!-- NUEVA PESTAÑA: CUADRE DIARIO DE CAJA Y PUNTOS -->
+          <button @click="activeTab = 'cuadre'; loadCashCloseSummary()"
+                  :class="activeTab === 'cuadre' ? 'bg-blue-700 text-white shadow ring-2 ring-blue-300' : 'text-blue-800 bg-blue-50 hover:bg-blue-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-black text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>🔒 Cuadre Diario</span>
+          </button>
+
+          <!-- NUEVA PESTAÑA: VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
+          <button @click="activeTab = 'ventas_acum'; loadSalesAccumulated()"
+                  :class="activeTab === 'ventas_acum' ? 'bg-indigo-700 text-white shadow' : 'text-indigo-800 bg-indigo-50 hover:bg-indigo-100'"
+                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>📈 Ventas & Retenciones</span>
+          </button>
+
           <!-- FLUJO DE CAJA (ADMIN Y DIRECTIVO) -->
           <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
             <button @click="activeTab = 'flujo'; loadCashFlowAll()"
@@ -378,20 +392,96 @@
           </div>
 
           <form @submit.prevent="prepareSubmitTransaction()" class="space-y-6">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <!-- Selector de Tipo de Documento Fiscal (Dualidad Venezolana) -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+              <label class="block text-sm font-black text-gray-800">📄 Tipo de Documento / Régimen de Venta:</label>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" @click="form.doc_type = 'FACTURA_FISCAL'; form.is_credit = false"
+                        :class="form.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-700 text-white font-bold ring-2 ring-emerald-300' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
+                  <span class="text-base">🧾</span>
+                  <span>Factura Fiscal (Con IVA)</span>
+                </button>
+
+                <button type="button" @click="form.doc_type = 'NOTA_ENTREGA'; form.is_credit = true"
+                        :class="form.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-700 text-white font-bold ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
+                  <span class="text-base">📦</span>
+                  <span>Nota de Entrega (Sin IVA / Crédito)</span>
+                </button>
+
+                <button type="button" @click="form.doc_type = 'COBRO_RETENCION'"
+                        :class="form.doc_type === 'COBRO_RETENCION' ? 'bg-purple-700 text-white font-bold ring-2 ring-purple-300' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
+                  <span class="text-base">📑</span>
+                  <span>Cobro con Retención (IVA / ISLR)</span>
+                </button>
+
+                <button type="button" @click="form.doc_type = 'DEVOLUCION'; form.movement_type = 'EGRESO'; form.subtype = 'DEVOLUCION_VENTA'"
+                        :class="form.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-bold ring-2 ring-rose-300' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
+                  <span class="text-base">↩️</span>
+                  <span>Devolución / Nota Crédito</span>
+                </button>
+              </div>
+
+              <!-- Si es Nota de Entrega: Opción de Crédito vs Contado -->
+              <div x-show="form.doc_type === 'NOTA_ENTREGA'" class="pt-2 flex items-center gap-2 text-xs font-bold text-blue-900">
+                <input type="checkbox" id="is_credit_check" x-model="form.is_credit" class="w-4 h-4 text-blue-600 rounded">
+                <label for="is_credit_check" class="cursor-pointer">Marcar como Venta a Crédito (Queda registrada en Cuentas por Cobrar)</label>
+              </div>
+
+              <!-- Si es Cobro con Retención: Datos de Comprobante -->
+              <div x-show="form.doc_type === 'COBRO_RETENCION'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-purple-200">
+                <div>
+                  <label class="text-xs font-bold text-purple-900">Monto Retención IVA/ISLR ($):</label>
+                  <input type="number" step="0.01" min="0" x-model.number="form.tax_retention_amount" placeholder="0.00" class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
+                </div>
+                <div>
+                  <label class="text-xs font-bold text-purple-900">N° Comprobante de Retención:</label>
+                  <input type="text" x-model="form.tax_retention_proof" placeholder="Ej: 202609000123" class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">📅 Fecha de la Operación</label>
+                <label class="block text-sm font-bold text-gray-700 mb-1">📅 Fecha de la Operación</label>
                 <input type="date" x-model="form.date" required class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
               </div>
 
               <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">🏦 Caja o Banco Afectado</label>
+                <label class="block text-sm font-bold text-gray-700 mb-1">🏦 Caja o Banco Afectado</label>
                 <select x-model.number="form.account_id" @change="onAccountChange()" required
-                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white">
+                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white font-semibold">
                   <template x-for="acc in getAvailableAccountsForForm()" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
                 </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">🔖 N° de Factura / Nota / Control</label>
+                <input type="text" x-model="form.doc_number" placeholder="Ej: Factura 004821 / NE-1052"
+                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
+              </div>
+            </div>
+
+            <!-- Si la cuenta seleccionada es un Punto de Venta (POS) -->
+            <div x-show="isAccountPOS()" class="p-3 bg-blue-50 border border-blue-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="font-bold text-blue-950">Terminal / Punto de Venta:</label>
+                <select x-model="form.pos_terminal" class="w-full p-2 border rounded-lg bg-white font-semibold">
+                  <option value="POS Banesco">POS Banesco</option>
+                  <option value="POS Bancaribe">POS Bancaribe</option>
+                  <option value="POS Banco de Venezuela">POS Banco de Venezuela</option>
+                  <option value="POS BNC">POS BNC</option>
+                  <option value="Otro">Otro Punto</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold text-blue-950">N° de Lote / Aprobación POS:</label>
+                <input type="text" x-model="form.pos_lot_number" placeholder="Ej: Lote 142" class="w-full p-2 border rounded-lg bg-white font-bold">
               </div>
             </div>
 
@@ -637,6 +727,258 @@
                 </template>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ======================================================== -->
+      <!-- TAB CUADRE DIARIO INTEGRAL (PUNTOS, BANCOS, GAVETA, CASHEA) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'cuadre'" class="space-y-6">
+        
+        <!-- Barra Superior de Control de Fecha -->
+        <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <span>🔒 Cuadre y Cierre Diario de Caja</span>
+              <span x-show="cashCloseSummary?.is_closed" class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs rounded-full font-bold">CERRADO</span>
+            </h2>
+            <p class="text-xs text-gray-500">Conciliación de Puntos de Venta (POS), Bancos, Gaveta, Cashea y Ventas Profit</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5 bg-slate-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold">
+              <span>📅 Fecha:</span>
+              <input type="date" x-model="cuadreDate" @change="loadCashCloseSummary()" class="bg-transparent border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none">
+            </div>
+
+            <button @click="openCashCloseReceipt()" class="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 transition">
+              <span>🖨️</span> Ver Comprobante (1 Hoja)
+            </button>
+          </div>
+        </div>
+
+        <!-- Matriz de Resumen de Ventas y Cobranzas del Día -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Bloque A: Ventas del Día según Profit Plus -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h3 class="text-base font-black text-gray-800 flex items-center gap-2">
+                <span>📊 Resumen Comercial (Profit Plus)</span>
+              </h3>
+              <span class="text-xs font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-lg" x-text="cuadreDate"></span>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between items-center p-2.5 bg-emerald-50 rounded-xl border border-emerald-100">
+                <span class="font-bold text-emerald-900">🧾 Facturación Fiscal (Con IVA):</span>
+                <span class="font-black text-emerald-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.fiscal_iva_usd || 0)"></span>
+              </div>
+
+              <div class="flex justify-between items-center p-2.5 bg-blue-50 rounded-xl border border-blue-100">
+                <span class="font-bold text-blue-900">📦 Notas de Entrega a Crédito (CxC):</span>
+                <span class="font-black text-blue-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.notes_credit_usd || 0)"></span>
+              </div>
+
+              <div class="flex justify-between items-center p-2.5 bg-purple-50 rounded-xl border border-purple-100">
+                <span class="font-bold text-purple-900">📥 Notas Cobradas / Convertidas hoy:</span>
+                <span class="font-black text-purple-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.notes_collected_usd || 0)"></span>
+              </div>
+
+              <div class="flex justify-between items-center p-2.5 bg-rose-50 rounded-xl border border-rose-100">
+                <span class="font-bold text-rose-900">↩️ Devoluciones / Reembolsos:</span>
+                <span class="font-black text-rose-950 text-base" x-text="'-$' + formatNumber(cashCloseSummary?.sales_summary?.returns_total_usd || 0)"></span>
+              </div>
+
+              <div class="pt-2 border-t flex justify-between items-center font-black text-gray-900 text-lg">
+                <span>Venta Neta Total del Día:</span>
+                <span class="text-tev-green" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.net_sales_usd || 0)"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloque B: Cobranza Real por Canal Financiero -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h3 class="text-base font-black text-gray-800 flex items-center gap-2">
+                <span>🏦 Fondos y Cobranzas por Canal</span>
+              </h3>
+              <span class="text-xs font-bold text-gray-500" x-text="(cashCloseSummary?.transactions_count || 0) + ' transacciones'"></span>
+            </div>
+
+            <div class="space-y-2 text-xs">
+              <!-- Efectivo USD y VES -->
+              <div class="grid grid-cols-2 gap-2">
+                <div class="p-2.5 bg-slate-50 rounded-xl border">
+                  <p class="text-gray-500 font-bold">💵 Gaveta USD Físico:</p>
+                  <p class="text-base font-black text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cash_usd_net || 0)"></p>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-xl border">
+                  <p class="text-gray-500 font-bold">🇻🇪 Gaveta VES Físico:</p>
+                  <p class="text-base font-black text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves_net || 0)"></p>
+                </div>
+              </div>
+
+              <!-- Puntos de Venta (POS) -->
+              <div class="p-2.5 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1">
+                <div class="flex justify-between font-bold text-blue-950">
+                  <span>💳 Total Lotes Puntos de Venta (POS):</span>
+                  <span class="font-black text-sm" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd || 0)"></span>
+                </div>
+                <div class="grid grid-cols-3 gap-1 text-[11px] text-gray-600 pt-1">
+                  <span>Banesco: <strong x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown?.Banesco || 0)"></strong></span>
+                  <span>Bancaribe: <strong x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown?.Bancaribe || 0)"></strong></span>
+                  <span>BDV: <strong x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown?.BDV || 0)"></strong></span>
+                </div>
+              </div>
+
+              <!-- Bancos, Cashea y Retenciones -->
+              <div class="grid grid-cols-3 gap-2">
+                <div class="p-2 bg-slate-50 rounded-xl border text-center">
+                  <p class="text-gray-500 font-bold">📲 Pago Móvil:</p>
+                  <p class="font-black text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd || 0)"></p>
+                </div>
+                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center">
+                  <p class="text-amber-800 font-bold">🟡 BNC - Cashea:</p>
+                  <p class="font-black text-amber-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></p>
+                </div>
+                <div class="p-2 bg-purple-50 rounded-xl border border-purple-200 text-center">
+                  <p class="text-purple-800 font-bold">📑 Retenciones IVA:</p>
+                  <p class="font-black text-purple-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.retentions_iva_usd || 0)"></p>
+                </div>
+              </div>
+
+              <!-- Vales / Gastos Menores -->
+              <div class="flex justify-between items-center p-2 bg-rose-50 rounded-xl border border-rose-100 font-bold text-rose-900">
+                <span>(-) Vales / Gastos Menores Pagados Hoy:</span>
+                <span x-text="'-$' + formatNumber(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0)"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloque C: Conciliación de Arqueo Físico & Guardado del Cierre -->
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
+          <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+            <div>
+              <h3 class="text-lg sm:text-xl font-black text-gray-900">🧮 Conciliación y Veredicto de Cuadre</h3>
+              <p class="text-xs text-gray-500">Cotejo entre dinero físico real y saldo esperado</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-bold text-gray-500">Estado de Cuadre:</span>
+              <div class="text-sm font-black"
+                   :class="calculateCuadreDifference() === 0 ? 'text-emerald-700' : 'text-rose-700'"
+                   x-text="calculateCuadreDifference() === 0 ? '🟢 CAJA CUADRADA ($0.00)' : (calculateCuadreDifference() > 0 ? '🟡 SOBRANTE (+$' + formatNumber(calculateCuadreDifference()) + ')' : '🔴 FALTANTE (-$' + formatNumber(Math.abs(calculateCuadreDifference())) + ')')">
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Observaciones / Justificación de Caja:</label>
+              <textarea x-model="cuadreNotes" rows="3" placeholder="Detalles u observaciones del turno..." class="w-full p-2.5 border rounded-xl text-xs"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Cajero Responsable de Entrega:</label>
+              <input type="text" :value="currentUser?.full_name" readonly class="w-full p-2.5 border bg-gray-100 rounded-xl text-xs font-bold">
+            </div>
+
+            <div class="flex flex-col justify-end space-y-2">
+              <button @click="executeSaveDailyCashClose()" class="w-full py-3 bg-tev-green hover:bg-tev-darkgreen text-white font-black rounded-xl text-sm shadow flex items-center justify-center gap-2">
+                <span>🔒</span> Guardar y Cerrar Cuadre Diario
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historial de Cierres de Caja Anteriores -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <h3 class="text-base font-black text-gray-900">📚 Historial de Cuadres de Caja Anteriores</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-3">Fecha</th>
+                  <th class="p-3">Responsable</th>
+                  <th class="p-3 text-right">Venta Neta ($)</th>
+                  <th class="p-3 text-right">Total Cobrado ($)</th>
+                  <th class="p-3 text-right">Diferencia</th>
+                  <th class="p-3 text-center">Estado</th>
+                  <th class="p-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="c in cashCloseHistory" :key="c.id">
+                  <tr class="hover:bg-slate-50">
+                    <td class="p-3 font-bold" x-text="c.date"></td>
+                    <td class="p-3" x-text="c.cajero_name"></td>
+                    <td class="p-3 text-right font-bold" x-text="'$' + formatNumber(c.net_sales_usd)"></td>
+                    <td class="p-3 text-right font-bold text-tev-green" x-text="'$' + formatNumber(c.total_collected_real_usd)"></td>
+                    <td class="p-3 text-right font-black" :class="c.difference_usd === 0 ? 'text-emerald-700' : 'text-rose-700'" x-text="'$' + formatNumber(c.difference_usd)"></td>
+                    <td class="p-3 text-center">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="c.status === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                            x-text="c.status"></span>
+                    </td>
+                    <td class="p-3 text-center">
+                      <button @click="cuadreDate = c.date; loadCashCloseSummary(); openCashCloseReceipt()" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg font-bold text-[11px]">
+                        🧾 Imprimir
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'ventas_acum'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900">📈 Ventas Acumuladas & Retenciones SENIAT</h2>
+            <p class="text-xs text-gray-500">Control comercial en tiempo real y balance para declaración fiscal</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 4 Tarjetas de Métricas Ejecutivas -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-200">
+            <p class="text-xs font-bold text-emerald-800 uppercase">Facturación Fiscal (con IVA)</p>
+            <p class="text-2xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_fiscal_iva_usd || 0)"></p>
+            <p class="text-[11px] text-emerald-700 mt-1">Total emitido en Libro de Ventas</p>
+          </div>
+
+          <div class="bg-blue-50 p-5 rounded-2xl border border-blue-200">
+            <p class="text-xs font-bold text-blue-800 uppercase">Notas de Entrega Activas (CxC)</p>
+            <p class="text-2xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_notes_credit_usd || 0)"></p>
+            <p class="text-[11px] text-blue-700 mt-1">Créditos pendientes por cobrar</p>
+          </div>
+
+          <div class="bg-purple-50 p-5 rounded-2xl border border-purple-200">
+            <p class="text-xs font-bold text-purple-800 uppercase">Retenciones IVA SENIAT Recibidas</p>
+            <p class="text-2xl font-black text-purple-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_retentions_iva_usd || 0)"></p>
+            <p class="text-[11px] text-purple-700 mt-1">Crédito fiscal a descontar</p>
+          </div>
+
+          <div class="bg-slate-900 text-white p-5 rounded-2xl">
+            <p class="text-xs font-bold text-gray-300 uppercase">Venta Neta Acumulada</p>
+            <p class="text-2xl font-black text-emerald-400 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.net_sales_usd || 0)"></p>
+            <p class="text-[11px] text-gray-400 mt-1">Ventas totales menos devoluciones</p>
           </div>
         </div>
       </div>
@@ -2474,6 +2816,8 @@
 
   <!-- SCRIPT ALPINE -->
   <script>
+    function roundNumber(num, dec) { return Math.round(num * Math.pow(10, dec)) / Math.pow(10, dec); }
+
     function app() {
       return {
         currentUser: null,
@@ -2524,6 +2868,13 @@
         dailyCashFlow: [],
         dailyCashFlowTotals: {},
         dailyViewMode: 'matriz',
+
+        cuadreDate: new Date().toISOString().split('T')[0],
+        cashCloseSummary: null,
+        cashCloseHistory: [],
+        salesAccumulatedData: null,
+        showCashCloseReceiptModal: false,
+        cuadreNotes: '',
 
         arqueo: {
           b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0
@@ -2999,6 +3350,121 @@
             'COBRO_CXC': 'Registro de Cobro de Cuenta por Cobrar'
           };
           return map[this.form.subtype] || 'Registro de Movimiento';
+        },
+
+        isAccountPOS() {
+          const acc = this.accounts.find(a => a.id === this.form.account_id);
+          if (!acc) return false;
+          const name = acc.name.toUpperCase();
+          return name.includes('BANCO') || name.includes('PUNTO') || name.includes('POS') || name.includes('BANESCO') || name.includes('BANCARIBE') || name.includes('VENEZUELA');
+        },
+
+        async loadCashCloseSummary() {
+          try {
+            const token = this.getToken();
+            const res = await fetch(`/api/cash-close/summary?date=${this.cuadreDate}`, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.cashCloseSummary = await res.json();
+              if (this.cashCloseSummary.existing_close) {
+                this.cuadreNotes = this.cashCloseSummary.existing_close.notes || '';
+              }
+            }
+            await this.loadCashCloseHistory();
+          } catch (e) {
+            console.error('Error loading cash close summary:', e);
+          }
+        },
+
+        async loadCashCloseHistory() {
+          try {
+            const token = this.getToken();
+            const res = await fetch('/api/cash-close/history', {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.cashCloseHistory = await res.json();
+            }
+          } catch (e) {
+            console.error('Error loading cash close history:', e);
+          }
+        },
+
+        calculateCuadreDifference() {
+          if (!this.cashCloseSummary) return 0;
+          const netSales = this.cashCloseSummary.sales_summary?.net_sales_usd || 0;
+          const collected = this.cashCloseSummary.collections_summary?.total_collected_real_usd || 0;
+          return roundNumber(collected - netSales, 2);
+        },
+
+        async executeSaveDailyCashClose() {
+          if (!this.cashCloseSummary) return;
+          try {
+            const token = this.getToken();
+            const payload = {
+              date: this.cuadreDate,
+              cajero_name: this.currentUser?.full_name || 'Cajero',
+              verified_by: 'Administración',
+              status: this.calculateCuadreDifference() === 0 ? 'CUADRADO' : (this.calculateCuadreDifference() > 0 ? 'SOBRANTE' : 'FALTANTE'),
+              profit_sales_total_usd: this.cashCloseSummary.sales_summary?.net_sales_usd || 0,
+              sales_fiscal_iva_usd: this.cashCloseSummary.sales_summary?.fiscal_iva_usd || 0,
+              sales_notes_credit_usd: this.cashCloseSummary.sales_summary?.notes_credit_usd || 0,
+              sales_notes_collected_usd: this.cashCloseSummary.sales_summary?.notes_collected_usd || 0,
+              returns_total_usd: this.cashCloseSummary.sales_summary?.returns_total_usd || 0,
+              net_sales_usd: this.cashCloseSummary.sales_summary?.net_sales_usd || 0,
+              cash_usd_physical: this.cashCloseSummary.collections_summary?.cash_usd_net || 0,
+              cash_ves_physical: this.cashCloseSummary.collections_summary?.cash_ves_net || 0,
+              pos_total_usd: this.cashCloseSummary.collections_summary?.pos_total_usd || 0,
+              bank_transfers_usd: this.cashCloseSummary.collections_summary?.bank_transfers_usd || 0,
+              cashea_usd: this.cashCloseSummary.collections_summary?.cashea_usd || 0,
+              retentions_iva_usd: this.cashCloseSummary.collections_summary?.retentions_iva_usd || 0,
+              retentions_islr_usd: this.cashCloseSummary.collections_summary?.retentions_islr_usd || 0,
+              expenses_caja_usd: this.cashCloseSummary.collections_summary?.expenses_caja_usd || 0,
+              total_collected_real_usd: this.cashCloseSummary.collections_summary?.total_collected_real_usd || 0,
+              total_expected_usd: this.cashCloseSummary.sales_summary?.net_sales_usd || 0,
+              difference_usd: this.calculateCuadreDifference(),
+              notes: this.cuadreNotes
+            };
+
+            const res = await fetch('/api/cash-close', {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+              const d = await res.json();
+              this.showToast('success', 'Cuadre Guardado', d.message);
+              await this.loadCashCloseSummary();
+            } else {
+              const err = await res.json();
+              this.showToast('error', 'Error', err.detail || 'No se pudo guardar el cuadre');
+            }
+          } catch (e) {
+            this.showToast('error', 'Error', 'Error de conexión');
+          }
+        },
+
+        openCashCloseReceipt() {
+          this.showCashCloseReceiptModal = true;
+        },
+
+        async loadSalesAccumulated() {
+          try {
+            const token = this.getToken();
+            const res = await fetch(`/api/sales/accumulated?month=${this.filterMonth}`, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.salesAccumulatedData = await res.json();
+            }
+          } catch (e) {
+            console.error('Error loading accumulated sales:', e);
+          }
         },
 
         formatSubtype(st) {
