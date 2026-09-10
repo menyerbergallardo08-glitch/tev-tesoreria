@@ -201,18 +201,16 @@
           <!-- Lado Derecho: Badge BCV + Perfil + Acciones -->
           <div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-100">
             
-            <!-- Badge Tasa BCV Oficial -->
-            <div class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-xs">
+            <!-- Badge Tasa BCV Oficial Interactivo -->
+            <button type="button" @click="openBcvRateModal()"
+                    class="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-xs transition cursor-pointer"
+                    title="Haga clic para ver, sincronizar o actualizar la Tasa BCV">
               <span class="text-[11px] sm:text-xs font-bold text-emerald-800 flex items-center gap-1">
                 <span>🇻🇪 BCV:</span>
                 <strong class="text-xs sm:text-sm font-black text-emerald-950" x-text="'Bs. ' + formatNumber(bcvRate)"></strong>
               </span>
-              <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-                <button @click="openBcvRateModal()" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 py-0.5 rounded font-bold transition shadow-xs" title="Actualizar Tasa BCV">
-                  ✏️
-                </button>
-              </template>
-            </div>
+              <span class="text-[11px] text-emerald-700 ml-0.5">🔄</span>
+            </button>
 
             <!-- Usuario & Rol -->
             <div class="flex items-center gap-2">
@@ -5253,6 +5251,68 @@
             </button>
           </div>
 
+        </form>
+
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- MODAL PROFESIONAL: SINCRONIZACIÓN Y AJUSTE TASA BCV -->
+    <!-- ======================================================== -->
+    <div x-show="showBcvRateModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div @click.away="showBcvRateModal = false" class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-5 border border-gray-100">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">🇻🇪</span>
+            <div>
+              <h3 class="text-lg sm:text-xl font-black text-gray-900">Tasa Oficial BCV</h3>
+              <p class="text-xs text-gray-500">Sincronización en vivo y ajuste de tasa</p>
+            </div>
+          </div>
+          <button type="button" @click="showBcvRateModal = false" class="text-gray-400 hover:text-gray-700 font-black text-xl p-1">&times;</button>
+        </div>
+
+        <!-- Tasa Activa Actual -->
+        <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-1">
+          <p class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Tasa Vigente en el Sistema:</p>
+          <p class="text-3xl font-black text-emerald-950" x-text="'Bs. ' + formatNumber(bcvRate)"></p>
+          <p class="text-[11px] text-emerald-700">Utilizada para conversión automática en ventas y cierres de caja</p>
+        </div>
+
+        <!-- Botón de Sincronización en Vivo -->
+        <div>
+          <button type="button" @click="fetchBcvRateLive(true)" :disabled="loadingBcv"
+                  class="w-full py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs">
+            <span x-show="!loadingBcv">🔄 Consultar / Sincronizar con BCV en Vivo</span>
+            <span x-show="loadingBcv">⏳ Consultando tasa oficial del BCV...</span>
+          </button>
+        </div>
+
+        <!-- Ajuste Manual -->
+        <form @submit.prevent="submitManualBcvRate()" class="space-y-4 pt-3 border-t border-gray-100">
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-1">
+              ✏️ O ingresar tasa manualmente (Bs. / USD):
+            </label>
+            <input type="number" step="0.01" min="1" x-model.number="newBcvRate" required placeholder="Ej: 827.74"
+                   class="w-full p-2.5 border border-emerald-300 rounded-xl text-base font-black text-emerald-950 bg-white focus:ring-2 focus:ring-emerald-500">
+            <p class="text-[10px] text-gray-500 mt-1">
+              Útil cuando el BCV publica la nueva tasa de la tarde (4:30 PM) y deseas activarla de inmediato en el sistema.
+            </p>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <button type="button" @click="showBcvRateModal = false"
+                    class="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer">
+              Cerrar
+            </button>
+            <button type="submit"
+                    class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer flex items-center gap-1.5">
+              <span>💾 Guardar y Aplicar Tasa</span>
+            </button>
+          </div>
         </form>
 
       </div>
