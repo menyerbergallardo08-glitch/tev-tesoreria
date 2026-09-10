@@ -2046,7 +2046,7 @@ def get_accumulated_sales(
         "total_notes_collected_usd": round(total_notes_collected_usd, 2),
         "total_retentions_iva_usd": round(total_retentions_iva_usd, 2),
         "total_returns_usd": round(total_returns_usd, 2),
-        "net_sales_usd": round(total_fiscal_iva_usd + total_notes_credit_usd - total_returns_usd, 2),
+        "net_sales_usd": round(total_fiscal_iva_usd + total_notes_credit_usd + total_notes_collected_usd - total_returns_usd, 2),
         "total_collected_real_usd": round(total_fiscal_iva_usd + total_notes_collected_usd - total_returns_usd, 2)
     }
 
