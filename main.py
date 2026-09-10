@@ -771,9 +771,17 @@ def get_cash_flow(
         Transaction.date <= end_date
     ).scalar()
 
+    retiros_acc_usd = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+        Transaction.movement_type == "EGRESO",
+        Transaction.subtype == "RETIRO_ACCIONISTA",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).scalar()
+
     otros_egresos_usd = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
         Transaction.movement_type == "EGRESO",
-        Transaction.subtype.notin_(["GASTO_OPERATIVO", "PAGO_PROVEEDOR", "TRASPASO_SALIDA"]),
+        Transaction.subtype.notin_(["GASTO_OPERATIVO", "PAGO_PROVEEDOR", "RETIRO_ACCIONISTA", "TRASPASO_SALIDA"]),
         Transaction.status != "ANULADO",
         Transaction.date >= start_date,
         Transaction.date <= end_date
@@ -815,6 +823,7 @@ def get_cash_flow(
         "outflows_breakdown": {
             "gastos_operativos_usd": round(total_gastos_op_usd, 2),
             "pagos_proveedores_usd": round(pagos_prov_usd, 2),
+            "retiros_accionistas_usd": round(retiros_acc_usd, 2),
             "otros_egresos_usd": round(otros_egresos_usd, 2),
             "categories": categories_breakdown
         },
