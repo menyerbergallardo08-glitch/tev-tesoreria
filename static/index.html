@@ -277,7 +277,7 @@
           <button @click="activeTab = 'movimientos'"
                   :class="activeTab === 'movimientos' ? 'bg-slate-800 text-white shadow' : 'text-gray-700 hover:bg-gray-100'"
                   class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
-            <span>📋 Movimientos</span>
+            <span>💸 Pagos, Gastos & Egresos</span>
           </button>
 
           <!-- NUEVA PESTAÑA: VENTAS ACUMULADAS Y RETENCIONES SENIAT -->
@@ -887,415 +887,279 @@
       </div>
 
       <!-- ======================================================== -->
-      <!-- TAB 1: REGISTRO DE MOVIMIENTOS (CON LAS 5 TARJETAS) -->
+      <!-- TAB 2: REGISTRO DE PAGOS, GASTOS, RETIROS Y EGRESOS -->
       <!-- ======================================================== -->
-      <div x-show="activeTab === 'registro'" class="space-y-6">
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
-          <h2 class="text-xl font-bold text-gray-800 mb-4">Seleccione qué desea registrar hoy:</h2>
-
-          <!-- 5 TARJETAS PRINCIPALES DE IGUAL JERARQUÍA -->
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <!-- 1. Gasto Operativo -->
-            <button @click="setFormType('EGRESO', 'GASTO_OPERATIVO')"
-                    :class="form.subtype === 'GASTO_OPERATIVO' ? 'bg-rose-600 text-white ring-4 ring-rose-200' : 'bg-rose-50 text-rose-800 hover:bg-rose-100'"
-                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-rose-200">
-              <span class="text-3xl">💸</span>
-              <span class="text-base">Gasto Operativo</span>
-              <span class="text-xs opacity-80">(12 Partidas)</span>
-            </button>
-
-            <!-- 2. Pago a Proveedor -->
-            <button @click="setFormType('EGRESO', 'PAGO_PROVEEDOR')"
-                    :class="form.subtype === 'PAGO_PROVEEDOR' ? 'bg-orange-600 text-white ring-4 ring-orange-200' : 'bg-orange-50 text-orange-800 hover:bg-orange-100'"
-                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-orange-200">
-              <span class="text-3xl">📦</span>
-              <span class="text-base">Pago a Proveedor</span>
-              <span class="text-xs opacity-80">(Mercancía / CxP)</span>
-            </button>
-
-            <!-- 3. Cierre de Venta Diaria -->
-            <button @click="setFormType('INGRESO', 'VENTA_DIARIA')"
-                    :class="form.subtype === 'VENTA_DIARIA' ? 'bg-emerald-600 text-white ring-4 ring-emerald-200' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'"
-                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-emerald-200">
-              <span class="text-3xl">💰</span>
-              <span class="text-base">Cierre Venta Diaria</span>
-              <span class="text-xs opacity-80">(Reporte Z del Día)</span>
-            </button>
-
-            <!-- 4. Cobro a Cliente -->
-            <button @click="setFormType('INGRESO', 'COBRO_CXC')"
-                    :class="form.subtype === 'COBRO_CXC' ? 'bg-teal-600 text-white ring-4 ring-teal-200' : 'bg-teal-50 text-teal-800 hover:bg-teal-100'"
-                    class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-teal-200">
-              <span class="text-3xl">📥</span>
-              <span class="text-base">Cobro a Cliente</span>
-              <span class="text-xs opacity-80">(Factura / CxC)</span>
-            </button>
-
-            <!-- 5. Traspaso / Cambio de Moneda (Solo Administradora y Directivo) -->
-            <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-              <button @click="openTransferModal()"
-                      class="p-4 rounded-2xl font-bold text-center transition flex flex-col items-center justify-center gap-1 border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 hover:ring-4 hover:ring-blue-200">
-                <span class="text-3xl">🔄</span>
-                <span class="text-base">Cambio de Moneda</span>
-                <span class="text-xs opacity-80">(Traspaso entre Cajas)</span>
-              </button>
-            </template>
-          </div>
-        </div>
-
-        <!-- Formulario -->
-        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
-          <div class="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
+      <div x-show="activeTab === 'movimientos'" class="space-y-6">
+        
+        <!-- Formulario Principal Limpio y Ergonómico -->
+        <div class="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
+          <div class="flex flex-wrap items-center justify-between pb-4 mb-6 border-b border-gray-100 gap-3">
             <div>
-              <h3 class="text-2xl font-black text-gray-800" x-text="getFormTitle()"></h3>
-              <p class="text-sm text-gray-500" x-show="form.subtype === 'VENTA_DIARIA'">
-                Ingrese el monto consolidado de ventas de la jornada para la caja correspondiente.
-              </p>
-              <p class="text-sm text-gray-500" x-show="form.subtype !== 'VENTA_DIARIA'">
-                Complete los campos. El contravalor en dólares se calcula en tiempo real.
-              </p>
+              <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+                <span>💸 Registro de Pagos, Gastos y Egresos</span>
+                <span class="text-xs px-2.5 py-0.5 bg-rose-100 text-rose-800 rounded-full font-bold">Salidas y Movimientos</span>
+              </h2>
+              <p class="text-xs text-gray-500">Cargue pagos a proveedores, gastos operativos, retiros de accionistas o traspasos entre cuentas</p>
             </div>
-            <span class="text-xs px-3 py-1 bg-gray-100 text-gray-600 rounded-full font-bold">Caja Única TEV</span>
+            
+            <div class="text-xs font-bold text-gray-700 bg-slate-50 px-3 py-1.5 rounded-xl border">
+              <span>Tasa BCV: <strong>Bs. <span x-text="formatNumber(bcvRate)"></span></strong></span>
+            </div>
           </div>
 
-          <form @submit.prevent="prepareSubmitTransaction()" class="space-y-6">
-            <!-- Selector de Tipo de Documento Fiscal (Dualidad Venezolana) -->
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-              <label class="block text-sm font-black text-gray-800">📄 Tipo de Documento / Régimen de Venta:</label>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button type="button" @click="form.doc_type = 'FACTURA_FISCAL'; form.is_credit = false"
-                        :class="form.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-700 text-white font-bold ring-2 ring-emerald-300' : 'bg-white text-gray-700 border border-gray-300'"
-                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
-                  <span class="text-base">🧾</span>
-                  <span>Factura Fiscal (Con IVA)</span>
+          <form @submit.prevent="submitMovement()" class="space-y-5">
+            
+            <!-- 1. SELECTOR PRINCIPAL DE TIPO DE SALIDA / ENTRADA -->
+            <div>
+              <label class="block text-xs font-black text-gray-800 uppercase tracking-wider mb-2">
+                1. ¿Qué tipo de movimiento de dinero es?:
+              </label>
+
+              <!-- Tarjetas Grandes y Claras -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                
+                <!-- Opción 1: Pago a Proveedor -->
+                <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'PAGO_PROVEEDOR'"
+                        :class="(form.movement_type === 'EGRESO' && form.subtype === 'PAGO_PROVEEDOR') ? 'bg-orange-600 text-white shadow-md ring-4 ring-orange-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-orange-50'"
+                        class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
+                  <span class="text-2xl">📦</span>
+                  <div>
+                    <p class="text-xs font-black">Pago a Proveedor</p>
+                    <p class="text-[10px] opacity-80">Mercancía, cables, material</p>
+                  </div>
                 </button>
 
-                <button type="button" @click="form.doc_type = 'NOTA_ENTREGA'; form.is_credit = true"
-                        :class="form.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-700 text-white font-bold ring-2 ring-blue-300' : 'bg-white text-gray-700 border border-gray-300'"
-                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
-                  <span class="text-base">📦</span>
-                  <span>Nota de Entrega (Sin IVA / Crédito)</span>
+                <!-- Opción 2: Gasto Operativo -->
+                <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'GASTO_OPERATIVO'"
+                        :class="(form.movement_type === 'EGRESO' && form.subtype === 'GASTO_OPERATIVO') ? 'bg-rose-700 text-white shadow-md ring-4 ring-rose-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-rose-50'"
+                        class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
+                  <span class="text-2xl">🏢</span>
+                  <div>
+                    <p class="text-xs font-black">Gasto Operativo</p>
+                    <p class="text-[10px] opacity-80">Luz, nómina, compras tienda</p>
+                  </div>
                 </button>
 
-                <button type="button" @click="form.doc_type = 'COBRO_RETENCION'"
-                        :class="form.doc_type === 'COBRO_RETENCION' ? 'bg-purple-700 text-white font-bold ring-2 ring-purple-300' : 'bg-white text-gray-700 border border-gray-300'"
-                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
-                  <span class="text-base">📑</span>
-                  <span>Cobro con Retención (IVA / ISLR)</span>
+                <!-- Opción 3: Retiro de Accionista -->
+                <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
+                        :class="(form.movement_type === 'EGRESO' && form.subtype === 'RETIRO_ACCIONISTA') ? 'bg-purple-700 text-white shadow-md ring-4 ring-purple-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-purple-50'"
+                        class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
+                  <span class="text-2xl">👤</span>
+                  <div>
+                    <p class="text-xs font-black">Retiro de Accionista</p>
+                    <p class="text-[10px] opacity-80">Retiro de socios / utilidades</p>
+                  </div>
                 </button>
 
-                <button type="button" @click="form.doc_type = 'DEVOLUCION'; form.movement_type = 'EGRESO'; form.subtype = 'DEVOLUCION_VENTA'"
-                        :class="form.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-bold ring-2 ring-rose-300' : 'bg-white text-gray-700 border border-gray-300'"
-                        class="p-2.5 rounded-xl text-xs flex flex-col items-center justify-center text-center transition">
-                  <span class="text-base">↩️</span>
-                  <span>Devolución / Nota Crédito</span>
+                <!-- Opción 4: Traspaso / Cambio Divisas -->
+                <button type="button" @click="form.movement_type = 'TRANSFERENCIA'; form.subtype = 'CAMBIO_DIVISAS'"
+                        :class="form.movement_type === 'TRANSFERENCIA' ? 'bg-blue-700 text-white shadow-md ring-4 ring-blue-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-blue-50'"
+                        class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
+                  <span class="text-2xl">🔄</span>
+                  <div>
+                    <p class="text-xs font-black">Traspaso / Cambio</p>
+                    <p class="text-[10px] opacity-80">Entre bancos o USD a Bs</p>
+                  </div>
                 </button>
-              </div>
 
-              <!-- Si es Nota de Entrega: Opción de Crédito vs Contado -->
-              <div x-show="form.doc_type === 'NOTA_ENTREGA'" class="pt-2 flex items-center gap-2 text-xs font-bold text-blue-900">
-                <input type="checkbox" id="is_credit_check" x-model="form.is_credit" class="w-4 h-4 text-blue-600 rounded">
-                <label for="is_credit_check" class="cursor-pointer">Marcar como Venta a Crédito (Queda registrada en Cuentas por Cobrar)</label>
-              </div>
-
-              <!-- Si es Cobro con Retención: Datos de Comprobante -->
-              <div x-show="form.doc_type === 'COBRO_RETENCION'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-purple-200">
-                <div>
-                  <label class="text-xs font-bold text-purple-900">Monto Retención IVA/ISLR ($):</label>
-                  <input type="number" step="0.01" min="0" x-model.number="form.tax_retention_amount" placeholder="0.00" class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
-                </div>
-                <div>
-                  <label class="text-xs font-bold text-purple-900">N° Comprobante de Retención:</label>
-                  <input type="text" x-model="form.tax_retention_proof" placeholder="Ej: 202609000123" class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
-                </div>
               </div>
             </div>
 
+            <!-- 2. SUB-PANEL DINÁMICO SEGÚN EL TIPO DE EGRESO -->
+            
+            <!-- CASO A: SI ES PAGO A PROVEEDOR -->
+            <div x-show="form.movement_type === 'EGRESO' && form.subtype === 'PAGO_PROVEEDOR'" class="p-4 bg-orange-50/80 border border-orange-200 rounded-2xl space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-black text-orange-950">📦 Proveedor al que se realiza el pago:</label>
+                <button type="button" @click="openSupplierModal()" class="text-xs font-bold text-orange-700 bg-white hover:bg-orange-100 px-2.5 py-1 rounded-lg border border-orange-300 flex items-center gap-1 cursor-pointer">
+                  <span>➕</span> Registrar Nuevo Proveedor
+                </button>
+              </div>
+              <select x-model="selectedSupplierId" @change="onSupplierSelect()"
+                      class="w-full input-large border border-orange-300 bg-white font-bold text-xs sm:text-sm text-orange-950">
+                <option value="">-- Seleccionar Proveedor Registrado o Escribir Abajo --</option>
+                <template x-for="sup in suppliers" :key="sup.id">
+                  <option :value="sup.id" x-text="sup.name + (sup.rif ? ' [' + sup.rif + ']' : '')"></option>
+                </template>
+              </select>
+              <div x-show="selectedSupplierObj?.bank_details" class="text-xs text-orange-900 bg-white p-2.5 rounded-xl border border-orange-200">
+                <strong>Datos de Pago / Pago Móvil:</strong> <span class="font-mono" x-text="selectedSupplierObj?.bank_details"></span>
+              </div>
+            </div>
+
+            <!-- CASO B: SI ES GASTO OPERATIVO -->
+            <div x-show="form.movement_type === 'EGRESO' && form.subtype === 'GASTO_OPERATIVO'" class="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl space-y-2">
+              <label class="block text-xs font-black text-rose-950">🏷️ Partida Presupuestaria / Concepto de Gasto:</label>
+              <select x-model.number="form.category_id"
+                      class="w-full input-large border border-rose-300 bg-white font-bold text-xs sm:text-sm text-rose-950">
+                <option value="">-- Seleccione la Categoría de Gasto --</option>
+                <template x-for="cat in categories.filter(c => c.is_active)" :key="cat.id">
+                  <option :value="cat.id" x-text="cat.code + ' - ' + cat.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <!-- CASO C: SI ES RETIRO DE ACCIONISTA -->
+            <div x-show="form.movement_type === 'EGRESO' && form.subtype === 'RETIRO_ACCIONISTA'" class="p-4 bg-purple-50/80 border border-purple-200 rounded-2xl space-y-2">
+              <label class="block text-xs font-black text-purple-950">👤 Nombre del Socio / Accionista:</label>
+              <input type="text" x-model="form.beneficiary" placeholder="Ej: Ing. Menyerber Gallardo / Accionista Principal"
+                     class="w-full input-large border border-purple-300 bg-white font-bold text-xs sm:text-sm text-purple-950">
+            </div>
+
+            <!-- 3. CUENTA BANCARIA O CAJA DE SALIDA + FECHA + N° DOCUMENTO -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label class="block text-sm font-bold text-gray-700 mb-1">📅 Fecha de la Operación</label>
-                <input type="date" x-model="form.date" required class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
+                <label class="block text-xs font-bold text-gray-700 mb-1">📅 Fecha:</label>
+                <input type="date" x-model="form.date" required class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
               </div>
 
               <div>
-                <label class="block text-sm font-bold text-gray-700 mb-1">🏦 Caja o Banco Afectado</label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">
+                  <span x-text="form.movement_type === 'TRANSFERENCIA' ? '🏦 Cuenta de Origen (Sale):' : '🏦 Cuenta de Salida / Pago:'"></span>
+                </label>
                 <select x-model.number="form.account_id" @change="onAccountChange()" required
-                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white font-semibold">
+                        class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
                   <template x-for="acc in getAvailableAccountsForForm()" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
                 </select>
               </div>
 
-              <div>
-                <label class="block text-sm font-bold text-gray-700 mb-1">🔖 N° de Factura / Nota / Control</label>
-                <input type="text" x-model="form.doc_number" placeholder="Ej: Factura 004821 / NE-1052"
-                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
-              </div>
-            </div>
-
-            <!-- Si la cuenta seleccionada es un Punto de Venta (POS) -->
-            <div x-show="isAccountPOS()" class="p-3 bg-blue-50 border border-blue-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div>
-                <label class="font-bold text-blue-950">Terminal / Punto de Venta:</label>
-                <select x-model="form.pos_terminal" class="w-full p-2 border rounded-lg bg-white font-semibold">
-                  <option value="POS Banesco">POS Banesco</option>
-                  <option value="POS Bancaribe">POS Bancaribe</option>
-                  <option value="POS Banco de Venezuela">POS Banco de Venezuela</option>
-                  <option value="POS BNC">POS BNC</option>
-                  <option value="Otro">Otro Punto</option>
+              <!-- Si es Transferencia: Cuenta Destino -->
+              <div x-show="form.movement_type === 'TRANSFERENCIA'">
+                <label class="block text-xs font-bold text-blue-900 mb-1">🏦 Cuenta Destino (Entra):</label>
+                <select x-model.number="form.destination_account_id"
+                        class="w-full input-large border border-blue-300 bg-white font-bold text-xs sm:text-sm text-blue-950">
+                  <template x-for="acc in treasuryAccounts.filter(a => a.id !== form.account_id)" :key="acc.id">
+                    <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                  </template>
                 </select>
               </div>
-              <div>
-                <label class="font-bold text-blue-950">N° de Lote / Aprobación POS:</label>
-                <input type="text" x-model="form.pos_lot_number" placeholder="Ej: Lote 142" class="w-full p-2 border rounded-lg bg-white font-bold">
+
+              <!-- Si NO es Transferencia: N° de Referencia / Factura -->
+              <div x-show="form.movement_type !== 'TRANSFERENCIA'">
+                <label class="block text-xs font-bold text-gray-700 mb-1">🔖 N° de Referencia / Factura:</label>
+                <input type="text" x-model="form.reference_number" placeholder="Ej: Ref 482910 / Fact 1024"
+                       class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
               </div>
             </div>
 
-            <!-- Partida Presupuestaria si es Gasto Operativo -->
-            <div x-show="form.subtype === 'GASTO_OPERATIVO'" class="p-4 bg-teal-50 rounded-2xl border border-teal-200">
-              <label class="block text-base font-bold text-teal-900 mb-1">🏷️ Partida Presupuestaria (Tipo de Gasto)</label>
-              <select x-model.number="form.category_id"
-                      class="w-full input-large border border-teal-300 focus:ring-2 focus:ring-tev-green focus:outline-none bg-white">
-                <option value="">-- Seleccione la Partida --</option>
-                <template x-for="cat in categories.filter(c => c.is_active)" :key="cat.id">
-                  <option :value="cat.id" x-text="cat.code + ' - ' + cat.name + ' (Presupuesto: $' + cat.monthly_budget_usd + ')'"></option>
-                </template>
-              </select>
+            <!-- 4. BENEFICIARIO / DESCRIPCIÓN (SI NO ES RETIRO) -->
+            <div x-show="form.subtype !== 'RETIRO_ACCIONISTA' && form.movement_type !== 'TRANSFERENCIA'">
+              <label class="block text-xs font-bold text-gray-700 mb-1">
+                <span x-text="form.subtype === 'PAGO_PROVEEDOR' ? '🏢 Razón Social / Proveedor:' : '👤 Beneficiario / Detalle:'"></span>
+              </label>
+              <input type="text" x-model="form.beneficiary" placeholder="Ej: Distribuidora Eléctrica Centro C.A. / Corpoelec / Pago de Almuerzos"
+                     class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
             </div>
 
-            <!-- Monto, Tasa y Equivalente USD -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-2xl border border-gray-200">
+            <!-- 5. MONTO Y CONVERSIÓN EN VIVO -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
               <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">
-                  💵 Monto en <span class="text-tev-green font-black" x-text="selectedAccountCurrency"></span>
+                <label class="block text-xs font-bold text-gray-700 mb-1">
+                  Monto en <span class="text-tev-darkgreen font-black" x-text="selectedAccountCurrency"></span>:
                 </label>
-                <input type="number" step="0.01" min="0.01" x-model.number="form.amount_original" required
-                       placeholder="0.00"
-                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
+                <input type="number" step="0.01" min="0.01" x-model.number="form.amount_original" required placeholder="0.00"
+                       class="w-full input-large border border-gray-300 font-black text-xl text-tev-darkgreen bg-white">
               </div>
 
-              <!-- Tasa de Conversión (Siempre visible como referencia oficial) -->
               <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">💱 Tasa Oficial BCV (Bs / $)</label>
-                <input type="number" step="0.01" min="1" x-model.number="form.exchange_rate"
-                       :readonly="form.subtype !== 'CAMBIO_DIVISAS'"
-                       :class="form.subtype !== 'CAMBIO_DIVISAS' ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white text-gray-900'"
-                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none text-xl font-bold">
-                <span class="text-xs text-emerald-700 font-bold block mt-1" x-show="form.subtype !== 'CAMBIO_DIVISAS'">🔒 Tasa fijada oficial BCV del día</span>
-                <span class="text-xs text-blue-700 font-bold block mt-1" x-show="form.subtype === 'CAMBIO_DIVISAS'">💱 Tasa negociada de compra/venta</span>
-              </div>
-
-              <!-- Si la cuenta es VES: Muestra contravalor en Dólares ($) -->
-              <div x-show="selectedAccountCurrency === 'VES'">
-                <label class="block text-base font-bold text-gray-700 mb-1">💲 Contravalor en Dólares ($)</label>
-                <div class="input-large bg-emerald-50 border border-emerald-300 text-emerald-900 font-black text-2xl flex items-center justify-between">
-                  <span>$</span>
-                  <span x-text="calculateUsdEquivalent().toFixed(2)"></span>
-                </div>
-              </div>
-
-              <!-- Si la cuenta es USD: Muestra traducción a Bolívares (Bs.) -->
-              <div x-show="selectedAccountCurrency === 'USD' || selectedAccountCurrency === 'USDT'">
-                <label class="block text-base font-bold text-gray-700 mb-1">🇻🇪 Equivalente en Bolívares (Bs.)</label>
-                <div class="input-large bg-blue-50 border border-blue-300 text-blue-900 font-black text-2xl flex items-center justify-between">
-                  <span>Bs.</span>
-                  <span x-text="calculateVesEquivalent()"></span>
+                <label class="block text-xs font-bold text-gray-700 mb-1">Equivalente de Conversión:</label>
+                <div class="input-large bg-emerald-50 border border-emerald-200 text-emerald-950 font-black text-xl flex items-center justify-between">
+                  <span x-text="selectedAccountCurrency === 'USD' ? 'Bs. Equivalente:' : '$ Equivalente:'"></span>
+                  <span x-text="selectedAccountCurrency === 'USD' ? 'Bs. ' + formatNumber(form.amount_original * (form.exchange_rate || bcvRate)) : '$ ' + formatNumber(form.amount_original / (form.exchange_rate || bcvRate))"></span>
                 </div>
               </div>
             </div>
 
-            <!-- Selector de Proveedores si es Pago a Proveedor -->
-            <div x-show="form.subtype === 'PAGO_PROVEEDOR'" class="p-5 bg-orange-50 rounded-2xl border border-orange-200">
-              <div class="flex items-center justify-between mb-2">
-                <label class="block text-base font-bold text-orange-950">📦 Seleccionar Proveedor Registrado:</label>
-                <button type="button" @click="openSupplierModal()" class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5">
-                  <span>➕</span> Registrar Nuevo Proveedor
-                </button>
-              </div>
-              <select x-model="selectedSupplierId" @change="onSupplierSelect()"
-                      class="w-full input-large border border-orange-300 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white font-semibold text-sm">
-                <option value="">-- Seleccione un proveedor o ingrese uno nuevo --</option>
-                <template x-for="sup in suppliers" :key="sup.id">
-                  <option :value="sup.id" x-text="sup.name + (sup.rif ? ' [' + sup.rif + ']' : '')"></option>
-                </template>
-              </select>
-              <div x-show="selectedSupplierObj" class="mt-3 p-3 bg-white rounded-xl border border-orange-200 text-xs text-orange-950 space-y-1">
-                <div class="flex flex-wrap justify-between gap-2">
-                  <p><strong>RIF:</strong> <span x-text="selectedSupplierObj?.rif || 'No registrado'"></span></p>
-                  <p><strong>Teléfono:</strong> <span x-text="selectedSupplierObj?.phone || 'No registrado'"></span></p>
-                </div>
-                <p x-show="selectedSupplierObj?.bank_details">
-                  <strong>Datos Bancarios / Pago Móvil:</strong> <span class="text-gray-700 font-mono" x-text="selectedSupplierObj?.bank_details"></span>
-                </p>
-              </div>
-            </div>
-
-
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">
-                  <span x-text="form.subtype === 'VENTA_DIARIA' ? '🏪 Concepto de Ingreso' : '👤 Beneficiario / Proveedor / Cliente'"></span>
-                </label>
-                <input type="text" x-model="form.beneficiary"
-                       :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Ventas Mostrador - Tienda Valencia' : 'Ej: Rubén Plomero / Digitel / Juan Pérez'"
-                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
-              </div>
-
-              <div>
-                <label class="block text-base font-bold text-gray-700 mb-1">
-                  <span x-text="form.subtype === 'VENTA_DIARIA' ? '🔖 N° de Reporte Z / Lote de Facturación' : '🔖 N° de Referencia / Comprobante'"></span>
-                </label>
-                <input type="text" x-model="form.reference_number" @input="checkDuplicateReference()"
-                       :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Ej: Reporte Z-0182 / Lote 941' : 'Ej: 492015'"
-                       class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none">
-                <div x-show="duplicateWarning" class="mt-2 p-3 bg-red-50 border-l-4 border-red-500 text-red-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-pulse">
-                  <span class="text-xl">🚨</span>
-                  <div>
-                    <strong>¡ALERTA DE POSIBLE DUPLICADO!</strong>
-                    <p class="mt-0.5" x-text="duplicateWarningMessage"></p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+            <!-- 6. NOTAS Y BOTÓN REGISTRAR -->
             <div>
-              <label class="block text-base font-bold text-gray-700 mb-1">📝 Detalle / Concepto del Movimiento</label>
-              <textarea x-model="form.description" rows="2"
-                        :placeholder="form.subtype === 'VENTA_DIARIA' ? 'Cierre de ventas total de la jornada' : 'Detalle de la operación...'"
-                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none"></textarea>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Observaciones / Concepto de Salida:</label>
+              <textarea x-model="form.description" rows="2" placeholder="Detalle adicional del pago o movimiento..."
+                        class="w-full p-2.5 border border-gray-300 rounded-xl text-xs"></textarea>
             </div>
 
-            <div class="pt-4">
-              <button type="submit"
-                      class="w-full btn-large bg-tev-green hover:bg-tev-darkgreen text-white shadow-xl flex items-center justify-center gap-3 text-xl py-4">
-                <span>💾 Registrar Movimiento en el Sistema</span>
+            <div class="flex justify-end gap-3 pt-2">
+              <button type="submit" class="w-full sm:w-auto px-8 py-3.5 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer">
+                <span>💾</span> Registrar Salida de Dinero
               </button>
             </div>
+
           </form>
         </div>
-      </div>
 
-      <!-- ======================================================== -->
-      <!-- TAB 2: LIBRO DE MOVIMIENTOS -->
-      <!-- ======================================================== -->
-      <div x-show="activeTab === 'movimientos'" class="space-y-6">
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 class="text-xl font-bold text-gray-800">Libro Diario de Movimientos</h2>
-            <p class="text-sm text-gray-500">Historial completo con asientos de partida doble de traspasos</p>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-1.5 bg-slate-100 border border-gray-300 rounded-xl px-3 py-1.5 text-sm font-semibold">
-              <span class="text-gray-500 text-xs font-bold">📅 Día:</span>
-              <input type="date" x-model="filterDate" @change="loadTransactions()" class="bg-transparent border-0 text-sm focus:outline-none cursor-pointer font-bold text-gray-800">
-              <button x-show="filterDate" @click="filterDate = ''; loadTransactions()" class="text-xs text-rose-500 font-bold hover:text-rose-700 ml-1" title="Quitar filtro de día y ver mes completo">✕ Limpiar</button>
+        <!-- Historial en Vivo de Movimientos y Salidas -->
+        <div class="bg-white p-5 sm:p-7 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <h3 class="text-base font-black text-gray-900 flex items-center gap-2">
+              <span>📋 Historial de Pagos y Movimientos</span>
+            </h3>
+            
+            <div class="flex items-center gap-2">
+              <input type="date" x-model="filterDate" @change="loadTransactions()" class="p-2 border rounded-xl text-xs font-bold">
+              <button @click="loadTransactions()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition">
+                🔄 Actualizar
+              </button>
             </div>
-
-            <select x-model="filterMonth" @change="filterDate = ''; loadTransactions()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
-              <option value="2026-08">Agosto 2026</option>
-              <option value="2026-09">Septiembre 2026</option>
-            </select>
-
-            <select x-model="filterType" @change="loadTransactions()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
-              <option value="">Todos los Tipos</option>
-              <option value="EGRESO">Solo Egresos / Salidas</option>
-              <option value="INGRESO">Solo Ingresos / Entradas</option>
-            </select>
-
-            <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-              <div class="flex items-center gap-2">
-                <button @click="triggerExcelUpload()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-sm flex items-center gap-1.5 transition">
-                  <span>📥</span> Cargar Excel (.xlsx)
-                </button>
-                <input type="file" x-ref="excelInput" @change="uploadExcelFile($event)" accept=".xlsx, .xlsm, .xltx" class="hidden">
-
-                <template x-if="currentUser?.role === 'directivo'">
-                  <button @click="confirmClearTransactions()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold flex items-center gap-1.5 transition" title="Vaciar movimientos para empezar desde cero (Solo Directivo)">
-                    <span>🧹</span> Empezar en Cero
-                  </button>
-                </template>
-              </div>
-            </template>
           </div>
-        </div>
 
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-xs text-left border-collapse">
               <thead>
-                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
-                  <th class="p-4">Fecha</th>
-                  <th class="p-4">Tipo / Operación</th>
-                  <th class="p-4">Cuenta / Caja</th>
-                  <th class="p-4">Partida / Beneficiario</th>
-                  <th class="p-4">Descripción</th>
-                  <th class="p-4 text-right">Monto Original</th>
-                  <th class="p-4 text-right">Monto ($ USD)</th>
-                  <th class="p-4 text-center">Estado</th>
-                  <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-                    <th class="p-4 text-center">Acciones</th>
-                  </template>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-3">Fecha</th>
+                  <th class="p-3">Tipo / Motivo</th>
+                  <th class="p-3">Cuenta Afectada</th>
+                  <th class="p-3">Beneficiario / Proveedor</th>
+                  <th class="p-3">Referencia</th>
+                  <th class="p-3 text-right">Monto Original</th>
+                  <th class="p-3 text-right">Monto ($ USD)</th>
+                  <th class="p-3 text-center">Estado</th>
+                  <th class="p-3 text-center">Acción</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-100 text-sm">
-                <template x-for="t in transactions" :key="t.id">
-                  <tr class="hover:bg-slate-50 transition" :class="{'opacity-50 line-through bg-gray-50': t.status === 'ANULADO'}">
-                    <td class="p-4 whitespace-nowrap font-medium text-gray-700" x-text="t.date"></td>
-                    <td class="p-4 whitespace-nowrap">
-                      <span class="inline-block px-2.5 py-1 rounded-full text-xs font-bold"
+              <tbody>
+                <template x-for="item in transactions" :key="item.id">
+                  <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-3 font-bold" x-text="item.date"></td>
+                    <td class="p-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black"
                             :class="{
-                              'bg-rose-100 text-rose-800': t.movement_type === 'EGRESO' && t.subtype !== 'TRASPASO_SALIDA',
-                              'bg-emerald-100 text-emerald-800': t.movement_type === 'INGRESO' && t.subtype !== 'TRASPASO_ENTRADA',
-                              'bg-blue-100 text-blue-800': t.subtype === 'TRASPASO_SALIDA' || t.subtype === 'TRASPASO_ENTRADA'
+                              'bg-orange-100 text-orange-800': item.subtype === 'PAGO_PROVEEDOR',
+                              'bg-rose-100 text-rose-800': item.subtype === 'GASTO_OPERATIVO',
+                              'bg-purple-100 text-purple-800': item.subtype === 'RETIRO_ACCIONISTA',
+                              'bg-blue-100 text-blue-800': item.movement_type === 'TRANSFERENCIA',
+                              'bg-emerald-100 text-emerald-800': item.movement_type === 'INGRESO'
                             }"
-                            x-text="formatSubtype(t.subtype)">
-                      </span>
+                            x-text="item.subtype ? item.subtype.replace('_', ' ') : item.movement_type"></span>
                     </td>
-                    <td class="p-4 whitespace-nowrap font-semibold text-gray-700" x-text="t.account_name"></td>
-                    <td class="p-4">
-                      <div class="font-bold text-gray-800" x-text="t.category_name || t.beneficiary || '-'"></div>
-                      <div class="text-xs text-gray-400" x-text="t.reference_number ? 'Ref: ' + t.reference_number : ''"></div>
+                    <td class="p-3 font-semibold text-gray-800" x-text="item.account?.name || item.account_id"></td>
+                    <td class="p-3 font-bold text-gray-900" x-text="item.beneficiary || item.client_name || '-'"></td>
+                    <td class="p-3 font-mono text-gray-500" x-text="item.reference_number || item.doc_number || '-'"></td>
+                    <td class="p-3 text-right font-bold" x-text="(item.currency === 'USD' ? '$' : 'Bs. ') + formatNumber(item.amount_original)"></td>
+                    <td class="p-3 text-right font-black text-gray-900" x-text="'$' + formatNumber(item.amount_usd)"></td>
+                    <td class="p-3 text-center">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="item.status === 'REGISTRADO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700'"
+                            x-text="item.status"></span>
                     </td>
-                    <td class="p-4 text-gray-600 max-w-xs truncate" :title="t.description" x-text="t.description"></td>
-                    <td class="p-4 text-right whitespace-nowrap font-semibold">
-                      <span x-text="formatNumber(t.amount_original)"></span> <span class="text-xs text-gray-500" x-text="t.currency"></span>
+                    <td class="p-3 text-center">
+                      <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                        <button @click="cancelTransaction(item.id)" class="text-rose-600 hover:text-rose-800 font-bold p-1 text-xs" title="Anular movimiento">
+                          ❌
+                        </button>
+                      </template>
                     </td>
-                    <td class="p-4 text-right whitespace-nowrap font-black text-gray-800">
-                      $<span x-text="formatNumber(t.amount_usd)"></span>
-                    </td>
-                    <td class="p-4 text-center whitespace-nowrap">
-                      <span class="px-2 py-0.5 rounded-full text-xs font-bold"
-                            :class="{
-                              'bg-emerald-100 text-emerald-800': t.status === 'VERIFICADO',
-                              'bg-amber-100 text-amber-800': t.status === 'REGISTRADO',
-                              'bg-gray-200 text-gray-700': t.status === 'ANULADO'
-                            }"
-                            x-text="t.status">
-                      </span>
-                    </td>
-                    <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-                      <td class="p-4 text-center whitespace-nowrap">
-                        <div class="flex items-center justify-center gap-2">
-                          <button x-show="t.status === 'REGISTRADO'" @click="verifyTransaction(t.id)"
-                                  class="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold">
-                            ✓ Aprobar
-                          </button>
-                          <button x-show="t.status !== 'ANULADO'" @click="cancelTransaction(t.id)"
-                                  class="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold">
-                            ✕ Anular
-                          </button>
-                        </div>
-                      </td>
-                    </template>
                   </tr>
                 </template>
+                <tr x-show="!transactions || transactions.length === 0">
+                  <td colspan="9" class="p-6 text-center text-gray-400">No hay movimientos registrados para mostrar</td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
+
       </div>
 
 
@@ -4367,16 +4231,40 @@
           return a ? `${a.name} (${a.currency})` : '';
         },
 
-        prepareSubmitTransaction() {
+        async submitMovement() {
           if (!this.form.amount_original || this.form.amount_original <= 0) {
             this.showToast('error', 'Monto Inválido', 'Por favor ingrese un monto mayor a cero');
             return;
           }
+          
+          if (this.form.movement_type === 'TRANSFERENCIA') {
+            if (!this.form.destination_account_id) {
+              this.showToast('warning', 'Cuenta Destino Requerida', 'Por favor seleccione la cuenta bancaria o caja destino.');
+              return;
+            }
+            this.transferForm.source_account_id = this.form.account_id;
+            this.transferForm.destination_account_id = this.form.destination_account_id;
+            this.transferForm.source_amount = this.form.amount_original;
+            this.transferForm.date = this.form.date;
+            this.transferForm.reference_number = this.form.reference_number;
+            this.transferForm.description = this.form.description || 'Traspaso entre cuentas';
+            await this.executeTransfer();
+            this.form.amount_original = '';
+            this.form.reference_number = '';
+            this.form.description = '';
+            return;
+          }
+
           if (this.form.subtype === 'GASTO_OPERATIVO' && !this.form.category_id) {
             this.showToast('warning', 'Partida Requerida', 'Por favor seleccione la Partida Presupuestaria del gasto.');
             return;
           }
-          this.showConfirmModal = true;
+          
+          await this.executeSubmitTransaction();
+        },
+
+        prepareSubmitTransaction() {
+          this.submitMovement();
         },
 
         async executeSubmitTransaction() {
