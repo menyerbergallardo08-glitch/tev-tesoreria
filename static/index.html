@@ -819,38 +819,104 @@
 
       </div>
 
-      <!-- ======================================================== -->
-      <!-- TAB: CUENTAS POR COBRAR & REGISTRO DE ABONOS -->
+            <!-- ======================================================== -->
+      <!-- TAB: CUENTAS POR COBRAR (CxC CLIENTES & CxC CASHEA) -->
       <!-- ======================================================== -->
       <div x-show="activeTab === 'cxc'" class="space-y-6">
         
-        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <!-- Header con Título y Filtros -->
+        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h2 class="text-xl sm:text-2xl font-black text-gray-900">📑 Cartera de Cuentas por Cobrar (CxC)</h2>
-            <p class="text-xs text-gray-500">Facturas y Notas de Entrega a crédito con registro de abonos y pagos en cuotas</p>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <span>📑 Cuentas por Cobrar (CxC)</span>
+              <span class="text-xs px-2.5 py-0.5 bg-purple-100 text-purple-800 rounded-full font-bold">Control de Créditos y Abonos</span>
+            </h2>
+            <p class="text-xs text-gray-500">Gestión de cartera: Créditos a clientes y saldos pendientes por liquidar de Cashea</p>
           </div>
 
-          <div class="flex items-center gap-2">
-            <input type="text" x-model="cxcSearch" @input="loadReceivables()" placeholder="🔍 Buscar cliente o factura..."
-                   class="p-2 border border-gray-300 rounded-xl text-xs font-semibold focus:outline-none w-48 sm:w-64">
+          <!-- Buscador y Filtro de Estado -->
+          <div class="flex flex-wrap items-center gap-2">
+            <input type="text" x-model="cxcSearch" @input.debounce.300ms="loadReceivables()" placeholder="🔍 Buscar cliente, documento o RIF..."
+                   class="p-2 border border-gray-300 rounded-xl text-xs font-semibold focus:outline-none w-48 sm:w-60">
             
             <select x-model="cxcStatusFilter" @change="loadReceivables()" class="p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white">
               <option value="">Pendientes y Parciales</option>
-              <option value="TODOS">Todas las CxC</option>
-              <option value="PAGADO">Totalmente Pagadas</option>
+              <option value="TODOS">Todos los Estados</option>
+              <option value="PAGADO">Totalmente Cobrados</option>
             </select>
           </div>
         </div>
 
+        <!-- 3 GRANDES TARJETAS KPI DE CARTERA -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          
+          <!-- KPI 1: Cartera Total -->
+          <div @click="cxcChannelFilter = 'TODOS'; loadReceivables()"
+               :class="cxcChannelFilter === 'TODOS' ? 'ring-2 ring-purple-600 bg-purple-50/50' : 'bg-white hover:bg-slate-50'"
+               class="p-4 rounded-2xl border border-gray-200 cursor-pointer transition shadow-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-gray-600 uppercase">🌐 Cartera Total CxC</span>
+              <span class="text-lg">📊</span>
+            </div>
+            <p class="text-2xl font-black text-gray-900 mt-1" x-text="'$' + formatNumber(cxcKpis?.total_pending_usd || 0)"></p>
+            <p class="text-[11px] text-gray-500 mt-0.5">Suma de Clientes + Cashea</p>
+          </div>
+
+          <!-- KPI 2: CxC Clientes Directos -->
+          <div @click="cxcChannelFilter = 'CLIENTES'; loadReceivables()"
+               :class="cxcChannelFilter === 'CLIENTES' ? 'ring-2 ring-blue-600 bg-blue-50/50' : 'bg-white hover:bg-slate-50'"
+               class="p-4 rounded-2xl border border-gray-200 cursor-pointer transition shadow-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-blue-900 uppercase">👤 CxC Clientes (Crédito Directo)</span>
+              <span class="text-lg">🤝</span>
+            </div>
+            <p class="text-2xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(cxcKpis?.total_clientes_pending_usd || 0)"></p>
+            <p class="text-[11px] text-blue-700 mt-0.5">Deudas de clientes en mostrador</p>
+          </div>
+
+          <!-- KPI 3: CxC Cashea (Por Liquidar al BNC) -->
+          <div @click="cxcChannelFilter = 'CASHEA'; loadReceivables()"
+               :class="cxcChannelFilter === 'CASHEA' ? 'ring-2 ring-amber-500 bg-amber-50/60' : 'bg-white hover:bg-amber-50/30'"
+               class="p-4 rounded-2xl border border-amber-200 cursor-pointer transition shadow-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-amber-900 uppercase">🟡 CxC Cashea (Por Liquidar)</span>
+              <span class="text-lg">💳</span>
+            </div>
+            <p class="text-2xl font-black text-amber-950 mt-1" x-text="'$' + formatNumber(cxcKpis?.total_cashea_pending_usd || 0)"></p>
+            <p class="text-[11px] text-amber-800 mt-0.5">Saldos pendientes que Cashea liquidará</p>
+          </div>
+
+        </div>
+
+        <!-- Pestañas Rápidas de Sub-Filtro -->
+        <div class="flex items-center gap-2 border-b border-gray-200 pb-2">
+          <button type="button" @click="cxcChannelFilter = 'TODOS'; loadReceivables()"
+                  :class="cxcChannelFilter === 'TODOS' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                  class="px-3 py-1.5 rounded-xl font-bold text-xs transition">
+            🌐 Ver Todos
+          </button>
+          <button type="button" @click="cxcChannelFilter = 'CLIENTES'; loadReceivables()"
+                  :class="cxcChannelFilter === 'CLIENTES' ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-900 hover:bg-blue-100'"
+                  class="px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5">
+            <span>👤 CxC Clientes Directos</span>
+          </button>
+          <button type="button" @click="cxcChannelFilter = 'CASHEA'; loadReceivables()"
+                  :class="cxcChannelFilter === 'CASHEA' ? 'bg-amber-500 text-black font-black' : 'bg-amber-50 text-amber-950 hover:bg-amber-100'"
+                  class="px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1.5">
+            <span>🟡 CxC Cashea (BNC)</span>
+          </button>
+        </div>
+
         <!-- Tabla de Cuentas por Cobrar -->
-        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-left border-collapse">
               <thead>
                 <tr class="bg-gray-100 text-gray-700 font-bold border-b">
                   <th class="p-3">Fecha</th>
+                  <th class="p-3">Canal</th>
                   <th class="p-3">Documento</th>
-                  <th class="p-3">Cliente</th>
+                  <th class="p-3">Deudor / Cliente</th>
                   <th class="p-3 text-right">Monto Original</th>
                   <th class="p-3 text-right">Abonado ($)</th>
                   <th class="p-3 text-right">Saldo Pendiente ($)</th>
@@ -860,10 +926,18 @@
               </thead>
               <tbody class="divide-y divide-gray-100">
                 <template x-for="item in receivablesList" :key="item.id">
-                  <tr class="hover:bg-slate-50">
-                    <td class="p-3 font-bold text-gray-500" x-text="item.date"></td>
-                    <td class="p-3 font-bold" x-text="item.doc_type + ' #' + item.doc_number"></td>
-                    <td class="p-3 font-semibold text-gray-800" x-text="item.client_name"></td>
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="p-3 font-bold text-gray-500 whitespace-nowrap" x-text="item.date"></td>
+                    <td class="p-3">
+                      <span class="px-2 py-0.5 rounded-md text-[10px] font-black"
+                            :class="item.is_cashea ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-blue-100 text-blue-900 border border-blue-200'"
+                            x-text="item.is_cashea ? '🟡 Cashea' : '👤 Cliente'"></span>
+                    </td>
+                    <td class="p-3 font-bold text-gray-900" x-text="item.doc_type + ' #' + item.doc_number"></td>
+                    <td class="p-3">
+                      <p class="font-bold text-gray-900" x-text="item.client_name"></p>
+                      <p class="text-[10px] text-gray-500" x-show="item.client_rif && item.client_rif !== '-'" x-text="'RIF: ' + item.client_rif"></p>
+                    </td>
                     <td class="p-3 text-right font-bold text-gray-700" x-text="'$' + formatNumber(item.original_amount_usd)"></td>
                     <td class="p-3 text-right font-bold text-emerald-700" x-text="'$' + formatNumber(item.total_abonado_usd)"></td>
                     <td class="p-3 text-right font-black text-rose-700 text-sm" x-text="'$' + formatNumber(item.pending_balance_usd)"></td>
@@ -873,12 +947,20 @@
                             x-text="item.credit_status"></span>
                     </td>
                     <td class="p-3 text-center">
-                      <button x-show="item.pending_balance_usd > 0.01" @click="openAbonoModal(item)" class="px-3 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-xs">
-                        ➕ Abonar
+                      <button x-show="item.pending_balance_usd > 0.01" @click="openAbonoModal(item)"
+                              :class="item.is_cashea ? 'bg-amber-500 hover:bg-amber-600 text-black' : 'bg-purple-700 hover:bg-purple-800 text-white'"
+                              class="px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition cursor-pointer inline-flex items-center gap-1">
+                        <span x-text="item.is_cashea ? '📥 Liquidar' : '➕ Abonar'"></span>
                       </button>
+                      <span x-show="item.pending_balance_usd <= 0.01" class="text-xs font-bold text-emerald-600">✓ Cobrado</span>
                     </td>
                   </tr>
                 </template>
+                <tr x-show="receivablesList.length === 0">
+                  <td colspan="9" class="p-8 text-center text-gray-400 font-semibold">
+                    No se encontraron cuentas por cobrar con los filtros seleccionados.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -5007,5 +5089,107 @@
       };
     }
   </script>
+
+    <!-- ======================================================== -->
+    <!-- MODAL PROFESIONAL: REGISTRAR ABONO / LIQUIDACIÓN CXC -->
+    <!-- ======================================================== -->
+    <div x-show="showAbonoModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div @click.away="showAbonoModal = false" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-5 border border-gray-100">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div>
+            <h3 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
+              <span x-text="selectedCreditObj?.is_cashea ? '📥 Liquidar Saldo Cashea' : '➕ Registrar Abono a Cuenta por Cobrar'"></span>
+            </h3>
+            <p class="text-xs text-gray-500">Ingrese el pago o abono para rebajar la deuda y sumar a caja/bancos</p>
+          </div>
+          <button type="button" @click="showAbonoModal = false" class="text-gray-400 hover:text-gray-700 font-black text-xl p-1">&times;</button>
+        </div>
+
+        <!-- Tarjeta de Resumen de la Deuda -->
+        <div class="p-4 rounded-2xl border space-y-2"
+             :class="selectedCreditObj?.is_cashea ? 'bg-amber-50/80 border-amber-200' : 'bg-purple-50/80 border-purple-200'">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-gray-600 font-semibold">Documento / Venta:</span>
+            <strong class="text-gray-900" x-text="selectedCreditObj?.doc_type + ' #' + selectedCreditObj?.doc_number"></strong>
+          </div>
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-gray-600 font-semibold">Deudor:</span>
+            <strong class="text-gray-900" x-text="selectedCreditObj?.client_name"></strong>
+          </div>
+          <div class="flex justify-between items-center text-xs pt-1 border-t border-gray-200/60">
+            <span class="text-gray-600 font-semibold">Monto Original:</span>
+            <span class="font-bold text-gray-800" x-text="'$' + formatNumber(selectedCreditObj?.original_amount_usd || 0)"></span>
+          </div>
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-emerald-700 font-semibold">Total Ya Abonado:</span>
+            <span class="font-bold text-emerald-700" x-text="'$' + formatNumber(selectedCreditObj?.total_abonado_usd || 0)"></span>
+          </div>
+          <div class="flex justify-between items-center text-sm pt-1 border-t border-gray-200 font-black">
+            <span class="text-rose-700">Saldo Pendiente:</span>
+            <span class="text-rose-700" x-text="'$' + formatNumber(selectedCreditObj?.pending_balance_usd || 0) + ' (Bs. ' + formatNumber((selectedCreditObj?.pending_balance_usd || 0) * bcvRate) + ')'"></span>
+          </div>
+        </div>
+
+        <!-- Formulario de Abono -->
+        <form @submit.prevent="submitAbono()" class="space-y-4">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">Monto a Abonar / Cobrar ($ USD): *</label>
+              <input type="number" step="0.01" min="0.01" :max="selectedCreditObj?.pending_balance_usd"
+                     x-model.number="abonoForm.amount_original" required
+                     placeholder="Ej: 50.00"
+                     class="w-full p-2.5 border border-purple-300 rounded-xl text-sm font-black text-purple-950 bg-white focus:ring-2 focus:ring-purple-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">Fecha del Abono: *</label>
+              <input type="date" x-model="abonoForm.date" required
+                     class="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
+            <select x-model.number="abonoForm.account_id" required
+                    class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
+              <template x-for="acc in accounts" :key="acc.id">
+                <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+              </template>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">N° Referencia / Depósito:</label>
+              <input type="text" x-model="abonoForm.reference_number" placeholder="Ej: Depósito #90421"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">Concepto / Detalle:</label>
+              <input type="text" x-model="abonoForm.description" placeholder="Ej: Abono parcial en efectivo"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+            <button type="button" @click="showAbonoModal = false"
+                    class="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer">
+              Cancelar
+            </button>
+            <button type="submit"
+                    :class="selectedCreditObj?.is_cashea ? 'bg-amber-500 hover:bg-amber-600 text-black' : 'bg-purple-700 hover:bg-purple-800 text-white'"
+                    class="px-5 py-2.5 text-xs font-black rounded-xl shadow-md transition cursor-pointer flex items-center gap-1.5">
+              <span>💾 Confirmar y Registrar Abono</span>
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
 </body>
 </html>
