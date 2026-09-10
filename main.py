@@ -16,6 +16,7 @@ from auth import (
     verify_password,
     create_access_token,
     get_current_user,
+    get_optional_current_user,
     require_roles,
 )
 
@@ -2543,7 +2544,7 @@ def get_audit_logs(
 @app.get("/api/bcv-rate/sync")
 def sync_bcv_rate(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     res = resolve_effective_bcv_rate(db)
     record_audit(db, current_user, "SYNC_BCV_RATE", "SystemSetting", "tasa_bcv", {
