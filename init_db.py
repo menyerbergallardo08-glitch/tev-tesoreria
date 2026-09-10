@@ -1,193 +1,138 @@
 import os
-import datetime
-import openpyxl
-from database import engine, SessionLocal, Base
-from models import User, BudgetCategory, TreasuryAccount, Transaction, AccountMonthlyBalance
-from auth import hash_password
+import sys
+from sqlalchemy import text
 
-def init_database():
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from database import engine, Base, SessionLocal
+import models
+from models import Branch, CashRegister, User, TreasuryAccount, BudgetCategory, SystemSetting
+import auth
+
+def run_migrations():
+    with engine.begin() as conn:
+        is_sqlite = engine.dialect.name == 'sqlite'
+        Base.metadata.create_all(bind=conn)
+
+        columns_to_add = [
+            ('users', 'branch_id', 'INTEGER'),
+            ('transactions', 'branch_id', 'INTEGER'),
+            ('transactions', 'cash_register_id', 'INTEGER'),
+            ('daily_cash_closes', 'branch_id', 'INTEGER'),
+            ('daily_cash_closes', 'cash_register_id', 'INTEGER'),
+        ]
+
+        for table, col, coltype in columns_to_add:
+            try:
+                if is_sqlite:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {coltype};"))
+                else:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {coltype};"))
+            except Exception:
+                pass
+
+def init_all():
+    run_migrations()
     db = SessionLocal()
-
-    # 1. Crear usuarios por defecto
-    users_data = [
-        ("directivo", "tev2026*", "Dirección General TEV", "directivo"),
-        ("administradora", "admin2026*", "Administradora TEV", "administradora"),
-        ("cajera1", "caja12026*", "Cajera / Asistente 1", "cajera"),
-        ("cajera2", "caja22026*", "Cajera / Asistente 2", "cajera"),
-    ]
-
-    for username, pwd, name, role in users_data:
-        existing = db.query(User).filter(User.username == username).first()
-        if not existing:
-            user = User(
-                username=username,
-                password_hash=hash_password(pwd),
-                full_name=name,
-                role=role,
+    try:
+        # 1. Ensure default Branch exists
+        branch = db.query(Branch).filter(Branch.code == 'TEV-CENTRO').first()
+        if not branch:
+            branch = Branch(
+                code='TEV-CENTRO',
+                name='Sede Principal - Valencia Centro',
+                address='Av. Bolívar / Centro de Valencia, Carabobo',
+                phone='0414-1234567',
                 is_active=True
             )
-            db.add(user)
-            print(f"User created: {username} ({role})")
-    db.commit()
+            db.add(branch)
+            db.commit()
+            db.refresh(branch)
 
-    admin_user = db.query(User).filter(User.username == "administradora").first()
-
-    # 2. Cuentas de Tesorería por defecto
-    accounts_data = [
-        ("Efectivo USD", "USD", "EFECTIVO", 0.0, False),
-        ("Efectivo VES", "VES", "EFECTIVO", 0.0, False),
-        ("Banco Banesco VES", "VES", "BANCO", 0.0, False),
-        ("Banco Mercantil VES", "VES", "BANCO", 0.0, False),
-        ("BNC - CASHEA", "VES", "BANCO", 0.0, True),
-        ("Banco Bancaribe VES", "VES", "BANCO", 0.0, False),
-        ("Banco de Venezuela VES", "VES", "BANCO", 0.0, False),
-        ("Zelle USD", "USD", "BANCO", 0.0, False),
-        ("Billetera USDT", "USDT", "BILLETERA", 0.0, False),
-    ]
-
-    for name, curr, acc_type, init_bal, inc_only in accounts_data:
-        existing = db.query(TreasuryAccount).filter(TreasuryAccount.name == name).first()
-        if not existing:
-            acc = TreasuryAccount(
-                name=name,
-                currency=curr,
-                account_type=acc_type,
-                initial_balance=init_bal,
-                only_income=inc_only,
+        # 2. Ensure default Cash Register exists
+        cash_reg = db.query(CashRegister).filter(CashRegister.branch_id == branch.id, CashRegister.code == 'CAJA-01').first()
+        if not cash_reg:
+            cash_reg = CashRegister(
+                branch_id=branch.id,
+                code='CAJA-01',
+                name='Caja Mostrador Principal',
                 is_active=True
             )
-            db.add(acc)
-            print(f"Account created: {name} [{curr}]")
-    db.commit()
+            db.add(cash_reg)
+            db.commit()
 
-    # Configuración de tasa BCV inicial
-    from models import SystemSetting
-    bcv = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    if not bcv:
-        db.add(SystemSetting(key='bcv_rate', value='36.80', updated_by='sistema'))
+        # 3. Ensure Default Users exist
+        default_users = [
+            ('cajera', 'cajera123', 'Cajera Turno Mañana', 'cajera'),
+            ('administradora', 'admin123', 'Lcda. María Administradora', 'administradora'),
+            ('directivo', 'directivo123', 'Director General TEV', 'directivo'),
+            ('consultor', 'admin123', 'Consultor Financiero', 'directivo')
+        ]
+        for uname, pwd, fname, role in default_users:
+            u = db.query(User).filter(User.username == uname).first()
+            if not u:
+                u = User(
+                    username=uname,
+                    password_hash=auth.hash_password(pwd),
+                    full_name=fname,
+                    role=role,
+                    branch_id=branch.id
+                )
+                db.add(u)
+            else:
+                if not u.branch_id:
+                    u.branch_id = branch.id
+
+        # 4. Ensure Default Treasury Accounts exist
+        default_accounts = [
+            ('Efectivo USD (Caja Tienda)', 'USD', 'EFECTIVO', 0.0),
+            ('Efectivo VES (Gaveta Tienda)', 'VES', 'EFECTIVO', 0.0),
+            ('Banesco Banco Universal (VES)', 'VES', 'BANCO', 0.0),
+            ('Bancaribe (VES)', 'VES', 'BANCO', 0.0),
+            ('Banco de Venezuela (VES)', 'VES', 'BANCO', 0.0),
+            ('Banco Nacional de Crédito - BNC (VES)', 'VES', 'BANCO', 0.0),
+            ('Cashea (VES)', 'VES', 'BANCO', 0.0),
+            ('Banesco Panamá (USD)', 'USD', 'BANCO', 0.0),
+            ('Zelle / Custodia USD', 'USD', 'BANCO', 0.0),
+            ('Billetera Binance USDT', 'USDT', 'BILLETERA', 0.0)
+        ]
+        for name, curr, atype, init_bal in default_accounts:
+            acc = db.query(TreasuryAccount).filter(TreasuryAccount.name == name).first()
+            if not acc:
+                acc = TreasuryAccount(
+                    name=name,
+                    currency=curr,
+                    account_type=atype,
+                    initial_balance=init_bal,
+                    is_active=True
+                )
+                db.add(acc)
+
+        # 5. Ensure Default Settings exist
+        settings = [
+            ('tasa_bcv', '36.50'),
+            ('tasa_paralelo', '39.20'),
+            ('alerta_saldo_minimo_usd', '500'),
+            ('alerta_descuadre_caja_usd', '5')
+        ]
+        for k, v in settings:
+            s = db.query(SystemSetting).filter(SystemSetting.key == k).first()
+            if not s:
+                s = SystemSetting(key=k, value=v)
+                db.add(s)
+
         db.commit()
+    except Exception as e:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
-    acc_usd = db.query(TreasuryAccount).filter(TreasuryAccount.name == "Efectivo USD").first()
-    acc_ves = db.query(TreasuryAccount).filter(TreasuryAccount.name == "Banco Banesco VES").first()
+# Alias for backwards compatibility
+init_database = init_all
 
-    # 3. Cargar las 12 Partidas Presupuestarias
-    categories_budget = [
-        (1, "Impuestos Seniat", 1500.0),
-        (2, "Impuestos Municipales", 500.0),
-        (3, "Parafiscales", 100.0),
-        (4, "Servicios", 1000.0),
-        (5, "Gastos Operativos y Mantenimiento", 500.0),
-        (6, "Alquileres", 2250.0),
-        (7, "Nomina y Pasivos Laborales", 4500.0),
-        (8, "Comisiones por venta", 1200.0),
-        (9, "Gastos Extraordinarios", 1000.0),
-        (10, "Compras de Bienes", 500.0),
-        (11, "Retiros de Accionista", 750.0),
-        (12, "Mantenimiento Flota", 200.0),
-    ]
-
-    cat_map = {}
-    for code, name, budget in categories_budget:
-        existing = db.query(BudgetCategory).filter(BudgetCategory.code == code).first()
-        if not existing:
-            cat = BudgetCategory(code=code, name=name, monthly_budget_usd=budget, is_active=True)
-            db.add(cat)
-            db.flush()
-            cat_map[code] = cat.id
-            print(f"Category created: {code} - {name} (${budget})")
-        else:
-            cat_map[code] = existing.id
-    db.commit()
-
-    # 4. Importar Histórico de Gastos de Agosto 2026
-    excel_path = "C:/Users/GATEWAY/Desktop/CLIENTES DE CONSULTORIA/TODO ELECTRICO VALENCIA/ARCHIVOS DE SEGUIMIENTO 2026/CONTROL DE GASTOS 08 AGOSTO.xlsx"
-    if os.path.exists(excel_path):
-        wb = openpyxl.load_workbook(excel_path, data_only=True)
-        if "Gastos Ordinarios Mes a Mes" in wb.sheetnames:
-            ws = wb["Gastos Ordinarios Mes a Mes"]
-            count_trans = db.query(Transaction).count()
-            if count_trans == 0:
-                print("Importing August 2026 expenses from Excel...")
-                imported = 0
-                for r in range(2, ws.max_row + 1):
-                    raw_date = ws.cell(r, 1).value
-                    desc = ws.cell(r, 3).value
-                    cat_code = ws.cell(r, 4).value
-                    monto_bs = ws.cell(r, 6).value
-                    monto_usd = ws.cell(r, 7).value
-                    tasa = ws.cell(r, 8).value
-
-                    if not raw_date or not desc:
-                        continue
-
-                    if isinstance(raw_date, datetime.datetime):
-                        t_date = raw_date.date()
-                    elif isinstance(raw_date, datetime.date):
-                        t_date = raw_date
-                    else:
-                        try:
-                            t_date = datetime.datetime.strptime(str(raw_date)[:10], "%Y-%m-%d").date()
-                        except:
-                            t_date = datetime.date(2026, 8, 1)
-
-                    try:
-                        monto_bs_flt = float(monto_bs) if monto_bs is not None else 0.0
-                    except:
-                        monto_bs_flt = 0.0
-
-                    try:
-                        monto_usd_flt = float(monto_usd) if monto_usd is not None else 0.0
-                    except:
-                        monto_usd_flt = 0.0
-
-                    try:
-                        tasa_flt = float(tasa) if tasa is not None else 756.0
-                    except:
-                        tasa_flt = 756.0
-
-                    if monto_bs_flt > 0:
-                        account_id = acc_ves.id
-                        currency = "VES"
-                        amount_orig = monto_bs_flt
-                    else:
-                        account_id = acc_usd.id
-                        currency = "USD"
-                        amount_orig = monto_usd_flt
-
-                    cat_id = None
-                    try:
-                        code_int = int(cat_code)
-                        cat_id = cat_map.get(code_int)
-                    except:
-                        cat_id = cat_map.get(9)
-
-                    tx = Transaction(
-                        date=t_date,
-                        movement_type="EGRESO",
-                        subtype="GASTO_OPERATIVO",
-                        account_id=account_id,
-                        category_id=cat_id,
-                        amount_original=amount_orig,
-                        currency=currency,
-                        exchange_rate=tasa_flt,
-                        amount_usd=monto_usd_flt,
-                        reference_number="",
-                        beneficiary="",
-                        description=str(desc).strip(),
-                        status="VERIFICADO",
-                        created_by_id=admin_user.id,
-                        verified_by_id=admin_user.id
-                    )
-                    db.add(tx)
-                    imported += 1
-
-                db.commit()
-                print(f"Imported {imported} transactions from August 2026 successfully.")
-
-    db.close()
-    print("Database initialization complete.")
-
-if __name__ == "__main__":
-    init_database()
+if __name__ == '__main__':
+    init_all()
+    print("Database initialized.")
