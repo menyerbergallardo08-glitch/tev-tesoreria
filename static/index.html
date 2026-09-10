@@ -7,7 +7,12 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Alpine.js CDN -->
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+  <script defer src="/static/alpine.min.js"></script>
+  <script>
+    if (!window.Alpine) {
+      document.write('<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"><\/script>');
+    }
+  </script>
 
   <script>
     tailwind.config = {
@@ -3383,6 +3388,7 @@
               if (res.ok) {
                 this.currentUser = await res.json();
                 await this.loadInitialData();
+                this.startLiveSync();
               } else {
                 sessionStorage.removeItem('tev_token');
               }
@@ -3407,6 +3413,7 @@
             sessionStorage.setItem('tev_token', data.access_token);
             this.currentUser = data.user;
             await this.loadInitialData();
+            this.startLiveSync();
             this.showToast('success', 'Bienvenido(a)', 'Ha ingresado como ' + this.currentUser.full_name);
           } catch (err) {
             this.loginError = err.message;
@@ -3989,6 +3996,23 @@
           }
         },
 
+        
+        liveSyncInterval: null,
+
+        startLiveSync() {
+          if (this.liveSyncInterval) clearInterval(this.liveSyncInterval);
+          this.liveSyncInterval = setInterval(async () => {
+            if (this.currentUser) {
+              if (this.activeTab === 'live_monitor') {
+                await this.loadLiveMonitor();
+              } else if (this.activeTab === 'cuadre') {
+                await this.loadCashCloseSummary();
+              } else if (this.activeTab === 'cxc') {
+                await this.loadReceivables();
+              }
+            }
+          }, 12000);
+        },
         formatSubtype(st) {
           const map = {
             'GASTO_OPERATIVO': '💸 Gasto Operativo',
