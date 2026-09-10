@@ -11,7 +11,7 @@ from models import User
 
 SECRET_KEY = 'todo-electrico-valencia-seguridad-jwt-2026-secret'
 ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+ACCESS_TOKEN_EXPIRE_HOURS = 10
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/api/auth/login', auto_error=False)
 
