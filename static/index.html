@@ -360,8 +360,9 @@
             <div>
               <label class="block text-xs font-black text-gray-700 uppercase tracking-wider mb-2">1. Régimen y Tipo de Documento:</label>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <button type="button" @click="liveSaleForm.doc_type = 'FACTURA_FISCAL'"
-                        :class="liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                <!-- 1. FACTURA FISCAL -->
+                <button type="button" @click="setDocumentType('FACTURA_FISCAL')"
+                        :class="(liveSaleForm.doc_type === 'FACTURA_FISCAL' && paymentMethod !== 'CASHEA') ? 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">🟢</span>
                   <div>
@@ -370,8 +371,9 @@
                   </div>
                 </button>
 
-                <button type="button" @click="liveSaleForm.doc_type = 'NOTA_ENTREGA'"
-                        :class="liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                <!-- 2. NOTA DE ENTREGA -->
+                <button type="button" @click="setDocumentType('NOTA_ENTREGA')"
+                        :class="(liveSaleForm.doc_type === 'NOTA_ENTREGA' && paymentMethod !== 'CASHEA') ? 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">🔵</span>
                   <div>
@@ -380,22 +382,25 @@
                   </div>
                 </button>
 
-                <button type="button" @click="activeTab = 'cxc'; loadReceivables()"
-                        class="p-3 rounded-2xl bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 flex items-center gap-2.5 transition text-left cursor-pointer">
-                  <span class="text-2xl">📥</span>
+                <!-- 3. VENTA CASHEA (DEDICADA ARRIBA) -->
+                <button type="button" @click="setDocumentType('CASHEA')"
+                        :class="paymentMethod === 'CASHEA' ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
+                        class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
+                  <span class="text-2xl">🟡</span>
                   <div>
-                    <p class="text-xs font-black">Abono de Cliente</p>
-                    <p class="text-[10px] opacity-80">Pagar cuenta por cobrar</p>
+                    <p class="text-xs font-black">Venta Cashea</p>
+                    <p class="text-[10px] font-bold text-amber-900">App BNC (Inicial + Cuotas)</p>
                   </div>
                 </button>
 
-                <button type="button" @click="liveSaleForm.doc_type = 'DEVOLUCION'"
+                <!-- 4. DEVOLUCIÓN (REEMBOLSO) -->
+                <button type="button" @click="setDocumentType('DEVOLUCION')"
                         :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">↩️</span>
                   <div>
                     <p class="text-xs font-black">Devolución</p>
-                    <p class="text-[10px] opacity-80">Reembolso a cliente</p>
+                    <p class="text-[10px] opacity-80">Reembolso / Anulación</p>
                   </div>
                 </button>
               </div>
@@ -600,27 +605,25 @@
                 </div>
               </div>
 
-              <!-- SI ES CASHEA / ZELLE / USDT (CON SOPORTE DE CUOTA INICIAL EN TIENDA) -->
-              <div x-show="paymentMethod === 'DIGITAL'" class="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl space-y-3">
+              <!-- SI ES CASHEA / CANAL DIGITAL (CON SOPORTE DE CUOTA INICIAL EN TIENDA) -->
+              <div x-show="paymentMethod === 'CASHEA' || paymentMethod === 'DIGITAL'" class="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-xs font-bold text-amber-950 mb-1">Canal Digital Específico:</label>
-                    <select x-model="digitalChannel" @change="onDigitalChannelChange()"
-                            class="w-full p-2.5 border border-amber-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-amber-500">
-                      <option value="CASHEA">🟡 Cashea (App / Financiamiento BNC)</option>
-                      <option value="ZELLE">💵 Zelle / Custodia USD</option>
-                      <option value="BINANCE">🪙 Billetera Binance USDT</option>
-                    </select>
+                    <label class="block text-xs font-bold text-amber-950 mb-1">Canal de Cobro:</label>
+                    <div class="p-2.5 bg-amber-100/80 border border-amber-300 rounded-xl text-xs font-black text-amber-950 flex items-center justify-between">
+                      <span>🟡 Cashea (App BNC)</span>
+                      <span class="text-[10px] bg-amber-200 px-2 py-0.5 rounded-md font-bold text-amber-900">Activo</span>
+                    </div>
                   </div>
                   <div>
-                    <label class="block text-xs font-bold text-amber-950 mb-1">N° Referencia / ID Operación:</label>
-                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: TX-194019 / Cashea #8410"
+                    <label class="block text-xs font-bold text-amber-950 mb-1">N° Referencia / ID App Cashea:</label>
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: Cashea #8410 / TX-1940"
                            class="w-full p-2.5 border border-amber-300 rounded-xl text-xs bg-white font-bold">
                   </div>
                 </div>
 
                 <!-- DESGLOSE DE CUOTA INICIAL COBRADA EN TIENDA (EXCLUSIVO CASHEA) -->
-                <div x-show="digitalChannel === 'CASHEA'" class="p-3 bg-white rounded-xl border border-amber-300 space-y-2">
+                <div class="p-3 bg-white rounded-xl border border-amber-300 space-y-2">
                   <div class="flex items-center justify-between">
                     <label class="inline-flex items-center gap-2 cursor-pointer select-none">
                       <input type="checkbox" x-model="hasCasheaDownpayment" class="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500">
@@ -3517,6 +3520,22 @@
         hasRetention: false,
         hasCasheaDownpayment: false,
         loadingBcv: false,
+
+        
+        setDocumentType(type) {
+          if (type === 'CASHEA') {
+            this.liveSaleForm.doc_type = 'FACTURA_FISCAL';
+            this.setPaymentMethod('CASHEA');
+          } else if (type === 'DEVOLUCION') {
+            this.liveSaleForm.doc_type = 'DEVOLUCION';
+            this.paymentMethod = 'EFECTIVO_USD';
+          } else {
+            this.liveSaleForm.doc_type = type;
+            if (this.paymentMethod === 'CASHEA') {
+              this.setPaymentMethod('EFECTIVO_USD');
+            }
+          }
+        },
 
         setPaymentMethod(method) {
           this.paymentMethod = method;
