@@ -30,6 +30,20 @@
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Prevents iOS/Android auto-zoom distortion on focus */
+    @media (max-width: 640px) {
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+    }
+    .scrollbar-none::-webkit-scrollbar, .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none, .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
     .btn-large {
       padding: 0.65rem 1rem;
@@ -130,123 +144,123 @@
         </button>
       </form>
 
-      <!-- Botones de acceso rápido -->
-      <div class="mt-8 pt-6 border-t border-gray-100">
-        <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider text-center mb-3">Acceso Rápido de Prueba</p>
-        <div class="grid grid-cols-2 gap-2">
-          <button @click="quickLogin('cajera1', 'caja12026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
-            👩‍💼 Cajera 1
-          </button>
-          <button @click="quickLogin('cajera2', 'caja22026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
-            👩‍💼 Cajera 2
-          </button>
-          <button @click="quickLogin('administradora', 'admin2026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
-            👩‍💻 Administradora
-          </button>
-          <button @click="quickLogin('directivo', 'tev2026*')" class="p-2 text-xs bg-gray-100 hover:bg-teal-100 text-gray-700 rounded-lg font-medium text-center">
-            👔 Directivo
-          </button>
-        </div>
-      </div>
+
     </div>
   </div>
 
   <!-- 2. INTERFAZ PRINCIPAL -->
   <div x-show="currentUser" class="min-h-screen flex flex-col">
 
-    <!-- CABECERA PRINCIPAL -->
+    <!-- CABECERA PRINCIPAL RESPONSIVA (MÓVIL & ESCRITORIO) -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm no-print">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-20">
-          <div class="flex items-center gap-4">
-            <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-12 object-contain rounded-lg">
-            <div class="hidden sm:block">
-              <h1 class="text-lg font-bold text-gray-800 leading-tight">TODO ELÉCTRICO VALENCIA</h1>
-              <p class="text-xs text-tev-green font-semibold">Sistema de Tesorería, Gastos y Flujo de Caja</p>
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        
+        <!-- Fila Principal: Logo + Perfil / Salir en Móvil y Escritorio -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2.5 sm:py-0 sm:h-20 gap-2 sm:gap-4">
+          
+          <!-- Lado Izquierdo: Logo y Título -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5 sm:gap-4">
+              <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-9 sm:h-12 object-contain rounded-lg shadow-xs">
+              <div>
+                <h1 class="text-sm sm:text-lg font-black text-gray-900 leading-tight tracking-tight">TODO ELÉCTRICO VALENCIA</h1>
+                <p class="text-[10px] sm:text-xs text-tev-green font-bold">Tesorería, Gastos y Flujo de Caja</p>
+              </div>
             </div>
-          </div>
-
-          <!-- Badge Tasa BCV Oficial -->
-          <div class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-2xl shadow-sm">
-            <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-              <span>🇻🇪 Tasa BCV:</span>
-              <strong class="text-sm font-black text-emerald-950" x-text="'Bs. ' + formatNumber(bcvRate)"></strong>
-            </span>
-            <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-              <button @click="openBcvRateModal()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-lg font-bold transition shadow-xs" title="Actualizar Tasa Oficial BCV del día">
-                ✏️ Actualizar
-              </button>
-            </template>
-          </div>
-
-          <!-- Perfil, Cambio de Clave y Salir -->
-          <div class="flex items-center gap-3">
-            <div class="text-right">
-              <p class="text-sm font-bold text-gray-800" x-text="currentUser?.full_name"></p>
-              <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                    :class="{
-                      'bg-teal-100 text-teal-800': currentUser?.role === 'cajera',
-                      'bg-amber-100 text-amber-800': currentUser?.role === 'administradora',
-                      'bg-purple-100 text-purple-800': currentUser?.role === 'directivo'
-                    }"
-                    x-text="getRoleLabel(currentUser?.role)">
-              </span>
-            </div>
-
-            <button @click="showChangePasswordModal = true" title="Cambiar mi contraseña"
-                    class="p-2 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl transition text-xs font-bold flex items-center gap-1">
-              <span>🔑 Clave</span>
-            </button>
-
-            <button @click="logout()" title="Cerrar Sesión"
-                    class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition font-bold text-sm">
+            
+            <!-- Botón Salir Rápido (Solo Móvil) -->
+            <button @click="logout()" title="Cerrar Sesión" class="sm:hidden px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-bold border border-red-200 transition">
               Salir 🚪
             </button>
           </div>
+
+          <!-- Lado Derecho: Badge BCV + Perfil + Acciones -->
+          <div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 border-t sm:border-t-0 pt-2 sm:pt-0 border-gray-100">
+            
+            <!-- Badge Tasa BCV Oficial -->
+            <div class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-xs">
+              <span class="text-[11px] sm:text-xs font-bold text-emerald-800 flex items-center gap-1">
+                <span>🇻🇪 BCV:</span>
+                <strong class="text-xs sm:text-sm font-black text-emerald-950" x-text="'Bs. ' + formatNumber(bcvRate)"></strong>
+              </span>
+              <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+                <button @click="openBcvRateModal()" class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-1.5 py-0.5 rounded font-bold transition shadow-xs" title="Actualizar Tasa BCV">
+                  ✏️
+                </button>
+              </template>
+            </div>
+
+            <!-- Usuario & Rol -->
+            <div class="flex items-center gap-2">
+              <div class="text-right">
+                <p class="text-xs sm:text-sm font-bold text-gray-800 truncate max-w-[130px] sm:max-w-none" x-text="currentUser?.full_name"></p>
+                <span class="inline-block px-2 py-0.2 rounded-full text-[10px] sm:text-xs font-semibold"
+                      :class="{
+                        'bg-teal-100 text-teal-800': currentUser?.role === 'cajera',
+                        'bg-amber-100 text-amber-800': currentUser?.role === 'administradora',
+                        'bg-purple-100 text-purple-800': currentUser?.role === 'directivo'
+                      }"
+                      x-text="getRoleLabel(currentUser?.role)">
+                </span>
+              </div>
+
+              <!-- Botón Cambio de Clave -->
+              <button @click="showChangePasswordModal = true" title="Cambiar mi contraseña"
+                      class="p-1.5 sm:p-2 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl transition text-xs font-bold flex items-center gap-1">
+                <span>🔑</span>
+              </button>
+
+              <!-- Botón Salir (Escritorio) -->
+              <button @click="logout()" title="Cerrar Sesión"
+                      class="hidden sm:flex p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition font-bold text-sm">
+                Salir 🚪
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- PESTAÑAS DE NAVEGACIÓN -->
-        <nav class="flex space-x-2 sm:space-x-3 border-t border-gray-100 overflow-x-auto py-2">
+        <!-- PESTAÑAS DE NAVEGACIÓN CON SCROLL HORIZONTAL TÁCTIL SUAVE -->
+        <nav class="flex space-x-1 sm:space-x-3 border-t border-gray-100 overflow-x-auto py-1.5 sm:py-2 scrollbar-none no-scrollbar">
           <button @click="activeTab = 'registro'"
                   :class="activeTab === 'registro' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                  class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
-            <span>✍️ Registrar Movimiento</span>
+                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>✍️ Registrar</span>
           </button>
 
           <button @click="activeTab = 'movimientos'"
                   :class="activeTab === 'movimientos' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                  class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
-            <span>📋 Libro de Movimientos</span>
+                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>📋 Movimientos</span>
           </button>
 
           <!-- FLUJO DE CAJA (ADMIN Y DIRECTIVO) -->
           <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
             <button @click="activeTab = 'flujo'; loadCashFlowAll()"
                     :class="activeTab === 'flujo' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                    class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
-              <span>🌊 Flujo de Caja Integral</span>
+                    class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+              <span>🌊 Flujo Integral</span>
             </button>
           </template>
 
           <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
             <button @click="activeTab = 'presupuesto'"
                     :class="activeTab === 'presupuesto' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                    class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
-              <span>📊 Control Presupuestario</span>
+                    class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+              <span>📊 Presupuesto</span>
             </button>
           </template>
 
           <button @click="activeTab = 'cajas'"
                   :class="activeTab === 'cajas' ? 'bg-tev-green text-white shadow' : 'text-gray-600 hover:bg-gray-100'"
-                  class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
-            <span>🏦 Cajas y Arqueo</span>
+                  class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+            <span>🏦 Cajas & Arqueo</span>
           </button>
 
           <template x-if="currentUser?.role === 'directivo'">
             <button @click="activeTab = 'usuarios'; loadUsers()"
                     :class="activeTab === 'usuarios' ? 'bg-purple-700 text-white shadow' : 'text-purple-700 hover:bg-purple-50'"
-                    class="px-4 py-2.5 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 whitespace-nowrap transition">
-              <span>👥 Gestión de Usuarios</span>
+                    class="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap transition shrink-0">
+              <span>👥 Usuarios</span>
             </button>
           </template>
         </nav>
@@ -2559,8 +2573,14 @@
           setTimeout(() => { this.toast.show = false; }, 4000);
         },
 
+        getToken() {
+          return sessionStorage.getItem('tev_token');
+        },
+
         async initApp() {
-          const token = localStorage.getItem('tev_token');
+          // Clear any legacy localStorage token to prevent auto-login as directivo
+          localStorage.removeItem('tev_token');
+          const token = this.getToken();
           if (token) {
             try {
               const res = await fetch('/api/auth/me', {
@@ -2570,18 +2590,12 @@
                 this.currentUser = await res.json();
                 await this.loadInitialData();
               } else {
-                localStorage.removeItem('tev_token');
+                sessionStorage.removeItem('tev_token');
               }
             } catch (e) {
               console.error(e);
             }
           }
-        },
-
-        async quickLogin(user, pass) {
-          this.loginForm.username = user;
-          this.loginForm.password = pass;
-          await this.handleLogin();
         },
 
         async handleLogin() {
@@ -2596,7 +2610,7 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al iniciar sesión');
 
-            localStorage.setItem('tev_token', data.access_token);
+            sessionStorage.setItem('tev_token', data.access_token);
             this.currentUser = data.user;
             await this.loadInitialData();
             this.showToast('success', 'Bienvenido(a)', 'Ha ingresado como ' + this.currentUser.full_name);
@@ -2609,8 +2623,10 @@
 
         logout() {
           localStorage.removeItem('tev_token');
+          sessionStorage.removeItem('tev_token');
           this.currentUser = null;
           this.activeTab = 'registro';
+          this.loginForm = { username: '', password: '' };
         },
 
         async loadInitialData() {
@@ -2628,7 +2644,7 @@
         },
 
         async loadAccounts() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/accounts', {
             headers: { 'Authorization': 'Bearer ' + token }
           });
@@ -2642,7 +2658,7 @@
         },
 
         async loadCategories() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           let url = '/api/categories?month=' + this.filterMonth;
           // Si estamos en la pestaña de presupuesto o filtrando todas/inactivas, incluimos las inactivas
           if (this.filterCategoryStatus === 'all' || this.filterCategoryStatus === 'inactive') {
@@ -2664,7 +2680,7 @@
         },
 
         async loadTransactions() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           let url = '/api/transactions?';
           if (this.filterDate) {
             url += 'date=' + this.filterDate;
@@ -2689,7 +2705,7 @@
         },
 
         async loadCashFlow() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/dashboard/cash-flow?month=' + this.filterMonth, {
             headers: { 'Authorization': 'Bearer ' + token }
           });
@@ -2699,7 +2715,7 @@
         },
 
         async loadAnnualCashFlow() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/dashboard/cash-flow-annual?year=2026', {
             headers: { 'Authorization': 'Bearer ' + token }
           });
@@ -2709,7 +2725,7 @@
         },
 
         async loadDailyCashFlow() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/dashboard/cash-flow-daily?month=' + this.filterMonth, {
             headers: { 'Authorization': 'Bearer ' + token }
           });
@@ -2721,7 +2737,7 @@
         },
 
         async loadUsers() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/users', {
             headers: { 'Authorization': 'Bearer ' + token }
           });
@@ -2798,7 +2814,7 @@
         },
 
         async openInitialBalancesModal() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/accounts/monthly-balances?month=' + this.filterMonth, {
             headers: { 'Authorization': 'Bearer ' + token }
           });
@@ -2810,7 +2826,7 @@
         },
 
         async saveInitialBalances() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const payload = {
               month: this.filterMonth,
@@ -2839,7 +2855,7 @@
         },
 
         async changeOwnPassword() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/auth/change-password', {
               method: 'POST',
@@ -2861,7 +2877,7 @@
         },
 
         async createUser() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/users', {
               method: 'POST',
@@ -2890,7 +2906,7 @@
         },
 
         async resetUserPassword() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/users/' + this.selectedUserForReset.id + '/password', {
               method: 'PATCH',
@@ -2911,7 +2927,7 @@
         },
 
         async toggleUserStatus(userId) {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/users/' + userId + '/toggle-status', {
               method: 'PATCH',
@@ -3015,7 +3031,7 @@
 
         async executeSubmitTransaction() {
           this.showConfirmModal = false;
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const payload = {
               date: this.form.date,
@@ -3061,7 +3077,7 @@
         },
 
         async executeTransfer() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/transactions/transfer', {
               method: 'POST',
@@ -3087,7 +3103,7 @@
         },
 
         async verifyTransaction(id) {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/transactions/' + id + '/verify', {
               method: 'PATCH',
@@ -3104,7 +3120,7 @@
 
         async cancelTransaction(id) {
           if (!confirm('¿Está seguro de anular este movimiento? Se revertirá en los saldos.')) return;
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/transactions/' + id, {
               method: 'DELETE',
@@ -3130,7 +3146,7 @@
         },
 
         async saveEditedCategory() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/categories/' + this.editingCat.id, {
               method: 'PUT',
@@ -3164,7 +3180,7 @@
             
           if (!confirm(confirmMsg)) return;
 
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/categories/' + cat.id, {
               method: 'PUT',
@@ -3208,7 +3224,7 @@
             this.showToast('warning', 'Código Requerido', 'Debe ingresar un código numérico para la partida');
             return;
           }
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/categories', {
               method: 'POST',
@@ -3241,7 +3257,7 @@
           const file = event.target.files[0];
           if (!file) return;
 
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const formData = new FormData();
           formData.append('file', file);
 
@@ -3278,7 +3294,7 @@
           if (!confirm('¿Está seguro de que desea VACIAR todos los movimientos para empezar la base de datos totalmente limpia desde cero? Podrá volver a cargar cualquier Excel cuando lo desee.')) {
             return;
           }
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/admin/clear-transactions', {
               method: 'POST',
@@ -3316,7 +3332,7 @@
             this.showToast('warning', 'Nombre Requerido', 'Debe escribir el nombre de la caja o banco');
             return;
           }
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/accounts', {
               method: 'POST',
@@ -3343,7 +3359,7 @@
         },
 
         async saveEditAccount() {
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/accounts/' + this.editingAccount.id, {
               method: 'PUT',
@@ -3440,7 +3456,7 @@
 
         async loadBcvRate() {
           try {
-            const token = localStorage.getItem('tev_token');
+            const token = this.getToken();
             const res = await fetch('/api/settings/bcv-rate', {
               headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -3460,7 +3476,7 @@
             alert('Por favor ingrese una tasa válida.');
             return;
           }
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/settings/bcv-rate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -3481,7 +3497,7 @@
 
         async loadSuppliers() {
           try {
-            const token = localStorage.getItem('tev_token');
+            const token = this.getToken();
             const res = await fetch('/api/suppliers', {
               headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -3511,7 +3527,7 @@
             alert('El nombre o razón social del proveedor es obligatorio.');
             return;
           }
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           const res = await fetch('/api/suppliers', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -3549,7 +3565,7 @@
 
         async loadDailyOnePage() {
           try {
-            const token = localStorage.getItem('tev_token');
+            const token = this.getToken();
             const res = await fetch('/api/dashboard/daily-closing?date=' + this.onePageDate, {
               headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -3596,7 +3612,7 @@
             return;
           }
 
-          const token = localStorage.getItem('tev_token');
+          const token = this.getToken();
           try {
             const res = await fetch('/api/admin/reset-system-demo', {
               method: 'POST',
