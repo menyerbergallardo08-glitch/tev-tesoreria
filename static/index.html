@@ -420,13 +420,13 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1">👤 Cliente (Nombre / Empresa):</label>
-                <input type="text" x-model="liveSaleForm.client_name" required placeholder="Ej: Inversiones Eléctricas C.A."
+                <input type="text" x-model="liveSaleForm.client_name" @input="saveSaleDraft()" required placeholder="Ej: Inversiones Eléctricas C.A."
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
               </div>
 
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1">🔖 N° de Factura o Nota:</label>
-                <input type="text" x-model="liveSaleForm.doc_number" required placeholder="Ej: 004821 / NE-1052"
+                <input type="text" x-model="liveSaleForm.doc_number" @input="saveSaleDraft()" required placeholder="Ej: 004821 / NE-1052"
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
               </div>
 
@@ -443,7 +443,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1">Monto a Cobrar / Despachar:</label>
-                <input type="number" step="0.01" min="0.01" x-model.number="liveSaleForm.amount_original" required placeholder="0.00"
+                <input type="number" step="0.01" min="0.01" x-model.number="liveSaleForm.amount_original" @input="saveSaleDraft()" required placeholder="0.00"
                        class="w-full input-large border border-gray-300 font-black text-xl text-tev-darkgreen bg-white">
               </div>
 
@@ -3388,6 +3388,8 @@
               if (res.ok) {
                 this.currentUser = await res.json();
                 await this.loadInitialData();
+                this.restoreSaleDraft();
+                await this.autoSyncBcvRate();
                 this.startLiveSync();
               } else {
                 sessionStorage.removeItem('tev_token');
@@ -3792,6 +3794,7 @@
             if (res.ok) {
               const d = await res.json();
               this.showToast('success', 'Venta Registrada', d.message);
+              this.clearSaleDraft();
               this.liveSaleForm.doc_number = '';
               this.liveSaleForm.client_name = '';
               this.liveSaleForm.amount_original = '';
@@ -3998,6 +4001,55 @@
 
         
         liveSyncInterval: null,
+
+        
+        saveSaleDraft() {
+          try {
+            localStorage.setItem('tev_draft_sale', JSON.stringify(this.liveSaleForm));
+          } catch (e) {}
+        },
+
+        restoreSaleDraft() {
+          try {
+            const raw = localStorage.getItem('tev_draft_sale');
+            if (raw) {
+              const d = JSON.parse(raw);
+              if (d && (d.doc_number || d.client_name || d.amount_original)) {
+                this.liveSaleForm = Object.assign(this.liveSaleForm, d);
+                this.showToast('info', 'Borrador Recuperado', 'Se restauraron los datos que estabas ingresando.');
+              }
+            }
+          } catch (e) {}
+        },
+
+        clearSaleDraft() {
+          try {
+            localStorage.removeItem('tev_draft_sale');
+          } catch (e) {}
+        },
+
+        async autoSyncBcvRate() {
+          try {
+            const token = this.getToken();
+            const res = await fetch('/api/bcv-rate/sync', {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.rate) {
+                this.bcvRate = data.rate;
+                this.newBcvRate = data.rate;
+                if (this.form) this.form.exchange_rate = data.rate;
+                if (this.transferForm) this.transferForm.exchange_rate = data.rate;
+                if (data.synced) {
+                  console.log(`[BCV SYNC] Tasa actualizada a ${data.rate}`);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error in autoSyncBcvRate:', e);
+          }
+        },
 
         startLiveSync() {
           if (this.liveSyncInterval) clearInterval(this.liveSyncInterval);
