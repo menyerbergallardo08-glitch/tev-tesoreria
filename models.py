@@ -72,8 +72,8 @@ class Transaction(Base):
     movement_type = Column(String(20), nullable=False, index=True)
     
     # Subtipos
-    # INGRESO: 'VENTA_DIARIA', 'COBRO_CXC', 'APORTE_CAPITAL', 'PRESTAMO_RECIBIDO', 'OTRO_INGRESO'
-    # EGRESO: 'GASTO_OPERATIVO', 'PAGO_PROVEEDOR', 'RETIRO_ACCIONISTA', 'PAGO_PRESTAMO', 'OTRO_EGRESO'
+    # INGRESO: 'VENTA_DIARIA', 'COBRO_CXC', 'APORTE_CAPITAL', 'PRESTAMO_RECIBIDO', 'DEVOLUCION_PROVEEDOR', 'OTRO_INGRESO'
+    # EGRESO: 'GASTO_OPERATIVO', 'PAGO_PROVEEDOR', 'RETIRO_ACCIONISTA', 'PAGO_PRESTAMO', 'DEVOLUCION_VENTA', 'OTRO_EGRESO'
     # TRASPASO: 'CAMBIO_DIVISAS', 'TRASPASO_CUENTAS'
     subtype = Column(String(50), nullable=False, index=True)
 
@@ -89,6 +89,16 @@ class Transaction(Base):
     reference_number = Column(String(50), nullable=True, index=True)
     beneficiary = Column(String(150), default='')
     description = Column(Text, default='')
+
+    # Dualidad Fiscal y Retenciones
+    doc_type = Column(String(30), default='FACTURA_FISCAL') # 'FACTURA_FISCAL', 'NOTA_ENTREGA', 'COBRO_RETENCION', 'DEVOLUCION'
+    doc_number = Column(String(50), nullable=True, index=True)
+    is_credit = Column(Boolean, default=False)
+    credit_status = Column(String(20), default='PAGADO') # 'PENDIENTE', 'PAGADO', 'ANULADO'
+    tax_retention_amount = Column(Float, default=0.0) # Retención IVA / ISLR
+    tax_retention_proof = Column(String(50), nullable=True) # N° comprobante retención
+    pos_terminal = Column(String(50), nullable=True) # 'Banesco', 'Bancaribe', 'BDV', 'BNC', 'N/A'
+    pos_lot_number = Column(String(30), nullable=True) # N° lote POS
     
     # 'REGISTRADO', 'VERIFICADO', 'ANULADO'
     status = Column(String(20), default='REGISTRADO', index=True)
@@ -101,6 +111,45 @@ class Transaction(Base):
     category = relationship('BudgetCategory', back_populates='transactions')
     creator = relationship('User', foreign_keys=[created_by_id], back_populates='transactions_created')
     verifier = relationship('User', foreign_keys=[verified_by_id], back_populates='transactions_verified')
+
+
+class DailyCashClose(Base):
+    __tablename__ = 'daily_cash_closes'
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    cajero_name = Column(String(100), nullable=False)
+    verified_by = Column(String(100), default='Administración')
+    status = Column(String(20), default='CUADRADO') # 'CUADRADO', 'SOBRANTE', 'FALTANTE'
+    
+    # Resumen de Ventas
+    profit_sales_total_usd = Column(Float, default=0.0)
+    sales_fiscal_iva_usd = Column(Float, default=0.0)
+    sales_notes_credit_usd = Column(Float, default=0.0)
+    sales_notes_collected_usd = Column(Float, default=0.0)
+    returns_total_usd = Column(Float, default=0.0)
+    net_sales_usd = Column(Float, default=0.0)
+
+    # Cobranzas y Fondos por Canal
+    cash_usd_physical = Column(Float, default=0.0)
+    cash_ves_physical = Column(Float, default=0.0)
+    pos_total_usd = Column(Float, default=0.0)
+    bank_transfers_usd = Column(Float, default=0.0)
+    cashea_usd = Column(Float, default=0.0)
+    retentions_iva_usd = Column(Float, default=0.0)
+    retentions_islr_usd = Column(Float, default=0.0)
+    expenses_caja_usd = Column(Float, default=0.0)
+
+    total_collected_real_usd = Column(Float, default=0.0)
+    total_expected_usd = Column(Float, default=0.0)
+    difference_usd = Column(Float, default=0.0)
+    
+    # Desglose en JSON
+    arqueo_usd_json = Column(Text, default='{}')
+    arqueo_ves_json = Column(Text, default='{}')
+    pos_details_json = Column(Text, default='{}')
+    notes = Column(Text, default='')
 
 
 class Supplier(Base):
@@ -123,4 +172,3 @@ class SystemSetting(Base):
     value = Column(String(255), nullable=False)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     updated_by = Column(String(50), default='sistema')
-
