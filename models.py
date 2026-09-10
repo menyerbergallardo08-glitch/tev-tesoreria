@@ -3,6 +3,57 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Date, 
 from sqlalchemy.orm import relationship
 from database import Base
 
+class Branch(Base):
+    __tablename__ = 'branches'
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), unique=True, index=True, nullable=False) # 'TEV-CENTRO', 'TEV-NAGUANAGUA'
+    name = Column(String(100), nullable=False) # 'Sede Principal - Valencia Centro'
+    address = Column(String(255), default='')
+    phone = Column(String(50), default='')
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    cash_registers = relationship('CashRegister', back_populates='branch')
+    transactions = relationship('Transaction', back_populates='branch')
+    cash_closes = relationship('DailyCashClose', back_populates='branch')
+
+
+class CashRegister(Base):
+    __tablename__ = 'cash_registers'
+
+    id = Column(Integer, primary_key=True, index=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    code = Column(String(20), nullable=False) # 'CAJA-01', 'CAJA-02'
+    name = Column(String(100), nullable=False) # 'Caja Mostrador 1'
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    branch = relationship('Branch', back_populates='cash_registers')
+    transactions = relationship('Transaction', back_populates='cash_register')
+    cash_closes = relationship('DailyCashClose', back_populates='cash_register')
+
+    __table_args__ = (
+        UniqueConstraint('branch_id', 'code', name='uix_branch_cash_register_code'),
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = 'audit_logs'
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    username = Column(String(50), nullable=False, default='sistema')
+    action = Column(String(50), nullable=False, index=True) # 'CREATE_SALE', 'ABONO_CXC', 'DAILY_CLOSE', 'VOID_SALE', 'UPDATE_RATE'
+    entity_type = Column(String(50), nullable=False, index=True) # 'Transaction', 'DailyCashClose', 'SystemSetting'
+    entity_id = Column(String(50), nullable=True)
+    details_json = Column(Text, default='{}')
+    ip_address = Column(String(50), default='')
+
+    user = relationship('User', back_populates='audit_logs')
+
+
 class User(Base):
     __tablename__ = 'users'
 
@@ -11,11 +62,13 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(100), nullable=False)
     role = Column(String(20), nullable=False, default='cajera')  # 'cajera', 'administradora', 'directivo'
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     transactions_created = relationship('Transaction', foreign_keys='Transaction.created_by_id', back_populates='creator')
     transactions_verified = relationship('Transaction', foreign_keys='Transaction.verified_by_id', back_populates='verifier')
+    audit_logs = relationship('AuditLog', back_populates='user')
 
 
 class BudgetCategory(Base):
@@ -65,6 +118,8 @@ class Transaction(Base):
     __tablename__ = 'transactions'
 
     id = Column(Integer, primary_key=True, index=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
+    cash_register_id = Column(Integer, ForeignKey('cash_registers.id'), nullable=True)
     date = Column(Date, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
@@ -113,6 +168,8 @@ class Transaction(Base):
     created_by_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     verified_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)
 
+    branch = relationship('Branch', back_populates='transactions')
+    cash_register = relationship('CashRegister', back_populates='transactions')
     account = relationship('TreasuryAccount', foreign_keys=[account_id], back_populates='transactions_origin')
     destination_account = relationship('TreasuryAccount', foreign_keys=[destination_account_id], back_populates='transactions_destination')
     category = relationship('BudgetCategory', back_populates='transactions')
@@ -124,6 +181,8 @@ class DailyCashClose(Base):
     __tablename__ = 'daily_cash_closes'
 
     id = Column(Integer, primary_key=True, index=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)
+    cash_register_id = Column(Integer, ForeignKey('cash_registers.id'), nullable=True)
     date = Column(Date, unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     cajero_name = Column(String(100), nullable=False)
@@ -157,6 +216,9 @@ class DailyCashClose(Base):
     arqueo_ves_json = Column(Text, default='{}')
     pos_details_json = Column(Text, default='{}')
     notes = Column(Text, default='')
+
+    branch = relationship('Branch', back_populates='cash_closes')
+    cash_register = relationship('CashRegister', back_populates='cash_closes')
 
 
 class Supplier(Base):
