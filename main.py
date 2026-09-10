@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from database import engine, SessionLocal, get_db, Base
-from models import User, BudgetCategory, TreasuryAccount, Transaction, AccountMonthlyBalance, Supplier, SystemSetting, DailyCashClose
+from models import User, BudgetCategory, TreasuryAccount, Transaction, AccountMonthlyBalance, Supplier, SystemSetting, DailyCashClose, Branch, CashRegister, AuditLog
 from auth import (
     hash_password,
     verify_password,
@@ -27,6 +27,64 @@ try:
     init_database()
 except Exception as e:
     print(f"[WARN] Error en init_database al arrancar: {e}")
+
+
+# -------------------------------------------------------------
+# AUDIT LOG HELPER & BCV RATE SYNC (10/10 Enterprise Hardening)
+# -------------------------------------------------------------
+import json
+import urllib.request
+
+def record_audit(
+    db: Session,
+    user: Optional[User],
+    action: str,
+    entity_type: str,
+    entity_id: Optional[str],
+    details: dict,
+    ip_address: str = ""
+):
+    try:
+        username = user.username if user else "sistema"
+        user_id = user.id if user else None
+        log_entry = AuditLog(
+            user_id=user_id,
+            username=username,
+            action=action,
+            entity_type=entity_type,
+            entity_id=str(entity_id) if entity_id is not None else "",
+            details_json=json.dumps(details, ensure_ascii=False),
+            ip_address=ip_address
+        )
+        db.add(log_entry)
+        db.flush()
+    except Exception as e:
+        print(f"[WARN] Failed to write audit log: {e}")
+
+def fetch_bcv_official_rate() -> Optional[float]:
+    """Consulta fuentes oficiales/estandarizadas para obtener la tasa BCV en tiempo real"""
+    urls = [
+        "https://ve.dolarapi.com/v1/dolares/oficial",
+        "https://pydolarve.org/api/v1/dollar?page=bcv"
+    ]
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8"))
+                    # DolarAPI format: {"promedio": 36.85, ...}
+                    if "promedio" in data and isinstance(data["promedio"], (int, float)):
+                        return float(data["promedio"])
+                    # PyDolar format: {"monitors": {"bcv": {"price": 36.85}}}
+                    if "monitors" in data and "bcv" in data["monitors"] and "price" in data["monitors"]["bcv"]:
+                        return float(data["monitors"]["bcv"]["price"])
+                    if "price" in data and isinstance(data["price"], (int, float)):
+                        return float(data["price"])
+        except Exception as e:
+            print(f"[DEBUG] Fetch rate fallback error on {url}: {e}")
+            continue
+    return None
 
 app = FastAPI(
     title="Todo Eléctrico Valencia - Sistema de Tesorería, Gastos y Flujo de Caja",
@@ -1214,6 +1272,20 @@ def create_transaction(
         created_by_id=current_user.id
     )
     db.add(tx)
+    record_audit(
+        db,
+        current_user,
+        "ABONO_CXC",
+        "Transaction",
+        str(tx.id),
+        {
+            "parent_id": parent.id,
+            "parent_doc": parent.doc_number,
+            "abono_usd": calc_usd,
+            "remaining_usd": rem,
+            "client": parent.client_name
+        }
+    )
     db.commit()
     db.refresh(tx)
 
@@ -2221,7 +2293,12 @@ def create_abono(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    parent = db.query(Transaction).filter(Transaction.id == credit_id, Transaction.is_credit == True).first()
+    # Row-level lock against Race Conditions
+    query = db.query(Transaction).filter(Transaction.id == credit_id, Transaction.is_credit == True)
+    if engine.dialect.name != 'sqlite':
+        parent = query.with_for_update().first()
+    else:
+        parent = query.first()
     if not parent:
         raise HTTPException(status_code=404, detail="Cuenta por cobrar no encontrada.")
 
@@ -2265,17 +2342,32 @@ def create_abono(
         created_by_id=current_user.id
     )
     db.add(tx)
+    db.flush()
 
-    # Check updated balance
-    all_abonos = db.query(Transaction).filter(
+    # Cálculo atómico de abonos totales registrados
+    total_ab = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
         Transaction.parent_transaction_id == parent.id,
         Transaction.status != "ANULADO"
-    ).all()
-    total_ab = sum(a.amount_usd for a in all_abonos) + calc_usd
-    rem = max(0.0, parent.amount_usd - total_ab)
-    parent.credit_balance_pending_usd = rem
+    ).scalar() or 0.0
+
+    rem = max(0.0, parent.amount_usd - float(total_ab))
+    parent.credit_balance_pending_usd = round(rem, 2)
     parent.credit_status = "PAGADO" if rem <= 0.01 else "PARCIALMENTE_PAGADO"
 
+    record_audit(
+        db,
+        current_user,
+        "ABONO_CXC",
+        "Transaction",
+        str(tx.id),
+        {
+            "parent_id": parent.id,
+            "parent_doc": parent.doc_number,
+            "abono_usd": calc_usd,
+            "remaining_usd": rem,
+            "client": parent.client_name
+        }
+    )
     db.commit()
     db.refresh(tx)
 
@@ -2285,6 +2377,120 @@ def create_abono(
         "abono_id": tx.id,
         "remaining_balance_usd": round(rem, 2),
         "status": parent.credit_status
+    }
+
+
+# -------------------------------------------------------------
+# MULTI-BRANCH & MULTI-CASHIER ENDPOINTS (10/10 Scalability)
+# -------------------------------------------------------------
+class BranchCreate(BaseModel):
+    code: str
+    name: str
+    address: Optional[str] = ""
+    phone: Optional[str] = ""
+
+class CashRegisterCreate(BaseModel):
+    branch_id: int
+    code: str
+    name: str
+
+@app.get("/api/branches")
+def get_branches(db: Session = Depends(get_db)):
+    return db.query(Branch).filter(Branch.is_active == True).all()
+
+@app.post("/api/branches")
+def create_branch(
+    b_in: BranchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo", "administradora"]))
+):
+    existing = db.query(Branch).filter(Branch.code == b_in.code.strip().upper()).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya existe una sucursal con este código.")
+    br = Branch(
+        code=b_in.code.strip().upper(),
+        name=b_in.name.strip(),
+        address=b_in.address.strip() if b_in.address else "",
+        phone=b_in.phone.strip() if b_in.phone else "",
+        is_active=True
+    )
+    db.add(br)
+    db.commit()
+    db.refresh(br)
+    record_audit(db, current_user, "CREATE_BRANCH", "Branch", str(br.id), {"code": br.code, "name": br.name})
+    db.commit()
+    return br
+
+@app.get("/api/cash-registers")
+def get_cash_registers(branch_id: Optional[int] = None, db: Session = Depends(get_db)):
+    q = db.query(CashRegister).filter(CashRegister.is_active == True)
+    if branch_id:
+        q = q.filter(CashRegister.branch_id == branch_id)
+    return q.all()
+
+@app.get("/api/audit-logs")
+def get_audit_logs(
+    limit: int = 50,
+    action: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo", "administradora"]))
+):
+    q = db.query(AuditLog)
+    if action:
+        q = q.filter(AuditLog.action == action)
+    logs = q.order_by(AuditLog.timestamp.desc()).limit(limit).all()
+    return [
+        {
+            "id": l.id,
+            "timestamp": l.timestamp.isoformat(),
+            "username": l.username,
+            "action": l.action,
+            "entity_type": l.entity_type,
+            "entity_id": l.entity_id,
+            "details": json.loads(l.details_json) if l.details_json else {},
+            "ip_address": l.ip_address
+        }
+        for l in logs
+    ]
+
+@app.get("/api/bcv-rate/sync")
+def sync_bcv_rate(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    rate = fetch_bcv_official_rate()
+    if not rate or rate <= 0:
+        # Fallback to existing setting or default
+        setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
+        current_val = float(setting.value) if setting else 36.80
+        return {
+            "rate": current_val,
+            "synced": False,
+            "message": "No se pudo conectar a la fuente en vivo. Se mantiene la tasa actual."
+        }
+    
+    # Update system setting
+    setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
+    if not setting:
+        setting = SystemSetting(key='tasa_bcv', value=str(rate))
+        db.add(setting)
+    else:
+        setting.value = str(rate)
+        setting.updated_at = datetime.datetime.utcnow()
+    
+    # Also update bcv_rate key if exists
+    setting2 = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+    if setting2:
+        setting2.value = str(rate)
+    
+    record_audit(db, current_user, "SYNC_BCV_RATE", "SystemSetting", "tasa_bcv", {"new_rate": rate})
+    db.commit()
+    
+    return {
+        "rate": rate,
+        "synced": True,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "message": f"Tasa BCV sincronizada oficialmente a {rate:.4f} VES/USD"
     }
 
 if __name__ == "__main__":
