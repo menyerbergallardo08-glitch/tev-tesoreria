@@ -1417,15 +1417,16 @@ def create_transaction(
     record_audit(
         db,
         current_user,
-        "ABONO_CXC",
+        "CREAR_TRANSACCION",
         "Transaction",
         str(tx.id),
         {
-            "parent_id": parent.id,
-            "parent_doc": parent.doc_number,
-            "abono_usd": calc_usd,
-            "remaining_usd": rem,
-            "client": parent.client_name
+            "movement_type": tx.movement_type,
+            "subtype": tx.subtype,
+            "amount_usd": tx.amount_usd,
+            "currency": tx.currency,
+            "account_id": tx.account_id,
+            "beneficiary": tx.beneficiary
         }
     )
     db.commit()
