@@ -62,6 +62,87 @@ def record_audit(
     except Exception as e:
         print(f"[WARN] Failed to write audit log: {e}")
 
+def validate_and_format_retention_proof(proof_raw: Optional[str], amount: Optional[float] = 0.0) -> str:
+    """
+    NORMATIVA SENIAT (Providencia SNAT/2015/0049):
+    El Número de Comprobante de Retención de IVA / ISLR debe constar de exactamente 14 dígitos numéricos:
+    - Primeros 4 dígitos: Año fiscal (AAAA, ej: 2026)
+    - Siguientes 2 dígitos: Mes fiscal (MM, 01 a 12)
+    - Últimos 8 dígitos: Correlativo numérico secuencial (CCCCCCCC, ej: 00000045)
+    
+    Permite entrada con o sin separadores (2026-09-00000045, 20260900000045) y auto-completa con ceros
+    a la izquierda si el usuario introduce Año-Mes-Correlativo corto (ej: 2026-09-45 -> 20260900000045).
+    """
+    import re
+    if not proof_raw:
+        if amount and amount > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Normativa SENIAT: Debe indicar el Número de Comprobante de Retención (14 dígitos) si registró un monto retenido."
+            )
+        return ""
+
+    raw = str(proof_raw).strip()
+    if not raw:
+        if amount and amount > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Normativa SENIAT: Debe indicar el Número de Comprobante de Retención (14 dígitos) si registró un monto retenido."
+            )
+        return ""
+
+    # Extraer únicamente dígitos numéricos
+    digits_only = re.sub(r'[^0-9]', '', raw)
+    
+    # Caso 1: Exactamente 14 dígitos continuos
+    if len(digits_only) == 14:
+        year = int(digits_only[:4])
+        month = int(digits_only[4:6])
+        if year < 2000 or year > 2099:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Normativa SENIAT: El año '{year}' en el comprobante de retención no es válido (debe estar entre 2000 y 2099)."
+            )
+        if month < 1 or month > 12:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Normativa SENIAT: El mes '{digits_only[4:6]}' en el comprobante de retención no es válido (debe ser del 01 al 12)."
+            )
+        return digits_only
+
+    # Caso 2: El usuario introdujo año, mes y correlativo con guiones/separadores
+    # Ejemplos: "2026-09-123", "2026/9/45", "2026-9-45"
+    parts = re.split(r'[-/.\s]+', raw)
+    if len(parts) == 3:
+        try:
+            year_part = int(parts[0])
+            month_part = int(parts[1])
+            seq_part = int(parts[2])
+            if (2000 <= year_part <= 2099) and (1 <= month_part <= 12) and (0 <= seq_part <= 99999999):
+                return f"{year_part:04d}{month_part:02d}{seq_part:08d}"
+        except ValueError:
+            pass
+
+    # Caso 3: Empieza por 4 dígitos de año + 2 dígitos de mes + correlativo de hasta 8 dígitos
+    if len(digits_only) >= 7 and len(digits_only) < 14:
+        try:
+            year = int(digits_only[:4])
+            month = int(digits_only[4:6])
+            seq = int(digits_only[6:])
+            if (2000 <= year <= 2099) and (1 <= month <= 12) and (0 <= seq <= 99999999):
+                return f"{year:04d}{month:02d}{seq:08d}"
+        except ValueError:
+            pass
+
+    # Si no cumple con el estándar reglamentario de 14 dígitos:
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Normativa SENIAT Inválida: El número de comprobante '{raw}' no cumple con la estructura obligatoria de 14 dígitos (AAAAMMCCCCCCCC). "
+            f"Ejemplo: 20260900000001 (Año: 2026, Mes: 09, Correlativo: 00000001)."
+        )
+    )
+
 def fetch_bcv_official_rate() -> Optional[float]:
     """
     CONSULTA DIRECTA Y PRIORITARIA AL PORTAL DEL BANCO CENTRAL DE VENEZUELA (BCV)
@@ -1388,6 +1469,8 @@ def create_transaction(
         if not desc:
             desc = f"Cierre de ventas del día ({account.name})"
 
+    valid_ret_proof = validate_and_format_retention_proof(tx_in.tax_retention_proof, tx_in.tax_retention_amount)
+
     tx = Transaction(
         date=tx_in.date,
         movement_type=tx_in.movement_type,
@@ -1407,7 +1490,7 @@ def create_transaction(
         is_credit=tx_in.is_credit or False,
         credit_status="PENDIENTE" if tx_in.is_credit else "PAGADO",
         tax_retention_amount=tx_in.tax_retention_amount or 0.0,
-        tax_retention_proof=tx_in.tax_retention_proof.strip() if tx_in.tax_retention_proof else "",
+        tax_retention_proof=valid_ret_proof,
         pos_terminal=tx_in.pos_terminal.strip() if tx_in.pos_terminal else "",
         pos_lot_number=tx_in.pos_lot_number.strip() if tx_in.pos_lot_number else "",
         status="REGISTRADO",
@@ -2166,6 +2249,9 @@ def create_live_sale(
         rate = 1.0
         calc_usd = round(sale.amount_original, 2)
 
+    # Validar comprobante de retención según normativa SENIAT (14 dígitos)
+    valid_ret_proof = validate_and_format_retention_proof(sale.tax_retention_proof, sale.tax_retention_amount)
+
     # If it's a Devolución
     if sale.doc_type == "DEVOLUCION":
         if not sale.account_id and not sale.is_credit:
@@ -2366,7 +2452,7 @@ def create_live_sale(
         is_credit=False,
         credit_status="PAGADO",
         tax_retention_amount=sale.tax_retention_amount or 0.0,
-        tax_retention_proof=sale.tax_retention_proof.strip() if sale.tax_retention_proof else "",
+        tax_retention_proof=valid_ret_proof,
         pos_terminal=sale.pos_terminal.strip() if sale.pos_terminal else "",
         pos_lot_number=sale.pos_lot_number.strip() if sale.pos_lot_number else "",
         reference_number=sale.reference_number.strip() if sale.reference_number else "",
@@ -2670,6 +2756,8 @@ def create_abono(
         rate = 1.0
         calc_usd = round(abono_in.amount_original, 2)
 
+    valid_ret_proof = validate_and_format_retention_proof(abono_in.tax_retention_proof, abono_in.tax_retention_amount)
+
     # Register Abono Transaction
     tx = Transaction(
         date=abono_in.date,
@@ -2687,7 +2775,7 @@ def create_abono(
         beneficiary=parent.client_name,
         parent_transaction_id=parent.id,
         tax_retention_amount=abono_in.tax_retention_amount or 0.0,
-        tax_retention_proof=abono_in.tax_retention_proof.strip() if abono_in.tax_retention_proof else "",
+        tax_retention_proof=valid_ret_proof,
         pos_terminal=abono_in.pos_terminal.strip() if abono_in.pos_terminal else "",
         pos_lot_number=abono_in.pos_lot_number.strip() if abono_in.pos_lot_number else "",
         reference_number=abono_in.reference_number.strip() if abono_in.reference_number else "",
