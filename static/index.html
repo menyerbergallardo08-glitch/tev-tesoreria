@@ -699,36 +699,82 @@
                 </div>
               </div>
 
-              <!-- CHECKBOX TOGGLE PARA RETENCIÓN SENIAT (COLAPSABLE) -->
-              <div class="pt-2 border-t border-gray-200">
+              <!-- SECCIÓN EXCLUSIVA PARA FACTURAS FISCALES: RETENCIÓN SENIAT -->
+              <div x-show="liveSaleForm.doc_type === 'FACTURA_FISCAL'" class="pt-2 border-t border-purple-200">
                 <label class="inline-flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" x-model="hasRetention" class="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500">
                   <span class="text-xs font-bold text-purple-900">¿El cliente entregó Comprobante de Retención IVA / ISLR (Contribuyente Especial)?</span>
                 </label>
 
-                <div x-show="hasRetention" class="mt-3 p-3.5 bg-purple-50 border-2 border-purple-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-3.5 shadow-inner">
+                <div x-show="hasRetention" class="mt-3 p-4 bg-purple-50/90 border-2 border-purple-200 rounded-2xl space-y-3.5 shadow-inner">
+                  
+                  <!-- Selector rápido de porcentajes normativos -->
                   <div>
-                    <label class="block text-[11px] font-black text-purple-950 mb-1">Monto Retenido ($ USD):</label>
-                    <input type="number" step="0.01" min="0" x-model.number="liveSaleForm.tax_retention_amount" placeholder="0.00"
-                           class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
-                  </div>
-                  <div>
-                    <div class="flex items-center justify-between mb-1">
-                      <label class="block text-[11px] font-black text-purple-950">N° Comprobante SENIAT (14 Dígitos):</label>
-                      <span class="text-[10px] font-black px-2 py-0.5 rounded-full"
-                            :class="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'"
-                            x-text="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? '✓ 14 DÍGITOS OK' : ((liveSaleForm.tax_retention_proof || '').replace(/\D/g, '').length + '/14')">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <span class="text-[11px] font-black text-purple-950">Calcular Porcentaje de Retención Automático:</span>
+                      <span class="text-[10px] text-purple-700 font-bold" x-show="(liveSaleForm.amount_original || 0) > 0">
+                        (Base: $<span x-text="getRetentionCalculations().base"></span> | IVA 16%: $<span x-text="getRetentionCalculations().iva"></span>)
                       </span>
                     </div>
-                    <input type="text" maxlength="18" x-model="liveSaleForm.tax_retention_proof"
-                           @blur="formatRetentionInput('liveSaleForm')"
-                           placeholder="Ej: 20260900000045"
-                           class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold font-mono bg-white focus:ring-2 focus:ring-purple-500">
-                    <p class="text-[10px] mt-1 font-bold"
-                       :class="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? 'text-emerald-700' : 'text-purple-700'"
-                       x-text="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).message">
-                    </p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button type="button" @click="applyRetentionPreset('75_IVA')"
+                              class="py-1.5 px-2 bg-white hover:bg-purple-100 border border-purple-300 rounded-xl text-[11px] font-black text-purple-900 shadow-sm transition flex items-center justify-center gap-1">
+                        <span>🏛️</span> 75% IVA (Estándar)
+                      </button>
+                      <button type="button" @click="applyRetentionPreset('100_IVA')"
+                              class="py-1.5 px-2 bg-white hover:bg-purple-100 border border-purple-300 rounded-xl text-[11px] font-black text-purple-900 shadow-sm transition flex items-center justify-center gap-1">
+                        <span>🏛️</span> 100% IVA (Total)
+                      </button>
+                      <button type="button" @click="applyRetentionPreset('2_ISLR')"
+                              class="py-1.5 px-2 bg-white hover:bg-purple-100 border border-purple-300 rounded-xl text-[11px] font-black text-purple-900 shadow-sm transition flex items-center justify-center gap-1">
+                        <span>📑</span> 2% ISLR
+                      </button>
+                      <button type="button" @click="applyRetentionPreset('5_ISLR')"
+                              class="py-1.5 px-2 bg-white hover:bg-purple-100 border border-purple-300 rounded-xl text-[11px] font-black text-purple-900 shadow-sm transition flex items-center justify-center gap-1">
+                        <span>📑</span> 5% ISLR
+                      </button>
+                    </div>
                   </div>
+
+                  <!-- Campos de Monto Retenido y N° Comprobante 14 Dígitos -->
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2.5 border-t border-purple-200">
+                    <div>
+                      <label class="block text-[11px] font-black text-purple-950 mb-1">Monto Retenido ($ USD):</label>
+                      <input type="number" step="0.01" min="0.01" x-model.number="liveSaleForm.tax_retention_amount" placeholder="0.00"
+                             class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
+                      
+                      <!-- Indicador dinámico de % retenido y neto a cobrar -->
+                      <div x-show="(liveSaleForm.tax_retention_amount || 0) > 0" class="mt-2 p-2 bg-purple-100/80 rounded-xl text-[11px] font-bold text-purple-900 space-y-0.5">
+                        <div class="flex justify-between">
+                          <span>Porcentaje Retenido:</span>
+                          <span class="font-black text-purple-950" x-text="getRetentionCalculations().pctIva + '% del IVA (' + getRetentionCalculations().pctTotal + '% del total)'"></span>
+                        </div>
+                        <div class="flex justify-between text-emerald-800 font-black">
+                          <span>Neto Real a Cobrar:</span>
+                          <span x-text="'$' + formatNumber(getRetentionCalculations().netToPay)"></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="block text-[11px] font-black text-purple-950">N° Comprobante SENIAT (14 Dígitos):</label>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full"
+                              :class="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'"
+                              x-text="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? '✓ 14 DÍGITOS OK' : ((liveSaleForm.tax_retention_proof || '').replace(/\D/g, '').length + '/14')">
+                        </span>
+                      </div>
+                      <input type="text" maxlength="18" x-model="liveSaleForm.tax_retention_proof"
+                             @blur="formatRetentionInput('liveSaleForm')"
+                             placeholder="Ej: 20260900000045"
+                             class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold font-mono bg-white focus:ring-2 focus:ring-purple-500">
+                      <p class="text-[10px] mt-1 font-bold"
+                         :class="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? 'text-emerald-700' : 'text-purple-700'"
+                         x-text="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).message">
+                      </p>
+                    </div>
+                  </div>
+
                 </div>
               </div>
 
@@ -4184,6 +4230,47 @@
           return { valid: false, message: `${clean.length}/14 dígitos ingresados (Faltan ${14 - clean.length} dígitos para cumplir Providencia SNAT/2015/0049)` };
         },
 
+        applyRetentionPreset(type) {
+          const total = parseFloat(this.liveSaleForm.amount_original || 0);
+          if (total <= 0) {
+            this.showToast('warning', 'Monto Requerido', 'Ingrese primero el monto total de la Factura Fiscal para calcular la retención.');
+            return;
+          }
+          const base = total / 1.16;
+          const iva = base * 0.16;
+          if (type === '75_IVA') {
+            this.liveSaleForm.tax_retention_amount = parseFloat((iva * 0.75).toFixed(2));
+            this.showToast('info', 'Retención Aplicada', `75% del IVA: $${this.liveSaleForm.tax_retention_amount.toFixed(2)} USD`);
+          } else if (type === '100_IVA') {
+            this.liveSaleForm.tax_retention_amount = parseFloat((iva * 1.00).toFixed(2));
+            this.showToast('info', 'Retención Aplicada', `100% del IVA: $${this.liveSaleForm.tax_retention_amount.toFixed(2)} USD`);
+          } else if (type === '2_ISLR') {
+            this.liveSaleForm.tax_retention_amount = parseFloat((base * 0.02).toFixed(2));
+            this.showToast('info', 'Retención Aplicada', `2% ISLR sobre Base: $${this.liveSaleForm.tax_retention_amount.toFixed(2)} USD`);
+          } else if (type === '5_ISLR') {
+            this.liveSaleForm.tax_retention_amount = parseFloat((base * 0.05).toFixed(2));
+            this.showToast('info', 'Retención Aplicada', `5% ISLR sobre Base: $${this.liveSaleForm.tax_retention_amount.toFixed(2)} USD`);
+          }
+        },
+
+        getRetentionCalculations() {
+          const total = parseFloat(this.liveSaleForm.amount_original || 0);
+          const retAmt = parseFloat(this.liveSaleForm.tax_retention_amount || 0);
+          if (total <= 0) return { base: '0.00', iva: '0.00', pctIva: '0.0', pctTotal: '0.0', netToPay: 0 };
+          const base = total / 1.16;
+          const iva = base * 0.16;
+          const pctIva = iva > 0 ? ((retAmt / iva) * 100) : 0;
+          const pctTotal = (retAmt / total) * 100;
+          const netToPay = Math.max(0, total - retAmt);
+          return {
+            base: base.toFixed(2),
+            iva: iva.toFixed(2),
+            pctIva: pctIva.toFixed(1),
+            pctTotal: pctTotal.toFixed(1),
+            netToPay: netToPay
+          };
+        },
+
         async submitLiveSale() {
           const amt = parseFloat(this.liveSaleForm.amount_original);
           if (isNaN(amt) || amt <= 0) {
@@ -4199,8 +4286,8 @@
             return;
           }
 
-          // Validación Estricta de Retención SENIAT
-          if (this.hasRetention) {
+          // Validación Estricta de Retención SENIAT (Exclusivo Facturas Fiscales)
+          if (this.liveSaleForm.doc_type === 'FACTURA_FISCAL' && this.hasRetention) {
             const retAmt = parseFloat(this.liveSaleForm.tax_retention_amount || 0);
             this.formatRetentionInput('liveSaleForm');
             const proofVal = (this.liveSaleForm.tax_retention_proof || '').trim();
