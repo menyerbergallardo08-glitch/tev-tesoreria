@@ -5289,5 +5289,180 @@
       </div>
     </div>
 
+
+    <!-- ======================================================== -->
+    <!-- MODAL EJECUTIVO: COMPROBANTE DE CIERRE DIARIO (1 HOJA) -->
+    <!-- ======================================================== -->
+    <div x-show="showCashCloseReceiptModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div @click.away="showCashCloseReceiptModal = false" class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 border border-gray-200">
+        
+        <!-- Botones de Acción Superiores (No imprimibles) -->
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100 print:hidden">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">📄</span>
+            <div>
+              <h3 class="text-lg sm:text-xl font-black text-gray-900">Comprobante de Cuadre Diario</h3>
+              <p class="text-xs text-gray-500">Resumen integral para archivo físico y auditoría (1 Hoja)</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" @click="printCashCloseReceipt()"
+                    class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-black shadow transition flex items-center gap-1.5 cursor-pointer">
+              <span>🖨️ Imprimir / Guardar PDF</span>
+            </button>
+            <button type="button" @click="showCashCloseReceiptModal = false"
+                    class="p-2 text-gray-400 hover:text-gray-700 font-black text-xl rounded-xl transition cursor-pointer">&times;</button>
+          </div>
+        </div>
+
+        <!-- CONTENEDOR IMPRIMIBLE DEL COMPROBANTE -->
+        <div id="cash-close-printable-area" class="p-4 sm:p-6 bg-white border border-gray-200 rounded-2xl space-y-5 text-gray-900">
+          
+          <!-- Encabezado Corporativo -->
+          <div class="flex items-start justify-between border-b-2 border-gray-900 pb-4">
+            <div>
+              <h1 class="text-lg font-black tracking-tight text-gray-900">TODO ELÉCTRICO VALENCIA, C.A.</h1>
+              <p class="text-[11px] font-bold text-gray-600">RIF: J-40842247-9 | Sistema de Control Interno y Tesorería</p>
+              <p class="text-[10px] text-gray-500">Valencia, Estado Carabobo - Venezuela</p>
+            </div>
+            <div class="text-right">
+              <span class="inline-block px-3 py-1 bg-gray-900 text-white font-black text-xs rounded-lg uppercase tracking-wider">
+                COMPROBANTE DE CIERRE
+              </span>
+              <p class="text-xs font-bold text-gray-700 mt-1">Fecha: <strong class="text-gray-900" x-text="cuadreDate"></strong></p>
+              <p class="text-[10px] text-gray-500">Tasa BCV: Bs. <span x-text="formatNumber(cashCloseSummary?.bcv_rate || bcvRate)"></span></p>
+            </div>
+          </div>
+
+          <!-- Metadatos de Responsabilidad -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-50 rounded-xl text-xs border border-slate-200">
+            <div>
+              <span class="text-[10px] text-gray-500 font-bold block">OPERADOR / CAJERO:</span>
+              <strong class="text-gray-900" x-text="currentUser?.full_name || 'Cajero de Turno'"></strong>
+            </div>
+            <div>
+              <span class="text-[10px] text-gray-500 font-bold block">ESTADO DEL CIERRE:</span>
+              <strong :class="cashCloseSummary?.is_closed ? 'text-emerald-700' : 'text-amber-700'"
+                      x-text="cashCloseSummary?.is_closed ? 'CERRADO / CUADRADO' : 'AUDITORÍA PREVIA'"></strong>
+            </div>
+            <div>
+              <span class="text-[10px] text-gray-500 font-bold block">TOTAL TRANSACCIONES:</span>
+              <strong class="text-gray-900" x-text="(cashCloseSummary?.transactions_count || 0) + ' ops'"></strong>
+            </div>
+            <div>
+              <span class="text-[10px] text-gray-500 font-bold block">EMISIÓN:</span>
+              <strong class="text-gray-700" x-text="new Date().toLocaleTimeString('es-VE', {hour: '2-digit', minute:'2-digit'})"></strong>
+            </div>
+          </div>
+
+          <!-- 1. RESUMEN COMERCIAL (VENTAS) -->
+          <div>
+            <h4 class="text-xs font-black uppercase text-gray-800 border-b border-gray-300 pb-1 mb-2">
+              1. Resumen Comercial de Ventas
+            </h4>
+            <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">🧾 Facturación Fiscal (Con IVA):</span>
+                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.fiscal_iva_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">📦 Notas de Entrega a Crédito (CxC):</span>
+                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.notes_credit_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">📥 Notas Cobradas / Convertidas:</span>
+                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.notes_collected_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-rose-700">↩️ (-) Devoluciones / Reembolsos:</span>
+                <span class="font-bold text-rose-700" x-text="'-$' + formatNumber(cashCloseSummary?.sales_summary?.returns_total_usd || 0)"></span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 mt-2">
+              <span class="text-xs font-black text-emerald-950 uppercase">VENTA NETA TOTAL DEL DÍA:</span>
+              <span class="text-sm font-black text-emerald-950"
+                    x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.net_sales_usd || 0) + ' (Bs. ' + formatNumber((cashCloseSummary?.sales_summary?.net_sales_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></span>
+            </div>
+          </div>
+
+          <!-- 2. RECAUDACIÓN Y CONCILIACIÓN POR CANAL -->
+          <div>
+            <h4 class="text-xs font-black uppercase text-gray-800 border-b border-gray-300 pb-1 mb-2">
+              2. Fondos Recaudados y Conciliación por Medio de Pago
+            </h4>
+            <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">💵 Gaveta Efectivo USD (En mano):</span>
+                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cash_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">🇻🇪 Gaveta Efectivo VES (Bs. en mano):</span>
+                <span class="font-bold text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves || 0) + ' ($' + formatNumber((cashCloseSummary?.collections_summary?.cash_ves || 0) / (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">💳 Total Lotes Puntos de Venta (POS):</span>
+                <span class="font-bold text-blue-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-gray-600">📲 Pago Móvil / Bancos VES:</span>
+                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pago_movil_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-amber-900 font-bold">🟡 BNC - Cashea (Por Liquidar):</span>
+                <span class="font-bold text-amber-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-purple-900">📑 Comprobantes Retención IVA/ISLR:</span>
+                <span class="font-bold text-purple-950" x-text="'$' + formatNumber((cashCloseSummary?.collections_summary?.retentions_iva_usd || 0) + (cashCloseSummary?.collections_summary?.retentions_islr_usd || 0))"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100 col-span-2">
+                <span class="text-rose-700">💸 (-) Vales / Gastos Menores Pagados de Caja:</span>
+                <span class="font-bold text-rose-700" x-text="'-$' + formatNumber(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0)"></span>
+              </div>
+            </div>
+            <div class="flex justify-between items-center p-2.5 bg-blue-50 rounded-xl border border-blue-200 mt-2">
+              <span class="text-xs font-black text-blue-950 uppercase">TOTAL FONDOS RECAUDADOS / CONCILIADOS:</span>
+              <span class="text-sm font-black text-blue-950"
+                    x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_collected_real_usd || 0)"></span>
+            </div>
+          </div>
+
+          <!-- Observaciones / Notas -->
+          <div x-show="cashCloseSummary?.notes" class="p-3 bg-gray-50 rounded-xl text-xs border border-gray-200">
+            <span class="text-[10px] font-bold text-gray-500 uppercase block">Observaciones del Cierre:</span>
+            <p class="text-gray-800 italic mt-0.5" x-text="cashCloseSummary?.notes"></p>
+          </div>
+
+          <!-- Bloque de Firmas -->
+          <div class="grid grid-cols-2 gap-8 pt-8 mt-4 border-t border-gray-300 text-center text-xs">
+            <div>
+              <div class="border-b border-gray-400 w-3/4 mx-auto pb-6"></div>
+              <p class="font-bold text-gray-900 mt-2" x-text="currentUser?.full_name || 'Cajero / Asistente'"></p>
+              <p class="text-[10px] text-gray-500 font-semibold uppercase">Caja / Entregó Conforme</p>
+            </div>
+            <div>
+              <div class="border-b border-gray-400 w-3/4 mx-auto pb-6"></div>
+              <p class="font-bold text-gray-900 mt-2" x-text="cashCloseSummary?.verified_by || 'Administración / Auditoría'"></p>
+              <p class="text-[10px] text-gray-500 font-semibold uppercase">Administración / Recibió y Verificó</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Botón de Cierre Inferior (No imprimible) -->
+        <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100 print:hidden">
+          <button type="button" @click="showCashCloseReceiptModal = false"
+                  class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold transition cursor-pointer">
+            Cerrar Ventana
+          </button>
+          <button type="button" @click="printCashCloseReceipt()"
+                  class="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-black shadow transition flex items-center gap-1.5 cursor-pointer">
+            <span>🖨️ Imprimir Comprobante (1 Hoja)</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
 </body>
 </html>
