@@ -1913,6 +1913,55 @@ def reset_system_demo(
 
 
 # -------------------------------------------------------------
+# Manuales Modulares de Usuario por Rol (Descarga y Visualización)
+# -------------------------------------------------------------
+@app.get("/api/manuals/{role}")
+def get_user_manual(role: str, current_user: User = Depends(get_current_user)):
+    role_clean = role.lower().strip()
+    file_map = {
+        "cajera": "MANUAL_CAJERA.md",
+        "administradora": "MANUAL_ADMINISTRADORA.md",
+        "directivo": "MANUAL_DIRECTIVO.md"
+    }
+    if role_clean not in file_map:
+        raise HTTPException(status_code=404, detail="Manual no encontrado para el rol especificado.")
+    
+    file_path = os.path.join(os.path.dirname(__file__), file_map[role_clean])
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Archivo de manual no encontrado.")
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        
+    return {
+        "role": role_clean,
+        "filename": file_map[role_clean],
+        "content": content
+    }
+
+@app.get("/api/manuals/{role}/download")
+def download_user_manual(role: str):
+    role_clean = role.lower().strip()
+    file_map = {
+        "cajera": "MANUAL_CAJERA.md",
+        "administradora": "MANUAL_ADMINISTRADORA.md",
+        "directivo": "MANUAL_DIRECTIVO.md"
+    }
+    if role_clean not in file_map:
+        raise HTTPException(status_code=404, detail="Manual no encontrado.")
+    
+    file_path = os.path.join(os.path.dirname(__file__), file_map[role_clean])
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Archivo de manual no encontrado.")
+        
+    return FileResponse(
+        file_path,
+        media_type="text/markdown",
+        filename=f"MANUAL_TEV_{role_clean.upper()}.md"
+    )
+
+
+# -------------------------------------------------------------
 # Keep-Alive & Health Check Endpoint
 # -------------------------------------------------------------
 @app.get("/api/health")
