@@ -4199,22 +4199,28 @@
             return;
           }
 
-          // Validación de Retención SENIAT
+          // Validación Estricta de Retención SENIAT
           if (this.hasRetention) {
             const retAmt = parseFloat(this.liveSaleForm.tax_retention_amount || 0);
             this.formatRetentionInput('liveSaleForm');
             const proofVal = (this.liveSaleForm.tax_retention_proof || '').trim();
 
-            if (retAmt > 0 && !proofVal) {
-              this.showToast('warning', 'Comprobante Requerido', 'Debe indicar el Número de Comprobante SENIAT de 14 dígitos si indicó monto retenido.');
+            if (isNaN(retAmt) || retAmt <= 0) {
+              this.showToast('warning', 'Monto de Retención Inválido', 'El monto de retención debe ser mayor a $0.00 (no puede existir una retención de $0.00).');
               return;
             }
-            if (proofVal) {
-              const status = this.getRetentionValidationStatus(proofVal);
-              if (!status.valid) {
-                this.showToast('error', 'Comprobante Inválido', status.message || 'El comprobante debe tener exactamente 14 dígitos (AAAAMM00000000).');
-                return;
-              }
+            if (retAmt >= amt) {
+              this.showToast('error', 'Retención Excesiva', `El monto retenido ($${retAmt.toFixed(2)}) no puede ser mayor o igual al total de la venta ($${amt.toFixed(2)}).`);
+              return;
+            }
+            if (!proofVal) {
+              this.showToast('warning', 'Comprobante Requerido', 'Debe indicar el Número de Comprobante SENIAT de 14 dígitos si aplicó una retención.');
+              return;
+            }
+            const status = this.getRetentionValidationStatus(proofVal);
+            if (!status.valid) {
+              this.showToast('error', 'Comprobante Inválido', status.message || 'El comprobante debe tener exactamente 14 dígitos (AAAAMM00000000).');
+              return;
             }
           } else {
             this.liveSaleForm.tax_retention_amount = 0;
