@@ -2255,6 +2255,13 @@ def create_live_sale(
         rate = 1.0
         calc_usd = round(sale.amount_original, 2)
 
+    # Validar que retenciones solo apliquen a Facturas Fiscales
+    if sale.doc_type != "FACTURA_FISCAL" and ((sale.tax_retention_amount and sale.tax_retention_amount > 0) or sale.tax_retention_proof):
+        raise HTTPException(
+            status_code=400,
+            detail="Normativa Fiscal: Las retenciones de IVA / ISLR del SENIAT solo aplican para Facturas Fiscales (no aplican para Notas de Entrega ni Devoluciones)."
+        )
+
     # Validar comprobante de retención según normativa SENIAT (14 dígitos)
     valid_ret_proof = validate_and_format_retention_proof(sale.tax_retention_proof, sale.tax_retention_amount)
 
