@@ -706,16 +706,28 @@
                   <span class="text-xs font-bold text-purple-900">¿El cliente entregó Comprobante de Retención IVA / ISLR (Contribuyente Especial)?</span>
                 </label>
 
-                <div x-show="hasRetention" class="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div x-show="hasRetention" class="mt-3 p-3.5 bg-purple-50 border-2 border-purple-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-3.5 shadow-inner">
                   <div>
-                    <label class="block text-[11px] font-bold text-purple-900 mb-1">Monto Retenido ($ USD):</label>
+                    <label class="block text-[11px] font-black text-purple-950 mb-1">Monto Retenido ($ USD):</label>
                     <input type="number" step="0.01" min="0" x-model.number="liveSaleForm.tax_retention_amount" placeholder="0.00"
-                           class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
+                           class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
                   </div>
                   <div>
-                    <label class="block text-[11px] font-bold text-purple-900 mb-1">N° Comprobante SENIAT:</label>
-                    <input type="text" x-model="liveSaleForm.tax_retention_proof" placeholder="Ej: 202609000123"
-                           class="w-full p-2 border border-purple-300 rounded-lg text-xs font-bold bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="block text-[11px] font-black text-purple-950">N° Comprobante SENIAT (14 Dígitos):</label>
+                      <span class="text-[10px] font-black px-2 py-0.5 rounded-full"
+                            :class="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'"
+                            x-text="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? '✓ 14 DÍGITOS OK' : ((liveSaleForm.tax_retention_proof || '').replace(/\D/g, '').length + '/14')">
+                      </span>
+                    </div>
+                    <input type="text" maxlength="18" x-model="liveSaleForm.tax_retention_proof"
+                           @blur="formatRetentionInput('liveSaleForm')"
+                           placeholder="Ej: 20260900000045"
+                           class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold font-mono bg-white focus:ring-2 focus:ring-purple-500">
+                    <p class="text-[10px] mt-1 font-bold"
+                       :class="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).valid ? 'text-emerald-700' : 'text-purple-700'"
+                       x-text="getRetentionValidationStatus(liveSaleForm.tax_retention_proof).message">
+                    </p>
                   </div>
                 </div>
               </div>
@@ -4123,6 +4135,55 @@
           return map[this.form.subtype] || 'Registro de Movimiento';
         },
 
+        formatRetentionInput(targetForm) {
+          if (!this[targetForm]) return;
+          let val = (this[targetForm].tax_retention_proof || '').trim();
+          if (!val) return;
+          let digits = val.replace(/\D/g, '');
+          
+          if (digits.length === 14) {
+            this[targetForm].tax_retention_proof = digits;
+            return;
+          }
+          
+          let parts = val.split(/[-/.\s]+/);
+          if (parts.length === 3) {
+            let yr = parseInt(parts[0], 10);
+            let mo = parseInt(parts[1], 10);
+            let seq = parseInt(parts[2], 10);
+            if (!isNaN(yr) && !isNaN(mo) && !isNaN(seq) && yr >= 2000 && yr <= 2099 && mo >= 1 && mo <= 12) {
+              this[targetForm].tax_retention_proof = `${yr.toString().padStart(4, '0')}${mo.toString().padStart(2, '0')}${seq.toString().padStart(8, '0')}`;
+              return;
+            }
+          }
+          
+          if (digits.length >= 7 && digits.length < 14) {
+            let yr = parseInt(digits.substring(0, 4), 10);
+            let mo = parseInt(digits.substring(4, 6), 10);
+            let seq = parseInt(digits.substring(6), 10);
+            if (!isNaN(yr) && !isNaN(mo) && !isNaN(seq) && yr >= 2000 && yr <= 2099 && mo >= 1 && mo <= 12) {
+              this[targetForm].tax_retention_proof = `${yr.toString().padStart(4, '0')}${mo.toString().padStart(2, '0')}${seq.toString().padStart(8, '0')}`;
+              return;
+            }
+          }
+        },
+
+        getRetentionValidationStatus(proof) {
+          if (!proof || !proof.trim()) {
+            return { valid: false, message: 'Estructura oficial SENIAT: AAAAMM + 8 dígitos (ej: 20260900000001)' };
+          }
+          let clean = proof.replace(/\D/g, '');
+          if (clean.length === 14) {
+            let yr = parseInt(clean.substring(0, 4), 10);
+            let mo = parseInt(clean.substring(4, 6), 10);
+            let seq = clean.substring(6);
+            if (yr < 2000 || yr > 2099) return { valid: false, message: `Año fiscal ${yr} fuera de rango (2000-2099)` };
+            if (mo < 1 || mo > 12) return { valid: false, message: `Mes ${mo} inválido (debe ser 01 a 12)` };
+            return { valid: true, message: `✓ Comprobante Válido: Año ${yr} | Mes ${mo.toString().padStart(2, '0')} | N° ${seq}` };
+          }
+          return { valid: false, message: `${clean.length}/14 dígitos ingresados (Faltan ${14 - clean.length} dígitos para cumplir Providencia SNAT/2015/0049)` };
+        },
+
         async submitLiveSale() {
           const amt = parseFloat(this.liveSaleForm.amount_original);
           if (isNaN(amt) || amt <= 0) {
@@ -4136,6 +4197,28 @@
           if (!this.liveSaleForm.client_name || !this.liveSaleForm.client_name.trim()) {
             this.showToast('warning', 'Cliente Requerido', 'Por favor ingrese el nombre del cliente o empresa.');
             return;
+          }
+
+          // Validación de Retención SENIAT
+          if (this.hasRetention) {
+            const retAmt = parseFloat(this.liveSaleForm.tax_retention_amount || 0);
+            this.formatRetentionInput('liveSaleForm');
+            const proofVal = (this.liveSaleForm.tax_retention_proof || '').trim();
+
+            if (retAmt > 0 && !proofVal) {
+              this.showToast('warning', 'Comprobante Requerido', 'Debe indicar el Número de Comprobante SENIAT de 14 dígitos si indicó monto retenido.');
+              return;
+            }
+            if (proofVal) {
+              const status = this.getRetentionValidationStatus(proofVal);
+              if (!status.valid) {
+                this.showToast('error', 'Comprobante Inválido', status.message || 'El comprobante debe tener exactamente 14 dígitos (AAAAMM00000000).');
+                return;
+              }
+            }
+          } else {
+            this.liveSaleForm.tax_retention_amount = 0;
+            this.liveSaleForm.tax_retention_proof = '';
           }
 
           try {
