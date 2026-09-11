@@ -91,6 +91,12 @@ def validate_and_format_retention_proof(proof_raw: Optional[str], amount: Option
             )
         return ""
 
+    if raw and (amount is None or amount <= 0):
+        raise HTTPException(
+            status_code=400,
+            detail="Normativa Fiscal: Si ingresa un Número de Comprobante de Retención, el monto retenido debe ser mayor a $0.00 (no puede existir una retención de $0.00)."
+        )
+
     # Extraer únicamente dígitos numéricos
     digits_only = re.sub(r'[^0-9]', '', raw)
     
