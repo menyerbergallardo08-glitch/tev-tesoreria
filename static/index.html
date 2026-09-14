@@ -113,6 +113,9 @@
         display: inline !important;
       }
     }
+    [x-cloak] {
+      display: none !important;
+    }
     .print-only {
       display: none;
     }
@@ -121,8 +124,8 @@
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
   <!-- 1. PANTALLA DE INICIO DE SESIÓN -->
-  <div x-show="!currentUser" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 to-teal-50">
-    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100">
+  <div x-cloak x-show="!currentUser" class="fixed inset-0 z-50 overflow-y-auto min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 to-teal-50">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 my-auto">
       <div class="text-center mb-6">
         <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-20 mx-auto mb-3 object-contain rounded-xl shadow-sm">
         <h1 class="text-2xl font-bold text-gray-800">Control de Tesorería y Gastos</h1>
@@ -154,12 +157,11 @@
         <p class="text-xs text-gray-400 font-medium">Todo Eléctrico Valencia, C.A. • Acceso Seguro RBAC</p>
       </div>
 
-
     </div>
   </div>
 
   <!-- 2. INTERFAZ PRINCIPAL -->
-  <div x-show="currentUser" class="min-h-screen flex flex-col">
+  <div x-cloak x-show="currentUser" class="min-h-screen flex flex-col">
 
     <!-- CABECERA PRINCIPAL RESPONSIVA (MÓVIL & ESCRITORIO) -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm no-print">
