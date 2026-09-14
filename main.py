@@ -1570,9 +1570,9 @@ def create_transaction(
     if tx_in.amount_original <= 0:
         raise HTTPException(status_code=400, detail="El monto debe ser mayor a cero.")
 
-    # 1. Restricción para cajeras: No pueden hacer cambios de divisas ni traspasos
-    if current_user.role == "cajera" and (tx_in.subtype == "CAMBIO_DIVISAS" or tx_in.movement_type == "TRASPASO"):
-        raise HTTPException(status_code=403, detail="Los usuarios de caja no tienen permiso para registrar cambios de divisas ni traspasos.")
+    # 1. Restricción para cajeras: No pueden hacer retiros de accionistas, cambios de divisas ni traspasos
+    if current_user.role == "cajera" and (tx_in.subtype in ["CAMBIO_DIVISAS", "RETIRO_ACCIONISTA"] or tx_in.movement_type in ["TRASPASO", "TRANSFERENCIA"]):
+        raise HTTPException(status_code=403, detail="Los usuarios de caja no tienen permiso para registrar retiros de accionistas, cambios de divisas ni traspasos.")
 
     account = db.query(TreasuryAccount).filter(TreasuryAccount.id == tx_in.account_id).first()
     if not account:
@@ -1684,6 +1684,10 @@ def create_transfer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Restricción RBAC: Cajeras no pueden hacer traspasos entre cuentas
+    if current_user.role == "cajera":
+        raise HTTPException(status_code=403, detail="Los usuarios de caja no tienen permiso para realizar traspasos entre cuentas.")
+
     # Traspaso contable por Partida Doble entre Cuentas de Tesorería
     if trans_in.origin_account_id == trans_in.destination_account_id:
         raise HTTPException(status_code=400, detail="La cuenta de origen y destino no pueden ser la misma.")
