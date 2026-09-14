@@ -1913,11 +1913,24 @@ def reset_system_demo(
 
 
 # -------------------------------------------------------------
-# Manuales Modulares de Usuario por Rol (Descarga y Visualización)
+# Manuales Modulares de Usuario por Rol (Descarga y Visualización RBAC)
 # -------------------------------------------------------------
 @app.get("/api/manuals/{role}")
 def get_user_manual(role: str, current_user: User = Depends(get_current_user)):
     role_clean = role.lower().strip()
+
+    # Seguridad estricta por roles (RBAC)
+    if current_user.role == "cajera" and role_clean != "cajera":
+        raise HTTPException(
+            status_code=403,
+            detail="Acceso Denegado: Su usuario con rol de Cajera solo tiene permiso para acceder al Manual de Cajera."
+        )
+    if current_user.role == "administradora" and role_clean == "directivo":
+        raise HTTPException(
+            status_code=403,
+            detail="Acceso Denegado: Su usuario no tiene permisos para acceder al Manual de Directivo."
+        )
+
     file_map = {
         "cajera": "MANUAL_CAJERA.md",
         "administradora": "MANUAL_ADMINISTRADORA.md",
@@ -1940,8 +1953,14 @@ def get_user_manual(role: str, current_user: User = Depends(get_current_user)):
     }
 
 @app.get("/api/manuals/{role}/download")
-def download_user_manual(role: str):
+def download_user_manual(role: str, current_user: Optional[User] = Depends(get_optional_current_user)):
     role_clean = role.lower().strip()
+    if current_user:
+        if current_user.role == "cajera" and role_clean != "cajera":
+            raise HTTPException(status_code=403, detail="Acceso Denegado: Su rol de Cajera solo puede descargar el Manual de Cajera.")
+        if current_user.role == "administradora" and role_clean == "directivo":
+            raise HTTPException(status_code=403, detail="Acceso Denegado: Su rol no tiene permisos para descargar el Manual de Directivo.")
+
     file_map = {
         "cajera": "MANUAL_CAJERA.md",
         "administradora": "MANUAL_ADMINISTRADORA.md",
