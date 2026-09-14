@@ -353,6 +353,12 @@ class CreateUserRequest(BaseModel):
     full_name: str
     role: str
 
+class UpdateUserRequest(BaseModel):
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
 class ResetPasswordRequest(BaseModel):
     new_password: str
 
@@ -602,6 +608,86 @@ def toggle_user_status(
     user.is_active = not user.is_active
     db.commit()
     return {"success": True, "is_active": user.is_active, "message": f"Estado del usuario {user.username} actualizado."}
+
+@app.put("/api/users/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    req: UpdateUserRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo"]))
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    if req.username and req.username.strip():
+        clean_user = req.username.strip().lower()
+        if clean_user != user.username:
+            existing = db.query(User).filter(User.username == clean_user).first()
+            if existing:
+                raise HTTPException(status_code=400, detail=f"El nombre de usuario '{clean_user}' ya está en uso.")
+            user.username = clean_user
+
+    if req.full_name and req.full_name.strip():
+        user.full_name = req.full_name.strip()
+
+    if req.role and req.role in ["cajera", "administradora", "directivo"]:
+        user.role = req.role
+
+    if req.password and len(req.password.strip()) >= 4:
+        user.password_hash = hash_password(req.password.strip())
+
+    db.commit()
+    db.refresh(user)
+    return UserResponse.model_validate(user)
+
+@app.delete("/api/users/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo"]))
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puede eliminar su propia cuenta en sesión activa.")
+    if user.username in ["master", "directivo"] and current_user.username != "master":
+        raise HTTPException(status_code=400, detail="No se puede eliminar la cuenta principal de administración.")
+
+    uname = user.username
+    # Reasignar referencias de auditoría y transacciones al usuario master actual para no violar NOT NULL
+    db.query(Transaction).filter(Transaction.created_by_id == user.id).update({Transaction.created_by_id: current_user.id}, synchronize_session=False)
+    db.query(Transaction).filter(Transaction.verified_by_id == user.id).update({Transaction.verified_by_id: current_user.id}, synchronize_session=False)
+    db.query(AuditLog).filter(AuditLog.user_id == user.id).update({AuditLog.user_id: current_user.id}, synchronize_session=False)
+
+    db.delete(user)
+    db.commit()
+    return {"success": True, "message": f"Usuario '{uname}' eliminado exitosamente."}
+
+@app.post("/api/users/purge-test-users")
+def purge_test_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo"]))
+):
+    """Elimina todos los usuarios de prueba excepto la cuenta master/directivo actual."""
+    protected_usernames = [current_user.username, "master", "directivo"]
+    test_users = db.query(User).filter(~User.username.in_(protected_usernames)).all()
+    deleted_names = [u.username for u in test_users]
+    
+    for u in test_users:
+        db.query(Transaction).filter(Transaction.created_by_id == u.id).update({Transaction.created_by_id: current_user.id}, synchronize_session=False)
+        db.query(Transaction).filter(Transaction.verified_by_id == u.id).update({Transaction.verified_by_id: current_user.id}, synchronize_session=False)
+        db.query(AuditLog).filter(AuditLog.user_id == u.id).update({AuditLog.user_id: current_user.id}, synchronize_session=False)
+        db.delete(u)
+    db.commit()
+    
+    return {
+        "success": True,
+        "deleted_count": len(deleted_names),
+        "deleted_users": deleted_names,
+        "message": f"Se eliminaron {len(deleted_names)} usuarios de prueba. Cuentas maestras protegidas."
+    }
 
 
 # -------------------------------------------------------------
