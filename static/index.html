@@ -1171,7 +1171,7 @@
               </label>
 
               <!-- Tarjetas Grandes y Claras -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div :class="currentUser?.role === 'cajera' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 sm:grid-cols-4 gap-3'">
                 
                 <!-- Opción 1: Pago a Proveedor -->
                 <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'PAGO_PROVEEDOR'"
@@ -1195,8 +1195,8 @@
                   </div>
                 </button>
 
-                <!-- Opción 3: Retiro de Accionista -->
-                <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
+                <!-- Opción 3: Retiro de Accionista (Exclusivo Administradora y Directivos) -->
+                <button x-show="currentUser?.role !== 'cajera'" type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
                         :class="(form.movement_type === 'EGRESO' && form.subtype === 'RETIRO_ACCIONISTA') ? 'bg-purple-700 text-white shadow-md ring-4 ring-purple-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-purple-50'"
                         class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">👤</span>
@@ -1206,8 +1206,8 @@
                   </div>
                 </button>
 
-                <!-- Opción 4: Traspaso / Cambio Divisas -->
-                <button type="button" @click="form.movement_type = 'TRANSFERENCIA'; form.subtype = 'CAMBIO_DIVISAS'"
+                <!-- Opción 4: Traspaso / Cambio Divisas (Exclusivo Administradora y Directivos) -->
+                <button x-show="currentUser?.role !== 'cajera'" type="button" @click="form.movement_type = 'TRANSFERENCIA'; form.subtype = 'CAMBIO_DIVISAS'"
                         :class="form.movement_type === 'TRANSFERENCIA' ? 'bg-blue-700 text-white shadow-md ring-4 ring-blue-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-blue-50'"
                         class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">🔄</span>
