@@ -76,14 +76,10 @@ def init_all():
             db.add(cash_reg)
             db.commit()
 
-        # 3. Ensure Assigned Production Users exist
+        # 3. Ensure Master Administrator User exists
         default_users = [
-            ('cajera1', 'caja12026*', 'Cajera 1 - Turno Principal', 'cajera'),
-            ('cajera2', 'caja22026*', 'Cajera 2 - Turno Tarde', 'cajera'),
-            ('cajera', 'cajera123', 'Caja Mostrador General', 'cajera'),
-            ('administradora', 'admin2026*', 'Lcda. María Administradora (Tesorería)', 'administradora'),
-            ('directivo', 'tev2026*', 'Dirección General - Todo Eléctrico Valencia', 'directivo'),
-            ('consultor', 'admin123', 'Consultoría Financiera y Auditoría', 'directivo')
+            ('master', 'master2026*', 'Superintendente Master TEV', 'directivo'),
+            ('directivo', 'tev2026*', 'Dirección General TEV', 'directivo')
         ]
         for uname, pwd, fname, role in default_users:
             u = db.query(User).filter(User.username == uname).first()
