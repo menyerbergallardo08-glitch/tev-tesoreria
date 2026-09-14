@@ -76,12 +76,14 @@ def init_all():
             db.add(cash_reg)
             db.commit()
 
-        # 3. Ensure Default Users exist
+        # 3. Ensure Assigned Production Users exist
         default_users = [
-            ('cajera', 'cajera123', 'Cajera Turno Mañana', 'cajera'),
-            ('administradora', 'admin123', 'Lcda. María Administradora', 'administradora'),
-            ('directivo', 'directivo123', 'Director General TEV', 'directivo'),
-            ('consultor', 'admin123', 'Consultor Financiero', 'directivo')
+            ('cajera1', 'caja12026*', 'Cajera 1 - Turno Principal', 'cajera'),
+            ('cajera2', 'caja22026*', 'Cajera 2 - Turno Tarde', 'cajera'),
+            ('cajera', 'cajera123', 'Caja Mostrador General', 'cajera'),
+            ('administradora', 'admin2026*', 'Lcda. María Administradora (Tesorería)', 'administradora'),
+            ('directivo', 'tev2026*', 'Dirección General - Todo Eléctrico Valencia', 'directivo'),
+            ('consultor', 'admin123', 'Consultoría Financiera y Auditoría', 'directivo')
         ]
         for uname, pwd, fname, role in default_users:
             u = db.query(User).filter(User.username == uname).first()
@@ -91,12 +93,18 @@ def init_all():
                     password_hash=auth.hash_password(pwd),
                     full_name=fname,
                     role=role,
-                    branch_id=branch.id
+                    branch_id=branch.id,
+                    is_active=True
                 )
                 db.add(u)
             else:
+                u.full_name = fname
+                u.role = role
+                u.is_active = True
                 if not u.branch_id:
                     u.branch_id = branch.id
+                if not auth.verify_password(pwd, u.password_hash):
+                    u.password_hash = auth.hash_password(pwd)
 
         # 4. Ensure Default Treasury Accounts exist
         default_accounts = [
