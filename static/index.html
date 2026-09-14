@@ -2437,12 +2437,15 @@
             <h2 class="text-xl font-bold text-gray-800">Gestión de Usuarios y Accesos</h2>
             <p class="text-sm text-gray-500">Crear nuevas cuentas, restablecer contraseñas y administrar permisos</p>
           </div>
-          <div class="flex items-center gap-3">
-            <button @click="resetSystemDemo()" class="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Eliminar datos de prueba y comenzar operaciones reales limpias">
+          <div class="flex items-center gap-2">
+            <button @click="purgeTestUsers()" class="py-2.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Eliminar cuentas de prueba y dejar solo el usuario Master">
+              <span>👥🧹 Limpiar Usuarios de Prueba</span>
+            </button>
+            <button @click="resetSystemDemo()" class="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Eliminar transacciones de prueba y comenzar operaciones reales limpias">
               <span>🧹 Resetear Pruebas a 0.00</span>
             </button>
-            <button @click="showNewUserModal = true" class="btn-large bg-purple-700 hover:bg-purple-800 text-white text-sm py-2 px-4 shadow">
-              ➕ Crear Nuevo Usuario
+            <button @click="showNewUserModal = true" class="btn-large bg-purple-700 hover:bg-purple-800 text-white text-xs sm:text-sm py-2 px-3 sm:px-4 shadow flex items-center gap-1">
+              ➕ Crear Usuario
             </button>
           </div>
         </div>
@@ -2465,7 +2468,7 @@
                   <tr class="hover:bg-slate-50 transition">
                     <td class="p-4 font-bold text-gray-600" x-text="u.id"></td>
                     <td class="p-4 font-bold text-gray-800" x-text="u.full_name"></td>
-                    <td class="p-4 text-gray-700" x-text="u.username"></td>
+                    <td class="p-4 font-mono font-bold text-teal-900" x-text="u.username"></td>
                     <td class="p-4">
                       <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
                             :class="{
@@ -2483,14 +2486,21 @@
                       </span>
                     </td>
                     <td class="p-4 text-center">
-                      <div class="flex items-center justify-center gap-2">
-                        <button @click="openResetPasswordModal(u)" class="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold">
-                          🔑 Cambiar Clave
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button @click="openEditUserModal(u)" class="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1" title="Editar Nombre, Usuario o Rol">
+                          ✏️ Editar
+                        </button>
+                        <button @click="openResetPasswordModal(u)" class="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold" title="Cambiar clave">
+                          🔑 Clave
                         </button>
                         <button x-show="u.id !== currentUser.id" @click="toggleUserStatus(u.id)"
-                                :class="u.is_active ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50'"
+                                :class="u.is_active ? 'text-amber-700 bg-amber-50 hover:bg-amber-100' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
                                 class="p-1.5 rounded-lg text-xs font-bold">
-                          <span x-text="u.is_active ? 'Desactivar' : 'Activar'"></span>
+                          <span x-text="u.is_active ? 'Pausar' : 'Activar'"></span>
+                        </button>
+                        <button x-show="u.id !== currentUser.id && u.username !== 'master' && u.username !== 'directivo'" @click="deleteUser(u)"
+                                class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1" title="Eliminar usuario">
+                          🗑️
                         </button>
                       </div>
                     </td>
@@ -3277,6 +3287,43 @@
       </div>
     </div>
 
+    <!-- MODAL EDITAR USUARIO -->
+    <div x-show="showEditUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-bold text-gray-900">✏️ Editar Usuario</h3>
+          <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold" x-text="'ID: ' + editUserForm.id"></span>
+        </div>
+        <p class="text-xs text-gray-500">Modifique el nombre, usuario o rol asignado</p>
+        <form @submit.prevent="saveEditUser()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nombre Completo</label>
+            <input type="text" x-model="editUserForm.full_name" required placeholder="Ej: María Pérez" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nombre de Usuario (Login)</label>
+            <input type="text" x-model="editUserForm.username" required placeholder="Ej: mperez" class="w-full p-2.5 border rounded-xl font-mono text-teal-900 font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Rol Asignado</label>
+            <select x-model="editUserForm.role" required class="w-full p-2.5 border rounded-xl bg-white font-medium">
+              <option value="cajera">Cajera / Asistente Administrativa</option>
+              <option value="administradora">Administradora</option>
+              <option value="directivo">Directivo / Dueño</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nueva Contraseña (Opcional - dejar vacío para mantener la actual)</label>
+            <input type="password" x-model="editUserForm.password" placeholder="••••••••" minlength="4" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showEditUserModal = false" class="p-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+            <button type="submit" class="p-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold shadow">Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- MODAL RESTABLECER CONTRASEÑA -->
     <div x-show="showResetPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
@@ -3845,6 +3892,7 @@
         showInitialBalancesModal: false,
         showChangePasswordModal: false,
         showNewUserModal: false,
+        showEditUserModal: false,
         showResetPasswordModal: false,
         showOnePageModal: false,
         companyRif: 'J-50248654-2',
@@ -3857,6 +3905,7 @@
 
         changePasswordForm: { old_password: '', new_password: '' },
         newUserForm: { full_name: '', username: '', role: 'cajera', password: '' },
+        editUserForm: { id: null, full_name: '', username: '', role: 'cajera', password: '' },
         resetPasswordForm: { new_password: '' },
         monthlyBalancesForm: [],
 
@@ -4291,6 +4340,88 @@
               this.showToast('success', 'Estado Actualizado', 'El estado del usuario fue modificado.');
               await this.loadUsers();
             }
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        openEditUserModal(user) {
+          this.editUserForm = {
+            id: user.id,
+            full_name: user.full_name,
+            username: user.username,
+            role: user.role,
+            password: ''
+          };
+          this.showEditUserModal = true;
+        },
+
+        async saveEditUser() {
+          const token = this.getToken();
+          try {
+            const payload = {
+              full_name: this.editUserForm.full_name,
+              username: this.editUserForm.username,
+              role: this.editUserForm.role
+            };
+            if (this.editUserForm.password && this.editUserForm.password.trim().length >= 4) {
+              payload.password = this.editUserForm.password.trim();
+            }
+
+            const res = await fetch('/api/users/' + this.editUserForm.id, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al actualizar usuario');
+
+            this.showEditUserModal = false;
+            this.showToast('success', 'Usuario Actualizado', 'Los datos del usuario se guardaron con éxito.');
+            await this.loadUsers();
+          } catch (err) {
+            this.showToast('error', 'Error al editar', err.message);
+          }
+        },
+
+        async deleteUser(user) {
+          if (!confirm(`¿Está seguro de eliminar definitivamente al usuario "${user.username}" (${user.full_name})? Esta acción no se puede deshacer.`)) {
+            return;
+          }
+          const token = this.getToken();
+          try {
+            const res = await fetch('/api/users/' + user.id, {
+              method: 'DELETE',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al eliminar usuario');
+
+            this.showToast('success', 'Usuario Eliminado', data.message || 'Usuario eliminado con éxito.');
+            await this.loadUsers();
+          } catch (err) {
+            this.showToast('error', 'Error al eliminar', err.message);
+          }
+        },
+
+        async purgeTestUsers() {
+          if (!confirm('¿Desea eliminar TODOS los usuarios de prueba existentes y dejar únicamente la cuenta Master/Directivo?')) {
+            return;
+          }
+          const token = this.getToken();
+          try {
+            const res = await fetch('/api/users/purge-test-users', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al purgar usuarios');
+
+            this.showToast('success', 'Limpieza Completa', data.message);
+            await this.loadUsers();
           } catch (err) {
             this.showToast('error', 'Error', err.message);
           }
