@@ -682,12 +682,75 @@ def purge_test_users(
         db.delete(u)
     db.commit()
     
-    return {
-        "success": True,
-        "deleted_count": len(deleted_names),
-        "deleted_users": deleted_names,
-        "message": f"Se eliminaron {len(deleted_names)} usuarios de prueba. Cuentas maestras protegidas."
-    }
+@app.post("/api/admin/reset-system-demo")
+def reset_system_demo(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo"]))
+):
+    """
+    Elimina todas las transacciones, abonos, cuentas por cobrar, cierres de caja y saldos de prueba.
+    Conserva intactos los usuarios, sucursales, cajas, cuentas de tesorería y categorías presupuestarias.
+    """
+    try:
+        num_tx = db.query(Transaction).delete()
+        num_closes = db.query(DailyCashClose).delete()
+        num_balances = db.query(AccountMonthlyBalance).delete()
+        db.query(TreasuryAccount).update({TreasuryAccount.initial_balance: 0.0}, synchronize_session=False)
+        
+        record_audit(
+            db=db,
+            user=current_user,
+            action="SYSTEM_RESET_DEMO",
+            entity_type="Database",
+            entity_id="ALL",
+            details={
+                "deleted_transactions": num_tx,
+                "deleted_cash_closes": num_closes,
+                "deleted_monthly_balances": num_balances,
+                "message": "Sistema reiniciado a 0.00 para arranque de operaciones oficiales."
+            }
+        )
+        
+        db.commit()
+        return {
+            "success": True,
+            "message": f"Sistema reiniciado exitosamente. Se limpiaron {num_tx} transacciones y {num_closes} cierres de prueba. Todos los saldos están en $0.00.",
+            "deleted_transactions": num_tx,
+            "deleted_closes": num_closes
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error durante el reseteo: {str(e)}")
+
+@app.get("/api/audit-logs")
+def list_audit_logs(
+    limit: int = 200,
+    action: Optional[str] = None,
+    username: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo", "administradora"]))
+):
+    q = db.query(AuditLog).order_by(AuditLog.id.desc())
+    if action and action.strip():
+        q = q.filter(AuditLog.action.ilike(f"%{action.strip()}%"))
+    if username and username.strip():
+        q = q.filter(AuditLog.username.ilike(f"%{username.strip()}%"))
+    
+    logs = q.limit(limit).all()
+    res = []
+    for l in logs:
+        res.append({
+            "id": l.id,
+            "timestamp": l.timestamp.strftime("%Y-%m-%d %H:%M:%S") if l.timestamp else "",
+            "user_id": l.user_id,
+            "username": l.username,
+            "action": l.action,
+            "entity_type": l.entity_type,
+            "entity_id": l.entity_id or "",
+            "details_json": l.details_json or "{}",
+            "ip_address": l.ip_address or ""
+        })
+    return res
 
 
 # -------------------------------------------------------------
@@ -1682,6 +1745,25 @@ def create_transfer(
         created_by_id=current_user.id
     )
     db.add(tx_in)
+
+    record_audit(
+        db=db,
+        user=current_user,
+        action="TRANSFER_EXCHANGE",
+        entity_type="Transaction",
+        entity_id=str(tx_out.id),
+        details={
+            "origin_account": acc_orig.name,
+            "destination_account": acc_dest.name,
+            "amount_origin": trans_in.amount_origin,
+            "amount_destination": trans_in.amount_destination,
+            "currency_origin": acc_orig.currency,
+            "currency_destination": acc_dest.currency,
+            "exchange_rate": rate,
+            "reference": trans_in.reference_number
+        }
+    )
+
     db.commit()
 
     return {
