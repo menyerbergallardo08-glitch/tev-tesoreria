@@ -305,6 +305,14 @@
               <span>👥 Usuarios</span>
             </button>
           </template>
+
+          <template x-if="currentUser?.role === 'directivo'">
+            <button @click="activeTab = 'auditoria'; loadAuditLogs()"
+                    :class="activeTab === 'auditoria' ? 'bg-slate-800 text-white shadow' : 'text-slate-700 bg-slate-100 hover:bg-slate-200'"
+                    class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
+              <span>🛡️ Auditoría</span>
+            </button>
+          </template>
         </nav>
       </div>
     </header>
@@ -2512,42 +2520,123 @@
         </div>
       </div>
 
+      <!-- ======================================================== -->
+      <!-- TAB 7: PISTAS DE AUDITORÍA & TRAZABILIDAD (DIRECTIVO) -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'auditoria' && (currentUser?.role === 'directivo' || currentUser?.role === 'administradora')" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <span>🛡️ Pistas de Auditoría y Trazabilidad Forense</span>
+              <span class="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">Inalterable</span>
+            </h2>
+            <p class="text-sm text-gray-500">Registro cronológico de quién, cuándo y qué acción realizó en el sistema</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" x-model="auditFilterAction" @input="loadAuditLogs()" placeholder="Filtrar por acción..."
+                   class="p-2 border border-gray-300 rounded-xl text-xs">
+            <input type="text" x-model="auditFilterUser" @input="loadAuditLogs()" placeholder="Filtrar por usuario..."
+                   class="p-2 border border-gray-300 rounded-xl text-xs">
+            <button @click="loadAuditLogs()" class="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-1">
+              <span>🔄 Actualizar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-3.5">ID / Fecha & Hora</th>
+                  <th class="p-3.5">Usuario Responsable</th>
+                  <th class="p-3.5">Acción Realizada</th>
+                  <th class="p-3.5">Entidad Afectada</th>
+                  <th class="p-3.5">Dirección IP</th>
+                  <th class="p-3.5 text-center">Detalle Forense</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-xs">
+                <template x-if="auditLogs.length === 0">
+                  <tr>
+                    <td colspan="6" class="p-8 text-center text-gray-400 font-medium">No se encontraron eventos de auditoría registrados.</td>
+                  </tr>
+                </template>
+                <template x-for="log in auditLogs" :key="log.id">
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="p-3.5">
+                      <span class="font-bold text-gray-800" x-text="'#' + log.id"></span>
+                      <div class="text-[11px] text-gray-500 font-mono" x-text="log.timestamp"></div>
+                    </td>
+                    <td class="p-3.5">
+                      <span class="font-bold text-teal-900 font-mono" x-text="log.username"></span>
+                      <div class="text-[10px] text-gray-400" x-text="'User ID: ' + (log.user_id || 'Sys')"></div>
+                    </td>
+                    <td class="p-3.5">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="{
+                              'bg-emerald-100 text-emerald-800': log.action.includes('SALE') || log.action.includes('CREATE'),
+                              'bg-blue-100 text-blue-800': log.action.includes('ABONO') || log.action.includes('TRANSFER'),
+                              'bg-amber-100 text-amber-800': log.action.includes('CLOSE') || log.action.includes('UPDATE'),
+                              'bg-rose-100 text-rose-800': log.action.includes('VOID') || log.action.includes('RESET') || log.action.includes('DELETE')
+                            }"
+                            x-text="log.action">
+                      </span>
+                    </td>
+                    <td class="p-3.5 font-medium text-gray-700">
+                      <span x-text="log.entity_type"></span>
+                      <span x-show="log.entity_id" class="text-gray-400" x-text="' (#' + log.entity_id + ')'"></span>
+                    </td>
+                    <td class="p-3.5 font-mono text-gray-500" x-text="log.ip_address || '127.0.0.1'"></td>
+                    <td class="p-3.5 text-center">
+                      <button @click="viewAuditDetail(log)" class="px-2.5 py-1 bg-gray-100 hover:bg-slate-200 text-gray-700 rounded-lg text-xs font-bold transition">
+                        🔍 Ver Datos
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
 
     <!-- ======================================================== -->
     <!-- MODAL ONE-PAGE EXECUTIVE REPORT (IMPRIMIBLE / PDF) -->
     <!-- ======================================================== -->
-    <div x-show="showOnePageModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
-      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-10 max-w-4xl w-full border border-gray-200 my-8">
+    <div x-show="showOnePageModal" class="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-4 sm:p-8 max-w-4xl w-full border border-gray-200 my-4 sm:my-6 relative">
 
-        <!-- Barra de Botones en Pantalla (Fija y Muy Visible) -->
-        <div class="flex flex-wrap justify-between items-center pb-4 mb-6 border-b-2 border-gray-200 no-print gap-3">
-          <div class="flex items-center gap-3">
-            <button @click="showOnePageModal = false" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm flex items-center gap-2 border border-gray-300 transition shadow-sm">
-              <span>⬅️ Volver a la Aplicación</span>
+        <!-- Barra de Botones en Pantalla (Sticky Superior Siempre Visible) -->
+        <div class="sticky top-0 z-30 bg-white/95 backdrop-blur-md pt-1 pb-4 mb-4 border-b-2 border-gray-200 no-print flex flex-wrap justify-between items-center gap-3">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <button @click="showOnePageModal = false" class="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 border border-gray-300 transition shadow-sm">
+              <span>⬅️ Volver</span>
             </button>
             <div>
-              <h3 class="text-xl font-black text-gray-900">Vista Previa: Reporte Mensual Ejecutivo</h3>
-              <p class="text-xs text-gray-500">Formato One-Page con firmas listo para entregar a la Dirección General</p>
+              <h3 class="text-sm sm:text-lg font-black text-gray-900 leading-tight">Reporte Ejecutivo One-Page</h3>
+              <p class="text-[11px] text-gray-500 hidden sm:block">Formato imprimible con firmas listo para entregar</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <!-- Selector de Modo: Mensual vs Diario -->
             <div class="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-300">
-              <button @click="onePageMode = 'mensual'" :class="onePageMode === 'mensual' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-3 py-1.5 text-xs rounded-lg transition">
+              <button @click="onePageMode = 'mensual'" :class="onePageMode === 'mensual' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-2.5 sm:px-3 py-1 text-xs rounded-lg transition">
                 📅 Mensual
               </button>
-              <button @click="onePageMode = 'diario'; loadDailyOnePage()" :class="onePageMode === 'diario' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-3 py-1.5 text-xs rounded-lg transition">
+              <button @click="onePageMode = 'diario'; loadDailyOnePage()" :class="onePageMode === 'diario' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-2.5 sm:px-3 py-1 text-xs rounded-lg transition">
                 📆 Diario
               </button>
             </div>
             <div x-show="onePageMode === 'diario'" class="flex items-center gap-1">
               <input type="date" x-model="onePageDate" @change="loadDailyOnePage()" class="p-1.5 border border-teal-300 rounded-lg text-xs font-bold bg-teal-50 text-gray-800">
             </div>
-            <button @click="printReport()" class="px-4 py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-sm shadow-md flex items-center gap-1.5 transition">
+            <button @click="printReport()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition">
               <span>🖨️ Imprimir / PDF</span>
             </button>
-            <button @click="showOnePageModal = false" class="p-2 text-gray-400 hover:text-gray-700 font-bold text-2xl" title="Cerrar">✕</button>
+            <button @click="showOnePageModal = false" class="p-1.5 text-gray-400 hover:text-gray-700 font-bold text-xl" title="Cerrar">✕</button>
           </div>
         </div>
 
@@ -3342,6 +3431,32 @@
       </div>
     </div>
 
+    <!-- MODAL DETALLE DE AUDITORÍA -->
+    <div x-show="showAuditDetailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full border border-gray-100 space-y-4">
+        <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+          <h3 class="text-lg font-bold text-gray-900 flex items-center gap-1.5">
+            <span>🛡️ Detalle del Evento de Auditoría</span>
+          </h3>
+          <span class="text-xs font-mono font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full" x-text="'ID: #' + selectedAuditDetail?.id"></span>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between"><span class="text-gray-500 font-bold">Fecha / Hora:</span><span class="font-mono text-gray-800" x-text="selectedAuditDetail?.timestamp"></span></div>
+          <div class="flex justify-between"><span class="text-gray-500 font-bold">Usuario:</span><span class="font-bold text-teal-900 font-mono" x-text="selectedAuditDetail?.username"></span></div>
+          <div class="flex justify-between"><span class="text-gray-500 font-bold">Acción:</span><span class="font-bold text-slate-900" x-text="selectedAuditDetail?.action"></span></div>
+          <div class="flex justify-between"><span class="text-gray-500 font-bold">Entidad Afectada:</span><span class="text-gray-800" x-text="selectedAuditDetail?.entity_type + ' (' + selectedAuditDetail?.entity_id + ')'"></span></div>
+          <div class="flex justify-between"><span class="text-gray-500 font-bold">Dirección IP:</span><span class="font-mono text-gray-700" x-text="selectedAuditDetail?.ip_address || '127.0.0.1'"></span></div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Carga de Datos (Payload JSON)</label>
+          <pre class="p-3 bg-slate-900 text-emerald-400 rounded-xl text-[11px] font-mono overflow-x-auto max-h-56 select-all" x-text="formatJsonPayload(selectedAuditDetail?.details_json)"></pre>
+        </div>
+        <div class="pt-2">
+          <button type="button" @click="showAuditDetailModal = false" class="w-full p-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold shadow text-xs">Cerrar Detalle</button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL CONFIRMACIÓN ANTI-ERROR -->
     <div x-show="showConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
       <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full border border-gray-100 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
@@ -3895,6 +4010,11 @@
         showEditUserModal: false,
         showResetPasswordModal: false,
         showOnePageModal: false,
+        showAuditDetailModal: false,
+        auditLogs: [],
+        auditFilterAction: '',
+        auditFilterUser: '',
+        selectedAuditDetail: null,
         companyRif: 'J-50248654-2',
 
         editingCat: {},
@@ -4424,6 +4544,38 @@
             await this.loadUsers();
           } catch (err) {
             this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        async loadAuditLogs() {
+          const token = this.getToken();
+          try {
+            let url = '/api/audit-logs?limit=150';
+            if (this.auditFilterAction) url += '&action=' + encodeURIComponent(this.auditFilterAction);
+            if (this.auditFilterUser) url += '&username=' + encodeURIComponent(this.auditFilterUser);
+            const res = await fetch(url, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.auditLogs = await res.json();
+            }
+          } catch (err) {
+            console.error('Error al cargar pistas de auditoria:', err);
+          }
+        },
+
+        viewAuditDetail(log) {
+          this.selectedAuditDetail = log;
+          this.showAuditDetailModal = true;
+        },
+
+        formatJsonPayload(jsonStr) {
+          if (!jsonStr) return '{}';
+          try {
+            const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+            return JSON.stringify(parsed, null, 2);
+          } catch (e) {
+            return String(jsonStr);
           }
         },
 
