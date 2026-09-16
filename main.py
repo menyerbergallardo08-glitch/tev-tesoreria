@@ -2502,6 +2502,20 @@ def create_live_sale(
             detail="Normativa Fiscal: Las retenciones de IVA / ISLR del SENIAT solo aplican para Facturas Fiscales (no aplican para Notas de Entrega ni Devoluciones)."
         )
 
+    # Control estricto de duplicados por N° de Documento en ventas del día
+    if sale.doc_number and len(sale.doc_number.strip()) > 0 and sale.doc_type != "DEVOLUCION":
+        dup_sale = db.query(Transaction).filter(
+            Transaction.date == sale.date,
+            Transaction.doc_type == sale.doc_type,
+            Transaction.doc_number.ilike(sale.doc_number.strip()),
+            Transaction.status != "ANULADO"
+        ).first()
+        if dup_sale:
+            raise HTTPException(
+                status_code=400,
+                detail=f"¡ALERTA DE VENTA DUPLICADA! El documento {sale.doc_type} #{sale.doc_number} ya fue registrado el día de hoy por ${dup_sale.amount_usd:.2f} (Cliente: {dup_sale.client_name}). Verifique para evitar cobros dobles."
+            )
+
     # Validar comprobante de retención según normativa SENIAT (14 dígitos)
     valid_ret_proof = validate_and_format_retention_proof(sale.tax_retention_proof, sale.tax_retention_amount)
 
