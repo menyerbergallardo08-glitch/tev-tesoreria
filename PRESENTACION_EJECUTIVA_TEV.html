@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Inteligente de Tesorería y Flujo de Caja | Todo Eléctrico Valencia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0f2b48;
+      --dark-blue: #1a365d;
+      --gold: #f59e0b;
+      --gold-light: #fef3c7;
+      --gold-hover: #d97706;
+      --bg: #0b1928;
+      --slide-bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Navigation Toolbar */
+    .toolbar {
+      background: var(--navy);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--gold);
+      z-index: 100;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      height: 40px;
+      border-radius: 6px;
+      background: white;
+      padding: 2px;
+    }
+
+    .brand-title {
+      color: white;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-sub {
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .controls-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slide-counter {
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: var(--gold);
+    }
+
+    .btn-gold {
+      background: var(--gold);
+      color: var(--navy);
+      border-color: var(--gold);
+    }
+
+    .btn-gold:hover {
+      background: var(--gold-hover);
+      color: white;
+    }
+
+    /* Slides Container */
+    .deck-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+    }
+
+    .slide {
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      background: var(--slide-bg);
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .slide.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Header inside slide */
+    .slide-header {
+      background: var(--navy);
+      padding: 20px 36px;
+      border-bottom: 4px solid var(--gold);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-header .tag {
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+    }
+
+    .slide-header h2 {
+      color: white;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .slide-header img {
+      height: 48px;
+      border-radius: 4px;
+      background: white;
+      padding: 2px;
+    }
+
+    .slide-body {
+      flex: 1;
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .slide-footer {
+      padding: 12px 36px;
+      background: #e2e8f0;
+      color: var(--text-muted);
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Cover Slide */
+    .slide-cover {
+      background: linear-gradient(135deg, #0a1e33 0%, #0f2b48 60%, #1a365d 100%);
+      color: white;
+      justify-content: center;
+      padding: 60px 80px;
+      position: relative;
+    }
+
+    .slide-cover::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 14px;
+      background: var(--gold);
+    }
+
+    .cover-logo {
+      height: 80px;
+      background: white;
+      padding: 6px;
+      border-radius: 8px;
+      margin-bottom: 32px;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .cover-title {
+      font-size: 40px;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      color: #ffffff;
+    }
+
+    .cover-subtitle {
+      font-size: 20px;
+      color: var(--gold);
+      font-weight: 500;
+      margin-bottom: 36px;
+      max-width: 850px;
+    }
+
+    .cover-meta {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: #94a3b8;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 20px;
+    }
+
+    /* Cards Grid */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      height: 100%;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      height: 100%;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .card-top-tag {
+      background: var(--navy);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      width: fit-content;
+    }
+
+    .card h3 {
+      color: var(--navy);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .card p {
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .analogy-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 14px;
+      font-size: 13px;
+      color: #1e3a8a;
+    }
+
+    .highlight-card {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark-blue) 100%);
+      color: white;
+      border-color: var(--gold);
+    }
+
+    .highlight-card h3 {
+      color: var(--gold);
+    }
+
+    .highlight-card p {
+      color: #e2e8f0;
+    }
+
+    /* List styling */
+    .step-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .step-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    .step-bullet {
+      background: var(--gold);
+      color: var(--navy);
+      font-weight: 800;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Print styles */
+    @media print {
+      body {
+        height: auto;
+        overflow: visible;
+        background: white;
+      }
+      .toolbar {
+        display: none !important;
+      }
+      .deck-container {
+        display: block;
+        padding: 0;
+      }
+      .slide {
+        display: flex !important;
+        page-break-after: always;
+        max-width: 100%;
+        box-shadow: none;
+        border: 1px solid #cbd5e1;
+        margin-bottom: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Toolbar -->
+  <header class="toolbar">
+    <div class="brand-section">
+      <img src="static/logo.jpg" alt="TEV Logo" class="brand-logo">
+      <div>
+        <div class="brand-title">TODO ELÉCTRICO VALENCIA, C.A.</div>
+        <div class="brand-sub">Control Inteligente de Tesorería</div>
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <button class="btn" onclick="prevSlide()">◀ Anterior</button>
+      <div class="slide-counter" id="counter">1 / 10</div>
+      <button class="btn" onclick="nextSlide()">Siguiente ▶</button>
+      <button class="btn" onclick="toggleFullScreen()">⛶ Pantalla Completa</button>
+      <button class="btn btn-gold" onclick="window.print()">🖨 Guardar en PDF</button>
+    </div>
+  </header>
+
+  <!-- Deck Slides -->
+  <main class="deck-container">
+
+    <!-- SLIDE 1: PORTADA -->
+    <section class="slide slide-cover active">
+      <img src="static/logo.jpg" alt="TEV Logo" class="cover-logo">
+      <h1 class="cover-title">Control Inteligente de Tesorería y Flujo de Caja</h1>
+      <p class="cover-subtitle">Evolución Estratégica: De la Gestión Convencional a la Automatización Financiera en Tiempo Real</p>
+      <div class="cover-meta">
+        <div><strong>Empresa:</strong> Todo Eléctrico Valencia, C.A. (RIF: J-50248654-2)</div>
+        <div><strong>Ubicación:</strong> El Viñedo, Av. Monseñor Adams. Valencia, Carabobo.</div>
+        <div><strong>Versión:</strong> En Línea Nube 24/7</div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: PROPÓSITO -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Propósito y Enfoque Estratégico</div>
+          <h2>¿Por qué estamos hoy aquí?</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-top-tag">Eje 1: Transparencia</div>
+            <h3>Claridad Financiera</h3>
+            <p>Comprender la salud real del negocio sin tecnicismos contables ni hojas complejas de cálculo. Ver el dinero tal como fluye día a día en cada caja.</p>
+            <div class="analogy-box">Saber cuánto dinero real hay hoy disponible antes de comprometer cualquier pago.</div>
+          </div>
+          <div class="card">
+            <div class="card-top-tag">Eje 2: Control</div>
+            <h3>Tranquilidad Operativa</h3>
+            <p>Eliminar la incertidumbre de cuadres nocturnos y la dispersión de cobros entre Efectivo Divisas, Bolívares (Pago Móvil/Puntos) y Dólar Digital (Zelle).</p>
+            <div class="analogy-box">Cero sorpresas al fin de mes: cada centavo tiene nombre, fecha y responsable.</div>
+          </div>
+          <div class="card highlight-card">
+            <div class="card-top-tag" style="background: var(--gold); color: var(--navy);">Eje 3: Liderazgo</div>
+            <h3>Decisión Oportuna</h3>
+            <p>Empoderar a la junta directiva y administración con números consolidados a un solo clic para anticipar pagos a proveedores y compras de oportunidad.</p>
+            <div class="analogy-box" style="background: rgba(255,255,255,0.1); color: white; border-left-color: var(--gold);">
+              Decisiones basadas en datos certeros, no en suposiciones o memorias.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 2</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: QUÉ ES EL FLUJO DE CAJA -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Concepto Clave 1</div>
+          <h2>¿Qué es el Flujo de Caja? (El Oxígeno del Negocio)</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-top-tag">Analogía Práctica</div>
+            <h3>La Analogía del Tanque de Agua</h3>
+            <p>Imagine que su empresa es un tanque de almacenamiento de agua:</p>
+            <ul class="step-list">
+              <li>
+                <span class="step-bullet">1</span>
+                <div><strong>Entradas de Agua (Cobros):</strong> Las ventas cobradas hoy en mostrador, transferencias recibidas y abonos de clientes a crédito.</div>
+              </li>
+              <li>
+                <span class="step-bullet">2</span>
+                <div><strong>Salidas de Agua (Pagos):</strong> Facturas de proveedores, luz, teléfono, nómina semanal, viáticos y mantenimiento.</div>
+              </li>
+              <li>
+                <span class="step-bullet">3</span>
+                <div><strong>Nivel Actual (Saldo Disponible):</strong> Lo que efectivamente le queda en el tanque para operar mañana con solvencia.</div>
+              </li>
+            </ul>
+          </div>
+          <div class="card highlight-card">
+            <div class="card-top-tag" style="background: var(--gold); color: var(--navy);">Principio Financiero</div>
+            <h3>"Las ventas son vanidad, la caja es realidad"</h3>
+            <p style="font-size: 15px; margin-bottom: 14px;">Una empresa no quiebra por falta de ventas; quiebra por falta de dinero líquido en el momento oportuno.</p>
+            <p>Usted puede facturar $100.000 este mes en el libro de ventas, pero si el 60% se vendió a crédito a 30 días, mañana no tendrá liquidez para pagar la nómina o reponer inventario crítico.</p>
+            <div class="analogy-box" style="background: rgba(255,255,255,0.1); color: white; border-left-color: var(--gold); margin-top: 20px;">
+              <strong>El Flujo de Caja no le habla del futuro prometido:</strong> le muestra el dinero real disponible hoy en sus manos.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 3</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: CONTROL DE GASTOS -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Concepto Clave 2</div>
+          <h2>¿Qué es un Control de Gastos Inteligente?</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-top-tag">Enfoque Correcto</div>
+            <h3>Gastar con Sentido</h3>
+            <p>Controlar gastos no significa detener la operación ni recortar lo indispensable. Significa asegurar que cada dólar o bolívar gastado genere valor o mantenga la tienda produciendo al 100%.</p>
+          </div>
+          <div class="card">
+            <div class="card-top-tag">Estructura</div>
+            <h3>Categorías Claras</h3>
+            <p>Organizar los egresos por rubros estratégicos:</p>
+            <ul class="step-list" style="margin-top: 8px;">
+              <li><span class="step-bullet">•</span> Costo de Mercancía / Proveedores</li>
+              <li><span class="step-bullet">•</span> Gastos Fijos (Luz, Alquiler, Aseo)</li>
+              <li><span class="step-bullet">•</span> Talento Humano y Nómina</li>
+              <li><span class="step-bullet">•</span> Mantenimiento y Logística</li>
+            </ul>
+          </div>
+          <div class="card highlight-card">
+            <div class="card-top-tag" style="background: var(--gold); color: var(--navy);">Impacto Directo</div>
+            <h3>Freno a Fugas Invisibles</h3>
+            <p>Los "micro-gastos" de caja chica (almuerzos, taxi, compras rápidas no planificadas) representan hasta el 12% de los ingresos anuales de un comercio si no se registran al momento.</p>
+            <div class="analogy-box" style="background: rgba(255,255,255,0.1); color: white; border-left-color: var(--gold);">
+              Al registrarse en el sistema en 5 segundos, la fuga desaparece.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 4</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: EL RETO MULTI-MONEDA -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">El Reto de Todo Eléctrico Valencia</div>
+          <h2>La Realidad Comercial: Múltiples Monedas y Cajas</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-top-tag">Monedas en Circulación</div>
+            <h3>Diversidad de Formas de Pago</h3>
+            <ul class="step-list">
+              <li>
+                <span class="step-bullet">💵</span>
+                <div><strong>Efectivo Divisas (USD):</strong> Billetes en mostrador que requieren arqueo estricto.</div>
+              </li>
+              <li>
+                <span class="step-bullet">💳</span>
+                <div><strong>Bolívares (VES):</strong> Puntos de venta bancarios, transferencias y Pago Móvil sujetos a tasa variable.</div>
+              </li>
+              <li>
+                <span class="step-bullet">📱</span>
+                <div><strong>Dólar Digital (Zelle / USDT):</strong> Cobros de clientes mayoristas o transferencias internacionales.</div>
+              </li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-top-tag">Operación Sensible</div>
+            <h3>El Traspaso y Cambio de Divisas</h3>
+            <p>Cuando la empresa cambia $500 en efectivo a Bolívares para pagar proveedores o nómina:</p>
+            <div class="analogy-box" style="margin-top: 10px;">
+              <strong>El riesgo manual:</strong> Si se anota en un papel, la caja en dólares queda con faltante y en la cuenta bancaria entra dinero sin origen claro.
+            </div>
+            <div class="analogy-box" style="background: #fef3c7; border-left-color: var(--gold); color: #92400e; margin-top: 10px;">
+              <strong>La solución inteligente:</strong> Una calculadora de doble entrada que descuenta los USD, suma los VES al banco y calcula la tasa automáticamente.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 5</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: LA SOLUCIÓN TECNOLÓGICA -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Innovación y Automatización</div>
+          <h2>La Solución: Sistema Integral de Tesorería TEV</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>☁️ Nube 24/7 y Multidispositivo</h3>
+            <p>Accesible desde computadoras de caja, tablets o desde el teléfono del dueño en cualquier lugar del mundo con total seguridad.</p>
+          </div>
+          <div class="card">
+            <h3>💰 Multi-Moneda Nativo</h3>
+            <p>Saldos separados por moneda (USD, VES, USDT) con totales consolidados al cambio oficial del día.</p>
+          </div>
+          <div class="card">
+            <h3>⚡ 5 Operaciones Rápidas</h3>
+            <p>Tarjetas visuales simplificadas: Gasto Operativo, Pago Proveedor, Cierre Venta, Cobro CxC y Cambio de Moneda.</p>
+          </div>
+          <div class="card">
+            <h3>🔄 Calculadora de Traspaso</h3>
+            <p>Doble registro automático para cambios de divisa, registrando diferencial cambiario exacto.</p>
+          </div>
+          <div class="card">
+            <h3>📅 Matriz Día por Día (1-31)</h3>
+            <p>Conserva el formato tradicional que la directiva conoce, pero automatizado y libre de errores humanos de suma.</p>
+          </div>
+          <div class="card highlight-card">
+            <h3>📑 Reporte Ejecutivo 1-Click</h3>
+            <p>Hoja gerencial lista para imprimir en PDF con firmas de revisión, resumen de cobros y saldo neto.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 6</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: MANUAL POR ROLES -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Adopción y Uso Sencillo</div>
+          <h2>¿Cómo se Utiliza? (Diseñado para Cada Rol)</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-top-tag">Para la Cajera</div>
+            <h3>Atención y Cierre Rápido</h3>
+            <ul class="step-list">
+              <li><span class="step-bullet">1</span> Inicia sesión en su navegador habitual.</li>
+              <li><span class="step-bullet">2</span> Registra el cierre de ventas del día en <strong>Cierre Venta Diaria</strong>.</li>
+              <li><span class="step-bullet">3</span> Registra cobros a clientes en <strong>Cobro CxC</strong>.</li>
+              <li><span class="step-bullet">4</span> Su caja física cuadra en menos de 3 minutos.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-top-tag">Para la Administradora</div>
+            <h3>Control y Pagos</h3>
+            <ul class="step-list">
+              <li><span class="step-bullet">1</span> Registra <strong>Gastos Operativos</strong> con factura o recibo.</li>
+              <li><span class="step-bullet">2</span> Registra <strong>Pagos a Proveedores</strong> eligiendo la cuenta de salida.</li>
+              <li><span class="step-bullet">3</span> Realiza traspasos entre cajas y bancos sin descuadres.</li>
+              <li><span class="step-bullet">4</span> Puede importar el Excel mensual con 1 clic.</li>
+            </ul>
+          </div>
+          <div class="card highlight-card">
+            <div class="card-top-tag" style="background: var(--gold); color: var(--navy);">Para los Directivos</div>
+            <h3>Supervisión Estratégica</h3>
+            <ul class="step-list">
+              <li><span class="step-bullet">1</span> Entran desde su celular o laptop a cualquier hora.</li>
+              <li><span class="step-bullet">2</span> Ven los 4 indicadores clave: Ingresos, Egresos, Traspasos y Saldo Final.</li>
+              <li><span class="step-bullet">3</span> Consultan la <strong>Matriz 1-31</strong> o el Flujo Anual.</li>
+              <li><span class="step-bullet">4</span> Imprimen el reporte mensual para su archivo directivo.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 7</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: CARGADOR DE EXCEL -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Flexibilidad y Cero Fricción</div>
+          <h2>Compatibilidad Total con sus Archivos Excel</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-top-tag">Sin Pérdida de Historial</div>
+            <h3>Cargue Cualquier Mes en Segundos</h3>
+            <p>No tiene que volver a tipear meses anteriores. El sistema cuenta con un <strong>Importador Inteligente de Excel</strong>:</p>
+            <ul class="step-list" style="margin-top: 14px;">
+              <li><span class="step-bullet">✓</span> Arrastre el archivo mensual (ej. <em>CONTROL DE GASTOS 08 AGOSTO.xlsx</em>).</li>
+              <li><span class="step-bullet">✓</span> El sistema lee automáticamente fechas, descripciones, montos y rubros.</li>
+              <li><span class="step-bullet">✓</span> Los datos se ordenan de inmediato en la Matriz 1 al 31.</li>
+            </ul>
+          </div>
+          <div class="card highlight-card">
+            <div class="card-top-tag" style="background: var(--gold); color: var(--navy);">Personalización Total</div>
+            <h3>Cajas y Rubros 100% Dinámicos</h3>
+            <p>El sistema crece al ritmo de Todo Eléctrico Valencia:</p>
+            <div class="analogy-box" style="background: rgba(255,255,255,0.1); color: white; border-left-color: var(--gold); margin-top: 14px;">
+              <strong>Nuevas Cuentas:</strong> ¿Abre una nueva cuenta en Banesco o una caja chica para el almacén? Créela con un clic seleccionando su moneda.<br><br>
+              <strong>Nuevos Rubros:</strong> ¿Desea crear la categoría 'Publicidad Redes Sociales' o 'Mantenimiento Vehículos'? Agréguela al instante en el catálogo.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 8</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: VALOR Y RETORNO -->
+    <section class="slide">
+      <div class="slide-header">
+        <div>
+          <div class="tag">Valor de la Inversión</div>
+          <h2>El Retorno: ¿Qué Gana Todo Eléctrico Valencia?</h2>
+        </div>
+        <img src="static/logo.jpg" alt="TEV">
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>⏱️ 90% Menos Tiempo</h3>
+            <p>Se elimina el trabajo manual de cuadrar hojas al final de la jornada. El cierre que antes tomaba horas ahora es automático.</p>
+          </div>
+          <div class="card">
+            <h3>🛡️ Cero Pérdidas Ocultas</h3>
+            <p>Control exacto del inventario monetario en efectivo y trazabilidad completa del cambio de divisas con sus diferenciales.</p>
+          </div>
+          <div class="card">
+            <h3>🤝 Mayor Poder de Compra</h3>
+            <p>Conocer su saldo real proyectado le permite negociar descuentos por pronto pago con proveedores de cables e iluminación.</p>
+          </div>
+          <div class="card">
+            <h3>📊 Respaldo y Continuidad</h3>
+            <p>La información ya no depende de que una persona esté presente o de que una computadora se dañe; todo está seguro en la nube.</p>
+          </div>
+          <div class="card highlight-card">
+            <h3>💼 Imagen Corporativa</h3>
+            <p>Reportes de nivel bancario listos para auditorías internas, socios comerciales o solicitudes de crédito institucional.</p>
+          </div>
+          <div class="card">
+            <h3>🧘 Paz Mental Directiva</h3>
+            <p>La tranquilidad de abrir el celular un domingo por la tarde y ver con certeza matemática cómo cerró la semana financiera.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <span>Sistema de Tesorería y Flujo de Caja</span>
+        <span>Lámina 9</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: CIERRE -->
+    <section class="slide slide-cover">
+      <img src="static/logo.jpg" alt="TEV Logo" class="cover-logo">
+      <h1 class="cover-title">El Futuro de la Gestión Financiera en Sus Manos</h1>
+      <p class="cover-subtitle">Sistema Disponible en Línea: <span style="color: var(--gold); text-decoration: underline;">https://tev-tesoreria.onrender.com</span></p>
+      <div class="cover-meta">
+        <div><strong>Estado del Proyecto:</strong> Sistema Operativo y Listo para Demostración</div>
+        <div><strong>Próximo Paso:</strong> Registro de Pruebas y Preguntas de la Junta Directiva</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const counter = document.getElementById('counter');
+
+    function showSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= slides.length) index = slides.length - 1;
+      currentSlide = index;
+
+      slides.forEach((s, idx) => {
+        s.classList.toggle('active', idx === currentSlide);
+      });
+
+      counter.textContent = `${currentSlide + 1} / ${slides.length}`;
+    }
+
+    function nextSlide() {
+      if (currentSlide < slides.length - 1) {
+        showSlide(currentSlide + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        showSlide(currentSlide - 1);
+      }
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          alert(`Error al activar pantalla completa: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullScreen();
+      }
+    });
+
+    showSlide(0);
+  </script>
+</body>
+</html>

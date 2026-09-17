@@ -1,0 +1,36 @@
+name: TEV Tesorería - CI Test Suite & Quality Gate
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install httpx
+
+    - name: Lint & Syntax Compilation Check
+      run: |
+        python -m compileall core/ routers/ schemas/ services/ models.py database.py main.py
+
+    - name: Run QA & Security Test Suite
+      run: |
+        python tests/test_qa_suite.py
+
+    - name: Run Financial Regression Test Suite
+      run: |
+        python tests/test_financial_regression.py

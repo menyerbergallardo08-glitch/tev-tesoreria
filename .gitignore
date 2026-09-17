@@ -1,4 +1,34 @@
-__pycache__/
-*.pyc
+# Entornos y Secretos
 .env
+.env.*
+!.env.example
+*.env
+secrets/
+
+# Bases de Datos Locales
+*.db
+*.sqlite
+*.sqlite3
+tev_tesoreria.db
+
+# Backups y Archivos Binarios Locales
+backups/
+*.json.bak
+*.zip
+*.tar.gz
+*.xlsx
+*.xls
+
+# Compilación y Cache Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.pytest_cache/
+
+# Archivos Temporales de Sistema / Office / Shell
+~$*
 *.bat
+*.log
+.DS_Store
+Thumbs.db

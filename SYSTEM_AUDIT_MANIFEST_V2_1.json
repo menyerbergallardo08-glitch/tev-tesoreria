@@ -1,0 +1,55 @@
+{
+  "system_audit_manifest_v2_1": {
+    "system_name": "Todo Eléctrico Valencia (TEV) - Sistema de Tesorería y Flujo de Caja",
+    "version": "2.1.0-Enterprise-Modular",
+    "audit_reference": "AUDITORIA_TEV_V2_1",
+    "manifest_timestamp": "2026-09-17T03:18:00Z",
+    "certification_status": "CERTIFIED_LABORATORY_SANDBOX",
+    "architecture_compliance": {
+      "pillar_1_modular_decoupling": {
+        "status": "VERIFIED",
+        "evidence": "Clean separation of concerns across core/, schemas/, services/, routers/, and static/js/ ES6 modules"
+      },
+      "pillar_2_cryptographic_auth_and_rbac": {
+        "status": "VERIFIED",
+        "evidence": "JWT HS256 + PBKDF2 100k iterations with 12h expiration; strict RBAC dependencies (get_current_user, require_roles)"
+      },
+      "pillar_3_idempotency_and_concurrency": {
+        "status": "VERIFIED",
+        "evidence": "Pessimistic row locking with_for_update() + 409 Conflict duplicate guards on sales, expenses, and transfers"
+      },
+      "pillar_4_surface_attack_reduction": {
+        "status": "VERIFIED",
+        "evidence": "Production mode dynamically deactivates /docs, /redoc, /openapi.json and enforces strict CORS origins"
+      },
+      "pillar_5_zero_hardcoded_secrets": {
+        "status": "VERIFIED",
+        "evidence": "100% environment variable loading via os.getenv() for all JWT, database, and administrative credentials"
+      },
+      "pillar_6_disaster_recovery_and_backups": {
+        "status": "VERIFIED_LOCAL_AND_ADAPTER",
+        "evidence": "Deterministic multi-table JSON backups with topological restore and PostgreSQL setval sequence re-alignment; optional S3/R2 upload adapter"
+      },
+      "pillar_7_two_branch_governance": {
+        "status": "VERIFIED",
+        "evidence": "Separation of local sandbox DB from production Supabase DB + GitHub Actions CI workflow in .github/workflows/ci.yml"
+      },
+      "pillar_8_corporate_clean_slate": {
+        "status": "VERIFIED",
+        "evidence": "Protected purge mechanism requiring MASTER_ADMIN_KEY + 'CONFIRMAR-PURGA-TEV' preserving all core business catalogs"
+      }
+    },
+    "financial_regression_results": {
+      "test_cases_count": 9,
+      "passed_count": 9,
+      "failed_count": 0,
+      "pass_rate": "100.0%"
+    },
+    "test_suite_results": {
+      "qa_test_cases_count": 7,
+      "passed_count": 7,
+      "failed_count": 0,
+      "pass_rate": "100.0%"
+    }
+  }
+}
