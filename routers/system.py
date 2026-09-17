@@ -21,6 +21,22 @@ class RestoreRequest(BaseModel):
     master_key: str
     backup_data: Dict[str, Any]
 
+@router.get("/health")
+def system_health_check(db: Session = Depends(get_db)):
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db_status = "OK"
+    except Exception:
+        db_status = "UNAVAILABLE"
+    
+    return {
+        "status": "healthy" if db_status == "OK" else "degraded",
+        "application": "OK",
+        "database": db_status,
+        "version": "2.1.0"
+    }
+
 @router.get("/bcv-rate")
 def get_bcv_rate(db: Session = Depends(get_db)):
     return resolve_effective_bcv_rate(db)

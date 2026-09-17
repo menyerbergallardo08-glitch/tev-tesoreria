@@ -61,9 +61,18 @@ static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+@app.get("/health")
+def root_health():
+    return {
+        "status": "healthy",
+        "application": "OK",
+        "version": "2.1.0"
+    }
+
 @app.get("/")
 def read_root():
     index_file = os.path.join(static_dir, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
     return {"message": "TEV Tesorería API v2.0 Modular Activa"}
+
