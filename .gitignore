@@ -13,6 +13,7 @@ tev_tesoreria.db
 
 # Backups y Archivos Binarios Locales
 backups/
+dr_recovery/
 *.json.bak
 *.zip
 *.tar.gz
