@@ -40,9 +40,36 @@ def system_health_check(db: Session = Depends(get_db)):
         "version": "2.1.0"
     }
 
+class BcvRateUpdateRequest(BaseModel):
+    rate: float
+
 @router.get("/bcv-rate")
 def get_bcv_rate(db: Session = Depends(get_db)):
     return resolve_effective_bcv_rate(db)
+
+@router.post("/bcv-rate")
+def update_bcv_rate(
+    data: BcvRateUpdateRequest,
+    current_user: User = Depends(require_roles(["directivo", "administradora"])),
+    db: Session = Depends(get_db)
+):
+    if data.rate <= 0:
+        raise HTTPException(status_code=400, detail="Tasa inválida.")
+    
+    from models import SystemSetting
+    setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
+    if not setting:
+        setting = SystemSetting(key='tasa_bcv', value=str(data.rate))
+        db.add(setting)
+    else:
+        setting.value = str(data.rate)
+    
+    setting_friday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes').first()
+    if setting_friday:
+        setting_friday.value = str(data.rate)
+        
+    db.commit()
+    return {"message": "Tasa BCV actualizada exitosamente.", "rate": data.rate}
 
 @router.post("/backup")
 def create_backup(

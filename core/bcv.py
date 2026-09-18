@@ -62,10 +62,17 @@ def resolve_effective_bcv_rate(db: Session) -> dict:
     setting_friday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes').first()
     setting_next_monday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_proximo_lunes').first()
 
-    current_val = float(setting_active.value) if (setting_active and setting_active.value) else 827.74
+    current_val = float(setting_active.value) if (setting_active and setting_active.value) else 848.55
+    if current_val < 100.0:
+        current_val = fresh_rate if (fresh_rate and fresh_rate > 100.0) else 848.55
+        if setting_active:
+            setting_active.value = str(current_val)
+        else:
+            db.add(SystemSetting(key='tasa_bcv', value=str(current_val)))
+        db.commit()
 
     if weekday == 4 and current_minutes >= cutoff_430:
-        if fresh_rate and fresh_rate > 0:
+        if fresh_rate and fresh_rate > 100.0:
             if not setting_friday:
                 db.add(SystemSetting(key='tasa_bcv_viernes', value=str(current_val)))
             else:
@@ -80,20 +87,20 @@ def resolve_effective_bcv_rate(db: Session) -> dict:
         return {
             "rate": current_val,
             "policy_applied": "Viernes tarde / Fin de semana (Se mantiene tasa de cierre del Viernes hasta el Domingo 12:00 de la noche)",
-            "next_rate_monday": float(setting_next_monday.value) if setting_next_monday else fresh_rate,
+            "next_rate_monday": float(setting_next_monday.value) if setting_next_monday else (fresh_rate or current_val),
             "synced": True
         }
 
     if weekday in (5, 6):
-        friday_val = float(setting_friday.value) if setting_friday else current_val
+        friday_val = float(setting_friday.value) if (setting_friday and float(setting_friday.value) > 100.0) else current_val
         return {
             "rate": friday_val,
             "policy_applied": "Fin de semana (Tasa de cierre del Viernes)",
-            "next_rate_monday": float(setting_next_monday.value) if setting_next_monday else fresh_rate,
+            "next_rate_monday": float(setting_next_monday.value) if setting_next_monday else (fresh_rate or current_val),
             "synced": True
         }
 
-    if fresh_rate and fresh_rate > 0:
+    if fresh_rate and fresh_rate > 100.0:
         if fresh_rate != current_val:
             if not setting_active:
                 db.add(SystemSetting(key='tasa_bcv', value=str(fresh_rate)))

@@ -129,8 +129,8 @@ def init_all():
 
         # 5. Ensure Default Settings exist
         settings = [
-            ('tasa_bcv', '36.50'),
-            ('tasa_paralelo', '39.20'),
+            ('tasa_bcv', '848.55'),
+            ('tasa_paralelo', '850.00'),
             ('alerta_saldo_minimo_usd', '500'),
             ('alerta_descuadre_caja_usd', '5')
         ]

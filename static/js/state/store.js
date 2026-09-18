@@ -1,6 +1,6 @@
 export const Store = {
     user: null,
-    bcvRate: 827.74,
+    bcvRate: 848.55,
     accounts: [],
     categories: [],
     

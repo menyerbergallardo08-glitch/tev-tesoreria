@@ -5672,21 +5672,39 @@
           await this.fetchBcvRateLive(true);
         },
 
-        async loadBcvRate() {
+        async fetchBcvRateLive(sync = false) {
+          this.loadingBcv = true;
           try {
             const token = this.getToken();
-            const res = await fetch('/api/settings/bcv-rate', {
+            const res = await fetch('/api/system/bcv-rate', {
               headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
               const data = await res.json();
-              this.bcvRate = data.rate;
-              this.newBcvRate = data.rate;
-              if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
-                this.form.exchange_rate = this.bcvRate;
+              if (data.rate && data.rate > 0) {
+                this.bcvRate = data.rate;
+                this.newBcvRate = data.rate;
+                if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
+                  this.form.exchange_rate = this.bcvRate;
+                }
+                if (sync) {
+                  this.showToast('success', 'Tasa Sincronizada', 'Tasa BCV del día: Bs. ' + this.formatNumber(this.bcvRate));
+                }
               }
             }
-          } catch(e) { console.error(e); }
+          } catch(e) {
+            console.error(e);
+          } finally {
+            this.loadingBcv = false;
+          }
+        },
+
+        async loadBcvRate() {
+          await this.fetchBcvRateLive(false);
+        },
+
+        async submitManualBcvRate() {
+          await this.updateBcvRate();
         },
 
         async updateBcvRate() {
@@ -5695,7 +5713,7 @@
             return;
           }
           const token = this.getToken();
-          const res = await fetch('/api/settings/bcv-rate', {
+          const res = await fetch('/api/system/bcv-rate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({ rate: parseFloat(this.newBcvRate) })
@@ -5708,7 +5726,7 @@
             this.showBcvRateModal = false;
             this.showToast('success', 'Tasa Oficial Actualizada', 'La tasa BCV del día se fijó en Bs. ' + this.formatNumber(this.bcvRate));
           } else {
-            const err = await res.json();
+            const err = await res.json().catch(() => ({}));
             alert(err.detail || 'Error al actualizar tasa');
           }
         },
