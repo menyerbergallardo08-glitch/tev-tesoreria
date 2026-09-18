@@ -81,6 +81,31 @@ def upload_to_s3_compatible(file_path: str, backup_filename: str) -> bool:
         print(f"[ERROR] Error al subir backup a almacenamiento remoto: {e}")
         return False
 
+def download_from_s3_compatible(backup_filename: str, target_local_path: str) -> bool:
+    config = get_s3_config()
+    if not config:
+        return False
+
+    try:
+        import boto3
+        from botocore.config import Config
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=config["endpoint"],
+            aws_access_key_id=config["access_key"],
+            aws_secret_access_key=config["secret_key"],
+            region_name=config["region"],
+            config=Config(signature_version='s3v4')
+        )
+        s3_client.download_file(config["bucket"], backup_filename, target_local_path)
+        return True
+    except ImportError:
+        print("[WARN] boto3 no está instalado; descarga remota omitida.")
+        return False
+    except Exception as e:
+        print(f"[ERROR] Error al descargar backup desde almacenamiento remoto: {e}")
+        return False
+
 def generate_deterministic_backup(db: Session, user: Optional[User] = None, ip_address: str = "") -> Dict[str, Any]:
     backup_id = str(uuid.uuid4())[:8]
     now = datetime.datetime.now(datetime.timezone.utc)
