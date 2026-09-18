@@ -1,5 +1,7 @@
 import os
+import json
 from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -11,7 +13,8 @@ from schemas.system import CleanSlateRequest
 from services.backup_service import (
     clean_slate_database,
     generate_deterministic_backup,
-    restore_deterministic_backup
+    restore_deterministic_backup,
+    download_from_s3_compatible
 )
 from core.config import MASTER_ADMIN_KEY
 
@@ -80,6 +83,49 @@ def list_local_backups(
                 "modified_at": os.path.getmtime(fp)
             })
     return files
+
+@router.get("/backups/{filename}/download")
+def download_backup_file(
+    filename: str,
+    current_user: User = Depends(require_roles(["directivo", "administradora"]))
+):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    
+    backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    local_path = os.path.join(backup_dir, filename)
+
+    if not os.path.exists(local_path):
+        success = download_from_s3_compatible(filename, local_path)
+        if not success or not os.path.exists(local_path):
+            raise HTTPException(status_code=404, detail="Archivo de backup no encontrado en almacenamiento local ni remoto.")
+
+    return FileResponse(
+        path=local_path,
+        filename=filename,
+        media_type="application/json"
+    )
+
+@router.get("/backups/{filename}/content")
+def get_backup_content(
+    filename: str,
+    current_user: User = Depends(require_roles(["directivo", "administradora"]))
+):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+    
+    backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    local_path = os.path.join(backup_dir, filename)
+
+    if not os.path.exists(local_path):
+        success = download_from_s3_compatible(filename, local_path)
+        if not success or not os.path.exists(local_path):
+            raise HTTPException(status_code=404, detail="Archivo de backup no encontrado en almacenamiento local ni remoto.")
+
+    with open(local_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 @router.post("/clean-slate")
 def reset_system(
