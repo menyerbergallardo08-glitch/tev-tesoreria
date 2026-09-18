@@ -1,0 +1,15 @@
+{
+  "project": "Todo Eléctrico Valencia — Sistema de Tesorería y Flujo de Caja",
+  "version": "2.0.0",
+  "release_candidate": "V2.7-RELEASE-CANDIDATE",
+  "commit_sha": "f38cc0d6049dabc15aa6bbb0fa26c5a3fc57a1c9",
+  "build_date": "2026-09-18T15:40:00Z",
+  "qa_status": "7/7 PASS",
+  "financial_regression_status": "9/9 PASS",
+  "security_status": "PASS (V2.6 Production Readiness Certified)",
+  "dr_status": "FULLY CERTIFIED (Cloudflare R2 + SHA-256)",
+  "environment": "production-ready",
+  "database_type": "PostgreSQL 15+ (Production) / Supabase Pooler (Staging)",
+  "frontend_status": "Modular ES6 SPA (Vanilla JS + Glassmorphism)",
+  "backend_status": "FastAPI (Python 3.12) + SQLAlchemy 2.0 ORM + JWT HS256 + RBAC"
+}
