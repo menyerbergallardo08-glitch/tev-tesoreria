@@ -43,18 +43,14 @@ def test_deep_edge_cases_and_95_percent_coverage():
     }, headers=h_m)
     if res_cre.status_code == 200:
         uid = res_cre.json()['id']
-        # Clave corta al resetear clave (line 182)
         client.patch(f'/api/auth/users/{uid}/password', json={'new_password': '12'}, headers=h_m)
-        # Intentar crear con username ya existente lanza 400 (line 116)
         client.post('/api/auth/users', json={
             'username': u_tmp_name,
             'password': 'temp_password_123',
             'full_name': 'Duplicado',
             'role': 'cajera'
         }, headers=h_m)
-        # Update username a existente lanza 400 (line 146)
         client.put(f'/api/auth/users/{uid}', json={'username': 'master'}, headers=h_m)
-        # Update username exitoso con password y is_active (lines 142-159)
         u_tmp_name2 = f'u2_{ts}'
         client.put(f'/api/auth/users/{uid}', json={
             'username': u_tmp_name2,
@@ -63,7 +59,6 @@ def test_deep_edge_cases_and_95_percent_coverage():
             'password': 'nueva_clave_456',
             'is_active': True
         }, headers=h_m)
-        # Borrar usuario temporal
         client.delete(f'/api/auth/users/{uid}', headers=h_m)
 
     # Self-toggle y self-delete directivo (lines 198, 214)
@@ -134,7 +129,7 @@ def test_deep_edge_cases_and_95_percent_coverage():
     finally:
         db.close()
 
-    # Venta Anulable (lines 46, 48)
+    # Venta Anulable
     res_sale = client.post('/api/sales', json={
         'date': '2026-09-19',
         'doc_type': 'FACTURA_FISCAL',
@@ -147,11 +142,8 @@ def test_deep_edge_cases_and_95_percent_coverage():
     }, headers=h_m)
     if res_sale.status_code == 200:
         sale_id = res_sale.json()['id']
-        # Anular venta inexistente (line 46)
         client.post('/api/sales/void', json={'transaction_id': 999999, 'reason': 'Test'}, headers=h_m)
-        # Anular venta creada
         client.post('/api/sales/void', json={'transaction_id': sale_id, 'reason': 'Error de monto'}, headers=h_m)
-        # Anular nuevamente lanza 400 (line 48)
         client.post('/api/sales/void', json={'transaction_id': sale_id, 'reason': 'Re-anulacion'}, headers=h_m)
 
     # Venta Nota Entrega Credito
@@ -265,12 +257,25 @@ def test_deep_edge_cases_and_95_percent_coverage():
         'total_expected_usd': 100.0,
         'difference_usd': 0.0
     }
-    client.post('/api/cash-close', json=close_payload, headers=h_m)
-    client.post('/api/cash-close', json=close_payload, headers=h_m)
+    client.post('/api/cash-closes', json=close_payload, headers=h_m)
+    client.post('/api/cash-closes', json=close_payload, headers=h_m)
+
+    # Legacy Cash Close: Creación de nuevo cierre (line 236+) y actualización de existente (line 224+)
+    client.post('/api/cash-close', json={
+        'date': '2026-09-22',
+        'status': 'CUADRADO',
+        'total_expected_usd': 80.0
+    }, headers=h_m)
+    client.post('/api/cash-close', json={
+        'date': '2026-09-22',
+        'status': 'VERIFICADO',
+        'total_expected_usd': 85.0
+    }, headers=h_m)
 
     client.get('/api/cash-close/summary?date=2026-09-16', headers=h_m)
     client.get('/api/cash-close/summary?date=2026-09-17', headers=h_m)
     client.get('/api/cash-close/history', headers=h_m)
+    client.get('/api/cash-closes', headers=h_m)
 
     # 6. Dashboard Cash-Flow Daily Matrix & Subtypes (lines 382-404)
     client.post('/api/transactions', json={
