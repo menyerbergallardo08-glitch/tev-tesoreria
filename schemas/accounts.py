@@ -10,7 +10,10 @@ class AccountCreate(BaseModel):
 
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
+    account_type: Optional[str] = None
+    initial_balance: Optional[float] = None
     only_income: Optional[bool] = None
+    is_active: Optional[bool] = None
 
 class MonthlyBalanceCreate(BaseModel):
     account_id: int

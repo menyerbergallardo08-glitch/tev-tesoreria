@@ -34,6 +34,39 @@ def add_account(
     acc = create_account(db, data)
     return {"id": acc.id, "name": acc.name, "currency": acc.currency, "is_active": acc.is_active}
 
+@router.put("/{account_id}")
+def update_account(
+    account_id: int,
+    data: AccountUpdate,
+    current_user: User = Depends(require_roles(["administradora", "directivo"])),
+    db: Session = Depends(get_db)
+):
+    acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == account_id).first()
+    if not acc:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
+
+    if data.name is not None and data.name.strip():
+        acc.name = data.name.strip()
+    if data.account_type is not None and data.account_type.strip():
+        acc.account_type = data.account_type.strip().upper()
+    if data.initial_balance is not None:
+        acc.initial_balance = float(data.initial_balance)
+    if data.only_income is not None:
+        acc.only_income = data.only_income
+    if data.is_active is not None:
+        acc.is_active = data.is_active
+
+    db.commit()
+    db.refresh(acc)
+    return {
+        "id": acc.id,
+        "name": acc.name,
+        "currency": acc.currency,
+        "account_type": acc.account_type,
+        "initial_balance": acc.initial_balance,
+        "is_active": acc.is_active
+    }
+
 @router.post("/{account_id}/toggle-status")
 def toggle_status(
     account_id: int,

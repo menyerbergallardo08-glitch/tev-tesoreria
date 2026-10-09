@@ -42,7 +42,7 @@ def test_full_routers_and_services_coverage():
     }, headers=h_master)
     assert res_ch_pwd.status_code == 200
 
-    # 3. Routers: Accounts (Crear cuenta, listar todas)
+    # 3. Routers: Accounts (Crear cuenta, listar todas, actualizar)
     res_create_acc = client.post("/api/accounts", json={
         "name": f"Cuenta Test {ts}",
         "currency": "USD",
@@ -53,11 +53,35 @@ def test_full_routers_and_services_coverage():
     assert res_create_acc.status_code == 200
     test_acc_id = res_create_acc.json()["id"]
 
+    res_put_acc = client.put(f"/api/accounts/{test_acc_id}", json={
+        "name": f"Cuenta Test Editada {ts}",
+        "account_type": "Caja Operativa",
+        "initial_balance": 150.0,
+        "is_active": True
+    }, headers=h_master)
+    assert res_put_acc.status_code == 200
+
     res_acc_all = client.get("/api/accounts?all=true", headers=h_master)
     assert res_acc_all.status_code == 200
 
-    # 4. Routers: Categories (Listar con mes)
-    res_cats = client.get("/api/categories?month=2026-09", headers=h_master)
+    # 4. Routers: Categories (Listar con mes, crear nueva partida, actualizar)
+    import random
+    rand_code = random.randint(1000, 9999)
+    res_create_cat = client.post("/api/categories", json={
+        "code": rand_code,
+        "name": f"Partida Cobertura {rand_code}",
+        "monthly_budget_usd": 300.0
+    }, headers=h_master)
+    assert res_create_cat.status_code == 200
+    new_cat_id = res_create_cat.json()["id"]
+
+    res_put_cat = client.put(f"/api/categories/{new_cat_id}", json={
+        "monthly_budget_usd": 450.0,
+        "is_active": True
+    }, headers=h_master)
+    assert res_put_cat.status_code == 200
+
+    res_cats = client.get("/api/categories?month=2026-09&include_inactive=true", headers=h_master)
     assert res_cats.status_code == 200
 
     # 5. Routers: Sales (Crear, Void, Summary-today)

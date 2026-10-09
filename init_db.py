@@ -127,7 +127,33 @@ def init_all():
                 )
                 db.add(acc)
 
-        # 5. Ensure Default Settings exist
+        # 5. Ensure Default Budget Categories exist
+        default_categories = [
+            (1, 'Impuestos Seniat', 1500.0),
+            (2, 'Impuestos Municipales', 500.0),
+            (3, 'Parafiscales', 100.0),
+            (4, 'Servicios', 1000.0),
+            (5, 'Gastos Operativos y Mantenimiento', 500.0),
+            (6, 'Alquileres', 2250.0),
+            (7, 'Nomina y Pasivos Laborales', 4500.0),
+            (8, 'Comisiones por venta', 1200.0),
+            (9, 'Gastos Extraordinarios', 1000.0),
+            (10, 'Compras de Bienes', 500.0),
+            (11, 'Retiros de Accionista', 750.0),
+            (12, 'Mantenimiento Flota', 200.0)
+        ]
+        for c_code, c_name, c_budget in default_categories:
+            cat = db.query(BudgetCategory).filter(BudgetCategory.code == c_code).first()
+            if not cat:
+                cat = BudgetCategory(
+                    code=c_code,
+                    name=c_name,
+                    monthly_budget_usd=c_budget,
+                    is_active=True
+                )
+                db.add(cat)
+
+        # 6. Ensure Default Settings exist
         settings = [
             ('tasa_bcv', '848.55'),
             ('tasa_paralelo', '850.00'),
