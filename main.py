@@ -1,9 +1,9 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from core.config import IS_PRODUCTION, get_cors_origins
+from core.config import IS_PRODUCTION, get_cors_origins, COMPANY_NAME, COMPANY_SLOGAN
+from core.scheduler import start_scheduler, stop_scheduler
 from database import engine, Base
 
 # Importar Enrutadores Modulares
@@ -26,16 +26,24 @@ try:
 except Exception as e:
     print(f"[WARN] init_db: {e}")
 
-# Pilar 4: Cierre de Superficie de Ataque en Producción (/docs, /redoc, /openapi desactivados en Prod)
+# Ciclo de Vida: Iniciar y Detener Scheduler Automático FIFO
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    yield
+    stop_scheduler()
+
+# FastAPI: API REST Pura Desacoplada
 app = FastAPI(
-    title="TEV Tesorería & Flujo de Caja API",
-    version="2.0.0",
+    title=f"{COMPANY_NAME} - API de Tesorería & Flujo de Caja",
+    version="2.2.0",
     docs_url=None if IS_PRODUCTION else "/docs",
     redoc_url=None if IS_PRODUCTION else "/redoc",
-    openapi_url=None if IS_PRODUCTION else "/openapi.json"
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
+    lifespan=lifespan
 )
 
-# CORS Estricto
+# CORS Estricto (Soporta Frontend Vite en localhost:5173 y producción)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
@@ -56,23 +64,53 @@ app.include_router(transfers_router)
 app.include_router(audit_router)
 app.include_router(system_router)
 
-# Servir Frontend Modular ES6
-static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
 @app.get("/health")
 def root_health():
     return {
         "status": "healthy",
         "application": "OK",
-        "version": "2.1.0"
+        "company": COMPANY_NAME,
+        "version": "2.2.0"
     }
 
-@app.get("/")
-def read_root():
-    index_file = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return {"message": "TEV Tesorería API v2.0 Modular Activa"}
+frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+if os.path.exists(frontend_dist):
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/")
+    def read_root():
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        return {"service": COMPANY_NAME, "status": "online"}
+
+    @app.get("/{full_path:path}")
+    def serve_frontend_spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "api":
+            raise HTTPException(status_code=404, detail="Endpoint API no encontrado")
+        file_path = os.path.join(frontend_dist, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Recurso no encontrado")
+else:
+    @app.get("/")
+    def read_root():
+        return {
+            "service": COMPANY_NAME,
+            "slogan": COMPANY_SLOGAN,
+            "status": "online",
+            "mode": "Decoupled Headless REST API",
+            "version": "2.2.0"
+        }
+
+
 

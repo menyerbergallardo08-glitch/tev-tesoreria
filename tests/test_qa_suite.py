@@ -16,8 +16,12 @@ from core.config import JWT_SECRET_KEY, JWT_ALGORITHM
 
 client = TestClient(app)
 
+def test_qa_suite():
+    run_qa_suite()
+
 def run_qa_suite():
     print("=================================================================")
+
     print(" INICIANDO QA TEST SUITE & SECURITY CERTIFICATION - TEV v2.1")
     print("=================================================================")
 

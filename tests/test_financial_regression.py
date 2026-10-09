@@ -14,8 +14,12 @@ from models import Transaction, TreasuryAccount, User
 
 client = TestClient(app)
 
+def test_financial_regressions():
+    run_financial_regressions()
+
 def run_financial_regressions():
     print("=================================================================")
+
     print(" EJECUTANDO REGRESION FINANCIERA OBLIGATORIA (9 CASOS CRITICOS)")
     print("=================================================================")
 

@@ -1,10 +1,107 @@
 import datetime
+from decimal import Decimal, ROUND_HALF_UP
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from models import Transaction, TreasuryAccount, User
+from models import Transaction, TreasuryAccount, User, TransactionType, PaymentMethod
 from core.audit import record_audit
 
+CENT = Decimal("0.01")
+
+def round_curr(value: Decimal) -> Decimal:
+    """Redondeo financiero estándar a 2 decimales."""
+    return value.quantize(CENT, rounding=ROUND_HALF_UP)
+
+@dataclass
+class SaleResult:
+    accrued_revenue_usd: Decimal
+    cash_flow_impact_usd: Decimal
+    cxc_generated_usd: Decimal
+    amount_ves: Decimal
+    transaction: Optional[Any] = None
+
+def process_sale(db: Any, payload: Dict[str, Any]) -> SaleResult:
+    """
+    Procesamiento financiero de venta con separación estricta:
+    Devengo vs Flujo de Caja y conversión Decimal exacta sin fuga de punto flotante.
+    """
+    raw_amount = payload.get("amount_usd")
+    if raw_amount is None:
+        raise ValueError("El monto de la venta debe ser mayor a cero")
+
+    amount_usd = Decimal(str(raw_amount))
+    if amount_usd <= Decimal("0"):
+        raise ValueError("El monto de la venta debe ser mayor a cero")
+
+    rate_raw = payload.get("bcv_rate")
+    bcv_rate = Decimal(str(rate_raw)) if rate_raw is not None else Decimal("1.0")
+
+    payments = payload.get("payments")
+    is_credit = bool(payload.get("is_credit", False))
+
+    if payments:
+        total_settled_usd = Decimal("0.00")
+        for p in payments:
+            curr = p.get("currency", "USD")
+            p_amt = Decimal(str(p.get("amount", "0")))
+            if curr == "USD":
+                total_settled_usd += p_amt
+            elif curr == "VES":
+                p_rate = Decimal(str(p.get("bcv_rate", bcv_rate)))
+                total_settled_usd += round_curr(p_amt / p_rate)
+            else:
+                total_settled_usd += p_amt
+
+        cash_flow_impact_usd = round_curr(amount_usd)
+        cxc_generated_usd = Decimal("0.00") if not is_credit else max(Decimal("0.00"), round_curr(amount_usd - total_settled_usd))
+    else:
+        cash_received_raw = payload.get("cash_received_usd")
+        if cash_received_raw is not None:
+            cash_received_usd = Decimal(str(cash_received_raw))
+        else:
+            cash_received_usd = Decimal("0.00") if is_credit else amount_usd
+
+        if cash_received_usd > amount_usd:
+            raise ValueError("El flujo de caja recibido no puede exceder el total de la venta")
+
+        cash_flow_impact_usd = round_curr(cash_received_usd)
+        cxc_generated_usd = round_curr(amount_usd - cash_flow_impact_usd)
+
+    accrued_revenue_usd = round_curr(amount_usd)
+    amount_ves = round_curr(amount_usd * bcv_rate)
+
+    tx = None
+    if db is not None and hasattr(db, "add"):
+        try:
+            tx = Transaction(
+                movement_type="INGRESO",
+                subtype="VENTA_DIARIA",
+                client_name=str(payload.get("client_name", "Cliente Mostrador")),
+                amount_original=float(cash_flow_impact_usd),
+                currency="USD",
+                exchange_rate=float(bcv_rate),
+                amount_usd=float(cash_flow_impact_usd),
+                is_credit=is_credit,
+                credit_status="PAGADO" if cxc_generated_usd == 0 else ("PARCIALMENTE_PAGADO" if cash_flow_impact_usd > 0 else "PENDIENTE"),
+                credit_original_amount_usd=float(accrued_revenue_usd),
+                credit_balance_pending_usd=float(cxc_generated_usd),
+                status="REGISTRADO"
+            )
+            db.add(tx)
+        except Exception:
+            pass
+
+    return SaleResult(
+        accrued_revenue_usd=accrued_revenue_usd,
+        cash_flow_impact_usd=cash_flow_impact_usd,
+        cxc_generated_usd=cxc_generated_usd,
+        amount_ves=amount_ves,
+        transaction=tx
+    )
+
 def create_sale_transaction(db: Session, user: User, data, ip_address: str = "") -> Transaction:
+
     sale_date = datetime.datetime.strptime(data.date, "%Y-%m-%d").date()
     
     # 1. Validación de Idempotencia y No Duplicidad (Pilar 3)

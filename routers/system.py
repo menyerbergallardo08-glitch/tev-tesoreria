@@ -154,6 +154,16 @@ def get_backup_content(
     with open(local_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+@router.post("/backups/fifo-prune")
+def trigger_fifo_prune(
+    request: Request,
+    max_count: Optional[int] = None,
+    current_user: User = Depends(require_roles(["directivo"])),
+    db: Session = Depends(get_db)
+):
+    from services.backup_service import prune_backups_fifo
+    return prune_backups_fifo(max_backups=max_count, db=db)
+
 @router.post("/clean-slate")
 def reset_system(
     data: CleanSlateRequest,
@@ -163,3 +173,4 @@ def reset_system(
 ):
     ip = request.client.host if request.client else ""
     return clean_slate_database(db, current_user, data.master_key, data.confirmation_phrase, ip)
+

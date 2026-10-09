@@ -26,8 +26,15 @@ __pycache__/
 *.class
 *.so
 .pytest_cache/
+.coverage
+coverage_html/
 
-# Archivos Temporales de Sistema / Office / Shell
+# Frontend Node & Build
+frontend/node_modules/
+node_modules/
+dist/
+!frontend/dist/
+!frontend/dist/**
 ~$*
 *.bat
 *.log

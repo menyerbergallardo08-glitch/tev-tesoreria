@@ -23,3 +23,14 @@ services:
       - key: ENVIRONMENT
         value: production
 
+  - type: static
+    name: tev-tesoreria-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://tev-tesoreria-prod.onrender.com
