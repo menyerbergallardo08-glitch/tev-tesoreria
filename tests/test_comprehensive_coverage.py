@@ -156,6 +156,49 @@ def test_full_routers_and_services_coverage():
     }, headers=h_master)
     assert res_ret.status_code == 200
 
+    # 6.1 Routers: Transactions (/api/transactions - Gastos, Pagos, Traspasos, Verificación y Anulación)
+    res_tx_exp = client.post("/api/transactions", json={
+        "date": "2026-09-18",
+        "movement_type": "EGRESO",
+        "subtype": "GASTO_OPERATIVO",
+        "account_id": test_acc_id,
+        "category_id": 1,
+        "amount_original": 45.0,
+        "currency": "USD",
+        "exchange_rate": 1.0,
+        "reference_number": f"TX-EXP-{ts}",
+        "beneficiary": "Proveedor Servielectric",
+        "description": "Mantenimiento eléctrico"
+    }, headers=h_master)
+    assert res_tx_exp.status_code == 200
+    created_tx_id = res_tx_exp.json()["id"]
+
+    # Listar transacciones
+    res_tx_list = client.get("/api/transactions?date=2026-09-18", headers=h_master)
+    assert res_tx_list.status_code == 200
+    assert "items" in res_tx_list.json()
+
+    # Traspaso por /api/transactions/transfer
+    res_tx_transfer = client.post("/api/transactions/transfer", json={
+        "date": "2026-09-18",
+        "origin_account_id": test_acc_id,
+        "destination_account_id": 1,
+        "amount_origin": 10.0,
+        "amount_destination": 10.0,
+        "exchange_rate": 1.0,
+        "reference_number": f"TRF-{ts}",
+        "description": "Traspaso interbancario de prueba"
+    }, headers=h_master)
+    assert res_tx_transfer.status_code == 200
+
+    # Verificar transacción
+    res_tx_verify = client.patch(f"/api/transactions/{created_tx_id}/verify", headers=h_master)
+    assert res_tx_verify.status_code == 200
+
+    # Anular transacción
+    res_tx_cancel = client.delete(f"/api/transactions/{created_tx_id}", headers=h_master)
+    assert res_tx_cancel.status_code == 200
+
     # 7. Routers: CxC (Listar pendientes por status)
     res_debts_all = client.get("/api/cxc/debts?status=ALL", headers=h_master)
     assert res_debts_all.status_code == 200

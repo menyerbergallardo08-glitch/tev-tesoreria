@@ -18,6 +18,7 @@ from routers.transfers import router as transfers_router
 from routers.audit import router as audit_router
 from routers.system import router as system_router
 from routers.dashboard import router as dashboard_router
+from routers.transactions import router as transactions_router
 
 # Inicializar Base de Datos
 Base.metadata.create_all(bind=engine)
@@ -67,6 +68,7 @@ app.include_router(transfers_router)
 app.include_router(audit_router)
 app.include_router(system_router)
 app.include_router(dashboard_router)
+app.include_router(transactions_router)
 
 @app.get("/health")
 def root_health():
