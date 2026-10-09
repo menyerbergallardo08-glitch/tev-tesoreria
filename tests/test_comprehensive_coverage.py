@@ -35,6 +35,24 @@ def test_full_routers_and_services_coverage():
         "role": "cajera"
     }, headers=h_master)
     assert res_new_user.status_code == 200
+    u_created_id = res_new_user.json()["id"]
+
+    res_put_u = client.put(f"/api/auth/users/{u_created_id}", json={
+        "full_name": "Usuario Editado Cobertura",
+        "role": "administradora"
+    }, headers=h_master)
+    assert res_put_u.status_code == 200
+
+    res_reset_u = client.patch(f"/api/auth/users/{u_created_id}/password", json={
+        "new_password": "nueva_clave_2026*"
+    }, headers=h_master)
+    assert res_reset_u.status_code == 200
+
+    res_toggle_u = client.patch(f"/api/auth/users/{u_created_id}/toggle-status", headers=h_master)
+    assert res_toggle_u.status_code == 200
+
+    res_del_u = client.delete(f"/api/auth/users/{u_created_id}", headers=h_master)
+    assert res_del_u.status_code == 200
 
     res_ch_pwd = client.post("/api/auth/change-password", json={
         "old_password": "master2026*",

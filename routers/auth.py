@@ -9,7 +9,7 @@ from core.security import (
     get_current_user,
     require_roles,
 )
-from schemas.users import LoginRequest, UserCreate, PasswordChangeRequest
+from schemas.users import LoginRequest, UserCreate, PasswordChangeRequest, UserUpdate, UserPasswordReset
 from core.audit import record_audit
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
@@ -126,3 +126,93 @@ def create_user(
     db.commit()
     db.refresh(user)
     return {"id": user.id, "username": user.username, "full_name": user.full_name, "role": user.role}
+
+@router.put("/users/{user_id}")
+def update_user(
+    user_id: int,
+    req: UserUpdate,
+    current_user: User = Depends(require_roles(["directivo"])),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    if req.username is not None and req.username.strip():
+        new_username = req.username.strip()
+        if new_username != user.username:
+            existing = db.query(User).filter(User.username == new_username).first()
+            if existing:
+                raise HTTPException(status_code=400, detail=f"El nombre de usuario '{new_username}' ya existe.")
+            user.username = new_username
+
+    if req.full_name is not None and req.full_name.strip():
+        user.full_name = req.full_name.strip()
+
+    if req.role is not None and req.role in ["cajera", "administradora", "directivo"]:
+        user.role = req.role
+
+    if req.password is not None and len(req.password.strip()) >= 4:
+        user.password_hash = hash_password(req.password.strip())
+
+    if req.is_active is not None:
+        user.is_active = req.is_active
+
+    db.commit()
+    db.refresh(user)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active
+    }
+
+@router.patch("/users/{user_id}/password")
+def reset_user_password(
+    user_id: int,
+    req: UserPasswordReset,
+    current_user: User = Depends(require_roles(["directivo"])),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if len(req.new_password) < 4:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 4 caracteres.")
+
+    user.password_hash = hash_password(req.new_password)
+    db.commit()
+    return {"success": True, "message": f"Contraseña restablecida para el usuario {user.username}."}
+
+@router.patch("/users/{user_id}/toggle-status")
+def toggle_user_status(
+    user_id: int,
+    current_user: User = Depends(require_roles(["directivo"])),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puede desactivar su propia cuenta.")
+
+    user.is_active = not user.is_active
+    db.commit()
+    return {"success": True, "is_active": user.is_active, "message": f"Estado del usuario {user.username} actualizado."}
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    current_user: User = Depends(require_roles(["directivo"])),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puede eliminar su propia cuenta directiva.")
+
+    db.delete(user)
+    db.commit()
+    return {"success": True, "message": f"Usuario {user.username} eliminado correctamente."}

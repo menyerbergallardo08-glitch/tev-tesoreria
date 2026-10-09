@@ -4360,7 +4360,7 @@
 
         async loadUsers() {
           const token = this.getToken();
-          const res = await fetch('/api/users', {
+          const res = await fetch('/api/auth/users', {
             headers: { 'Authorization': 'Bearer ' + token }
           });
           if (res.ok) {
@@ -4501,7 +4501,7 @@
         async createUser() {
           const token = this.getToken();
           try {
-            const res = await fetch('/api/users', {
+            const res = await fetch('/api/auth/users', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -4530,7 +4530,7 @@
         async resetUserPassword() {
           const token = this.getToken();
           try {
-            const res = await fetch('/api/users/' + this.selectedUserForReset.id + '/password', {
+            const res = await fetch('/api/auth/users/' + this.selectedUserForReset.id + '/password', {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
@@ -4551,7 +4551,7 @@
         async toggleUserStatus(userId) {
           const token = this.getToken();
           try {
-            const res = await fetch('/api/users/' + userId + '/toggle-status', {
+            const res = await fetch('/api/auth/users/' + userId + '/toggle-status', {
               method: 'PATCH',
               headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -4587,7 +4587,7 @@
               payload.password = this.editUserForm.password.trim();
             }
 
-            const res = await fetch('/api/users/' + this.editUserForm.id, {
+            const res = await fetch('/api/auth/users/' + this.editUserForm.id, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -4612,7 +4612,7 @@
           }
           const token = this.getToken();
           try {
-            const res = await fetch('/api/users/' + user.id, {
+            const res = await fetch('/api/auth/users/' + user.id, {
               method: 'DELETE',
               headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -4625,6 +4625,7 @@
             this.showToast('error', 'Error al eliminar', err.message);
           }
         },
+
 
         async purgeTestUsers() {
           if (!confirm('¿Desea eliminar TODOS los usuarios de prueba existentes y dejar únicamente la cuenta Master/Directivo?')) {
