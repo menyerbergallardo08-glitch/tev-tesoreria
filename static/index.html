@@ -37,7 +37,15 @@
   <!-- Estilos globales y reglas de impresion -->
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
-  <script src="/static/js/app_legacy.js"></script>
+    <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
+  <script src="/static/js/state.js"></script>
+  <script src="/static/js/controllers/auth_core.js"></script>
+  <script src="/static/js/controllers/pos_sales.js"></script>
+  <script src="/static/js/controllers/cxc_collections.js"></script>
+  <script src="/static/js/controllers/cash_close.js"></script>
+  <script src="/static/js/controllers/expenses.js"></script>
+  <script src="/static/js/controllers/reports.js"></script>
+  <script src="/static/js/app_orchestrator.js"></script>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
