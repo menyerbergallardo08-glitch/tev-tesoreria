@@ -1,0 +1,132 @@
+      <div x-show="activeTab === 'live_monitor'" class="space-y-6">
+        
+        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <span>🕒 Monitor de Fondos y Caja en Vivo</span>
+              <span class="text-xs px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold animate-pulse">EN VIVO</span>
+            </h2>
+            <p class="text-xs text-gray-500">Arqueo instantáneo de gaveta y saldos exactos a cualquier hora del día</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <p class="text-xs font-bold text-gray-400">Hora del Sistema:</p>
+              <p class="text-sm font-black text-gray-800" x-text="liveMonitorData?.time || '--:--'"></p>
+            </div>
+            <button @click="loadLiveMonitor()" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition flex items-center gap-1">
+              <span>🔄</span> Actualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- Tarjetas de Fondos Esperados en Este Segundo -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
+            <p class="text-[11px] font-bold text-emerald-800 uppercase">💵 Gaveta USD</p>
+            <p class="text-xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.cash_usd_expected || 0)"></p>
+            <p class="text-[10px] text-emerald-700 mt-0.5">Efectivo en gaveta</p>
+          </div>
+
+          <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
+            <p class="text-[11px] font-bold text-emerald-800 uppercase">🇻🇪 Gaveta VES</p>
+            <p class="text-xl font-black text-emerald-950 mt-1" x-text="'Bs. ' + formatNumber(liveMonitorData?.live_funds_expected?.cash_ves_expected || 0)"></p>
+            <p class="text-[10px] text-emerald-700 mt-0.5">Bolívares en gaveta</p>
+          </div>
+
+          <div class="p-4 bg-blue-50 rounded-2xl border border-blue-200 text-center">
+            <p class="text-[11px] font-bold text-blue-800 uppercase">💳 POS Banesco</p>
+            <p class="text-xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.pos_banesco || 0)"></p>
+            <p class="text-[10px] text-blue-700 mt-0.5">Acumulado punto</p>
+          </div>
+
+          <div class="p-4 bg-blue-50 rounded-2xl border border-blue-200 text-center">
+            <p class="text-[11px] font-bold text-blue-800 uppercase">💳 POS Bancaribe</p>
+            <p class="text-xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.pos_bancaribe || 0)"></p>
+            <p class="text-[10px] text-blue-700 mt-0.5">Acumulado punto</p>
+          </div>
+
+          <div class="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-center">
+            <p class="text-[11px] font-bold text-purple-800 uppercase">📲 Pago Móvil</p>
+            <p class="text-xl font-black text-purple-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.pago_movil_usd || 0)"></p>
+            <p class="text-[10px] text-purple-700 mt-0.5">Bancos recibidos</p>
+          </div>
+
+          <div class="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-center">
+            <p class="text-[11px] font-bold text-amber-800 uppercase">🟡 Cashea</p>
+            <p class="text-xl font-black text-amber-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.cashea_usd || 0)"></p>
+            <p class="text-[10px] text-amber-700 mt-0.5">BNC Cashea</p>
+          </div>
+        </div>
+
+        <!-- Resumen de Ventas Acumuladas hasta esta hora -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <h3 class="text-base font-black text-gray-900">📊 Desglose de Ventas del Día hasta este Minuto</h3>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+            <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+              <p class="text-emerald-800 font-bold">🟢 Facturas Fiscales Contado:</p>
+              <p class="text-lg font-black text-emerald-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.fac_contado_usd || 0)"></p>
+            </div>
+
+            <div class="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+              <p class="text-emerald-800 font-bold">🟢 Facturas Fiscales a Crédito:</p>
+              <p class="text-lg font-black text-emerald-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.fac_credito_usd || 0)"></p>
+            </div>
+
+            <div class="p-3 bg-blue-50 rounded-xl border border-blue-100">
+              <p class="text-blue-800 font-bold">🔵 Notas de Entrega Contado:</p>
+              <p class="text-lg font-black text-blue-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.not_contado_usd || 0)"></p>
+            </div>
+
+            <div class="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+              <p class="text-blue-800 font-bold">🔵 Notas de Entrega a Crédito:</p>
+              <p class="text-lg font-black text-blue-950" x-text="'$' + formatNumber(liveMonitorData?.sales?.not_credito_usd || 0)"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flujo de Ventas en Vivo (Live Stream de Operaciones) -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-3">
+          <h3 class="text-base font-black text-gray-900">⚡ Registro de Ventas del Turno</h3>
+          <div class="overflow-x-auto max-h-80 overflow-y-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold sticky top-0 border-b">
+                  <th class="p-2.5">Hora</th>
+                  <th class="p-2.5">Documento</th>
+                  <th class="p-2.5">Cliente</th>
+                  <th class="p-2.5">Tipo Cobro</th>
+                  <th class="p-2.5">Cuenta / Punto</th>
+                  <th class="p-2.5 text-right">Monto ($)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="item in liveMonitorData?.recent_stream || []" :key="item.id">
+                  <tr class="hover:bg-slate-50">
+                    <td class="p-2.5 font-bold text-gray-500" x-text="item.created_at"></td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[10px]"
+                            :class="item.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-100 text-emerald-800' : (item.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800')"
+                            x-text="item.doc_type + ' (' + item.doc_number + ')'"></span>
+                    </td>
+                    <td class="p-2.5 font-semibold text-gray-800" x-text="item.client_name"></td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full font-bold text-[10px]"
+                            :class="item.is_credit ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'"
+                            x-text="item.is_credit ? 'Crédito CxC' : 'Contado'"></span>
+                    </td>
+                    <td class="p-2.5 text-gray-600" x-text="item.account_name"></td>
+                    <td class="p-2.5 text-right font-black text-gray-900" x-text="'$' + formatNumber(item.amount_usd)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+            <!-- ======================================================== -->
+      <!-- TAB: CUENTAS POR COBRAR (CxC CLIENTES & CxC CASHEA) -->
+      <!-- ======================================================== -->

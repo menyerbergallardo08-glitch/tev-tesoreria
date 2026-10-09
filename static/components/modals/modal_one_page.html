@@ -1,0 +1,339 @@
+    <!-- MODAL ONE-PAGE EXECUTIVE REPORT (IMPRIMIBLE / PDF) -->
+    <!-- ======================================================== -->
+    <div x-show="showOnePageModal" class="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-4 sm:p-8 max-w-4xl w-full border border-gray-200 my-4 sm:my-6 relative">
+
+        <!-- Barra de Botones en Pantalla (Sticky Superior Siempre Visible) -->
+        <div class="sticky top-0 z-30 bg-white/95 backdrop-blur-md pt-1 pb-4 mb-4 border-b-2 border-gray-200 no-print flex flex-wrap justify-between items-center gap-3">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <button @click="showOnePageModal = false" class="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 border border-gray-300 transition shadow-sm">
+              <span>⬅️ Volver</span>
+            </button>
+            <div>
+              <h3 class="text-sm sm:text-lg font-black text-gray-900 leading-tight">Reporte Ejecutivo One-Page</h3>
+              <p class="text-[11px] text-gray-500 hidden sm:block">Formato imprimible con firmas listo para entregar</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- Selector de Modo: Mensual vs Diario -->
+            <div class="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-300">
+              <button @click="onePageMode = 'mensual'" :class="onePageMode === 'mensual' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-2.5 sm:px-3 py-1 text-xs rounded-lg transition">
+                📅 Mensual
+              </button>
+              <button @click="onePageMode = 'diario'; loadDailyOnePage()" :class="onePageMode === 'diario' ? 'bg-white shadow text-teal-900 font-black' : 'text-gray-600 font-bold'" class="px-2.5 sm:px-3 py-1 text-xs rounded-lg transition">
+                📆 Diario
+              </button>
+            </div>
+            <div x-show="onePageMode === 'diario'" class="flex items-center gap-1">
+              <input type="date" x-model="onePageDate" @change="loadDailyOnePage()" class="p-1.5 border border-teal-300 rounded-lg text-xs font-bold bg-teal-50 text-gray-800">
+            </div>
+            <button @click="printReport()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition">
+              <span>🖨️ Imprimir / PDF</span>
+            </button>
+            <button @click="showOnePageModal = false" class="p-1.5 text-gray-400 hover:text-gray-700 font-bold text-xl" title="Cerrar">✕</button>
+          </div>
+        </div>
+
+        <!-- ÁREA IMPRIMIBLE ONE-PAGE -->
+        <div id="print-area" class="space-y-6 text-gray-900">
+
+          <!-- VISTA MENSUAL -->
+          <div x-show="onePageMode === 'mensual'" class="space-y-6">
+          <!-- Encabezado Corporativo TEV con RIF Configurable -->
+          <div class="flex items-center justify-between border-b-2 border-gray-800 pb-4">
+            <div class="flex items-center gap-4">
+              <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-16 object-contain">
+              <div>
+                <h1 class="text-xl font-black text-gray-900 tracking-tight">TODO ELÉCTRICO VALENCIA, C.A.</h1>
+                <div class="flex flex-col gap-0.5 text-xs text-gray-700 font-semibold mt-0.5">
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-gray-900">RIF: J-50248654-2</span>
+                    <span class="text-gray-400">•</span>
+                    <span class="text-gray-600">El Viñedo, Valencia, Edo. Carabobo</span>
+                  </div>
+                  <div class="text-[11px] text-gray-500 font-normal">
+                    Av. Monseñor Adams, frente a la Plaza de Las Esculturas. Venezuela.
+                  </div>
+                </div>
+                <p class="text-xs font-black text-teal-800 uppercase tracking-wide mt-1">REPORTE EJECUTIVO DE FLUJO DE CAJA Y TESORERÍA</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="inline-block px-3 py-1 bg-teal-100 text-teal-900 rounded-lg font-black text-sm uppercase">
+                Periodo: <span x-text="cashFlowData.month"></span>
+              </span>
+              <p class="text-xs text-gray-500 mt-1">Fecha Emisión: <strong x-text="new Date().toLocaleDateString('es-VE')"></strong></p>
+            </div>
+          </div>
+
+          <!-- 1. Cuadro Resumen Gerencial -->
+          <div class="grid grid-cols-4 gap-3 text-center border p-4 rounded-xl bg-slate-50 border-gray-300 text-xs">
+            <div>
+              <p class="text-gray-500 font-bold uppercase">Saldo Inicial</p>
+              <p class="text-lg font-black text-gray-900 mt-1">$<span x-text="formatNumber(cashFlowData.initial_balance_usd)"></span></p>
+            </div>
+            <div>
+              <p class="text-emerald-700 font-bold uppercase">(+) Ingresos</p>
+              <p class="text-lg font-black text-emerald-800 mt-1">$<span x-text="formatNumber(cashFlowData.total_inflows_usd)"></span></p>
+            </div>
+            <div>
+              <p class="text-rose-700 font-bold uppercase">(-) Egresos</p>
+              <p class="text-lg font-black text-rose-800 mt-1">$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></p>
+            </div>
+            <div class="bg-teal-900 text-white rounded-lg p-2">
+              <p class="text-teal-200 font-bold uppercase">Saldo Final</p>
+              <p class="text-xl font-black text-white mt-0.5">$<span x-text="formatNumber(cashFlowData.final_balance_usd)"></span></p>
+            </div>
+          </div>
+
+          <!-- 2. Detalle de Entradas y Salidas Operativas -->
+          <div class="grid grid-cols-2 gap-4 text-xs">
+            <!-- Ingresos -->
+            <div class="border border-gray-300 rounded-xl p-3">
+              <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-emerald-800">1. INGRESOS / ENTRADAS</h4>
+              <div class="space-y-1">
+                <div class="flex justify-between">
+                  <span>Ventas Mostrador / Tienda:</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.inflows_breakdown?.ventas_usd)"></span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Cobros Cuentas por Cobrar (CxC):</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.inflows_breakdown?.cobros_cxc_usd)"></span></span>
+                </div>
+                <div class="flex justify-between pt-1 border-t font-black text-emerald-900">
+                  <span>TOTAL INGRESOS:</span>
+                  <span>$<span x-text="formatNumber(cashFlowData.total_inflows_usd)"></span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Egresos -->
+            <div class="border border-gray-300 rounded-xl p-3">
+              <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-rose-800">2. EGRESOS / SALIDAS</h4>
+              <div class="space-y-1">
+                <div class="flex justify-between">
+                  <span>Gastos Operativos (Partidas):</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.outflows_breakdown?.gastos_operativos_usd)"></span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Pagos a Proveedores (Mercancía):</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.outflows_breakdown?.pagos_proveedores_usd)"></span></span>
+                </div>
+                <div class="flex justify-between text-blue-800">
+                  <span>Diferencial Cambiario Traspasos:</span>
+                  <span class="font-bold">$<span x-text="formatNumber(cashFlowData.fx_differential_usd)"></span></span>
+                </div>
+                <div class="flex justify-between pt-1 border-t font-black text-rose-900">
+                  <span>TOTAL EGRESOS:</span>
+                  <span>$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Disponibilidad por Moneda y Cajas -->
+          <div class="border border-gray-300 rounded-xl p-3 text-xs">
+            <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-teal-900">3. DISPONIBILIDAD REAL POR CAJAS Y BILLETERAS</h4>
+            <table class="w-full text-left">
+              <thead>
+                <tr class="text-gray-500 font-bold border-b">
+                  <th class="pb-1">Caja / Banco</th>
+                  <th class="pb-1 text-center">Moneda</th>
+                  <th class="pb-1 text-right">Saldo Inicial</th>
+                  <th class="pb-1 text-right">Ingresos</th>
+                  <th class="pb-1 text-right">Egresos</th>
+                  <th class="pb-1 text-right">Saldo Final (Nativo)</th>
+                  <th class="pb-1 text-right font-black">Saldo ($ USD)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="acc in cashFlowData.accounts_detail" :key="acc.account_id">
+                  <tr>
+                    <td class="py-1 font-bold" x-text="acc.name"></td>
+                    <td class="py-1 text-center" x-text="acc.currency"></td>
+                    <td class="py-1 text-right" x-text="formatNumber(acc.initial_balance)"></td>
+                    <td class="py-1 text-right text-emerald-700" x-text="formatNumber(acc.inflows_orig)"></td>
+                    <td class="py-1 text-right text-rose-700" x-text="formatNumber(acc.outflows_orig)"></td>
+                    <td class="py-1 text-right font-bold" x-text="formatNumber(acc.final_balance) + ' ' + acc.currency"></td>
+                    <td class="py-1 text-right font-black text-teal-900" x-text="'$' + formatNumber(acc.final_balance_usd)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 4. Firmas de Conformidad -->
+          <div class="grid grid-cols-2 gap-12 pt-6 text-center text-xs">
+            <div class="border-t border-gray-400 pt-2">
+              <p class="font-bold text-gray-800">Elaborado y Revisado por:</p>
+              <p class="text-gray-600 mt-1">Administradora TEV</p>
+              <p class="text-[10px] text-gray-400">Tesorería y Control Administrativo</p>
+            </div>
+            <div class="border-t border-gray-400 pt-2">
+              <p class="font-bold text-gray-800">Aprobado por:</p>
+              <p class="text-gray-600 mt-1">Dirección General</p>
+              <p class="text-[10px] text-gray-400">Todo Eléctrico Valencia, C.A.</p>
+            </div>
+          </div>
+          </div>
+
+          <!-- VISTA ONE-PAGE DIARIA -->
+          <div x-show="onePageMode === 'diario'" class="space-y-5">
+            <!-- Encabezado Corporativo Diario -->
+            <div class="flex items-center justify-between border-b-2 border-gray-800 pb-3">
+              <div class="flex items-center gap-4">
+                <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-14 object-contain">
+                <div>
+                  <h1 class="text-xl font-black text-gray-900 tracking-tight">TODO ELÉCTRICO VALENCIA, C.A.</h1>
+                  <div class="flex items-center gap-2 text-xs text-gray-700 font-semibold">
+                    <span class="font-bold text-gray-900">RIF: J-50248654-2</span>
+                    <span>•</span>
+                    <span>El Viñedo, Valencia, Edo. Carabobo</span>
+                  </div>
+                  <p class="text-xs font-black text-teal-800 uppercase tracking-wide mt-0.5">REPORTE EJECUTIVO DIARIO DE TESORERÍA Y CAJA</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="inline-block px-3 py-1 bg-teal-100 text-teal-900 rounded-lg font-black text-xs uppercase">
+                  Día: <span x-text="onePageDate"></span>
+                </span>
+                <p class="text-xs text-emerald-800 font-bold mt-1">Tasa Oficial BCV: <strong>Bs. <span x-text="formatNumber(dailyOnePageData?.bcv_rate || bcvRate)"></span></strong></p>
+                <p class="text-[10px] text-gray-400">Emisión: <span x-text="new Date().toLocaleTimeString('es-VE')"></span></p>
+              </div>
+            </div>
+
+            <!-- Resumen del Día -->
+            <div class="grid grid-cols-4 gap-3 text-center border p-3.5 rounded-xl bg-slate-50 border-gray-300 text-xs">
+              <div>
+                <p class="text-emerald-700 font-bold uppercase">(+) Ingresos Día</p>
+                <p class="text-lg font-black text-emerald-800 mt-0.5">$<span x-text="formatNumber(dailyOnePageData?.total_inflows_usd)"></span></p>
+              </div>
+              <div>
+                <p class="text-rose-700 font-bold uppercase">(-) Egresos Día</p>
+                <p class="text-lg font-black text-rose-800 mt-0.5">$<span x-text="formatNumber(dailyOnePageData?.total_outflows_usd)"></span></p>
+              </div>
+              <div class="rounded-lg p-1.5" :class="(dailyOnePageData?.net_day_usd || 0) >= 0 ? 'bg-emerald-100 text-emerald-950' : 'bg-rose-100 text-rose-950'">
+                <p class="font-bold uppercase text-[10px]">Flujo Neto del Día</p>
+                <p class="text-lg font-black mt-0.5" x-text="((dailyOnePageData?.net_day_usd || 0) >= 0 ? '+$' : '-$') + formatNumber(Math.abs(dailyOnePageData?.net_day_usd || 0))"></p>
+              </div>
+              <div class="bg-teal-900 text-white rounded-lg p-1.5">
+                <p class="text-teal-200 font-bold uppercase text-[10px]">Operaciones</p>
+                <p class="text-lg font-black text-white mt-0.5" x-text="(dailyOnePageData?.count_transactions || 0) + ' trans.'"></p>
+              </div>
+            </div>
+
+            <!-- Desglose de Entradas y Salidas del Día -->
+            <div class="grid grid-cols-2 gap-4 text-xs">
+              <!-- Entradas del Día -->
+              <div class="border border-gray-300 rounded-xl p-3">
+                <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-emerald-800">1. INGRESOS DE LA JORNADA</h4>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between">
+                    <span>Ventas Mostrador / Cierres Z:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.inflows_breakdown?.ventas_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Cobros Cuentas por Cobrar (CxC):</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.inflows_breakdown?.cobros_cxc_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Otros Ingresos / Aportes:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.inflows_breakdown?.otros_inflows_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between pt-1 border-t font-black text-emerald-900">
+                    <span>TOTAL INGRESOS DÍA:</span>
+                    <span>$<span x-text="formatNumber(dailyOnePageData?.total_inflows_usd)"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Salidas del Día -->
+              <div class="border border-gray-300 rounded-xl p-3">
+                <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-rose-800">2. EGRESOS DE LA JORNADA</h4>
+                <div class="space-y-1.5">
+                  <div class="flex justify-between">
+                    <span>Pago a Proveedores / Mercancía:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.outflows_breakdown?.pago_proveedores_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Gastos Operativos (Partidas):</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.outflows_breakdown?.gastos_operativos_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Otros Egresos / Retiros:</span>
+                    <span class="font-bold">$<span x-text="formatNumber(dailyOnePageData?.outflows_breakdown?.otros_outflows_usd)"></span></span>
+                  </div>
+                  <div class="flex justify-between pt-1 border-t font-black text-rose-900">
+                    <span>TOTAL EGRESOS DÍA:</span>
+                    <span>$<span x-text="formatNumber(dailyOnePageData?.total_outflows_usd)"></span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resumen por Caja / Banco del Día -->
+            <div class="border border-gray-300 rounded-xl p-3 text-xs">
+              <h4 class="font-bold text-gray-900 border-b pb-1 mb-2 text-teal-900">3. MOVIMIENTO EN CAJAS Y BANCOS DEL DÍA</h4>
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="text-gray-500 border-b text-[11px]">
+                    <th class="pb-1 text-left">Caja / Cuenta</th>
+                    <th class="pb-1 text-center">Moneda</th>
+                    <th class="pb-1 text-right">Ingresos Día</th>
+                    <th class="pb-1 text-right">Egresos Día</th>
+                    <th class="pb-1 text-right font-black">Neto Movimiento</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="(summary, accName) in (dailyOnePageData?.accounts_summary || {})" :key="accName">
+                    <tr>
+                      <td class="py-1 font-bold" x-text="accName"></td>
+                      <td class="py-1 text-center font-semibold" x-text="summary.currency"></td>
+                      <td class="py-1 text-right text-emerald-700" x-text="formatNumber(summary.ingresos)"></td>
+                      <td class="py-1 text-right text-rose-700" x-text="formatNumber(summary.egresos)"></td>
+                      <td class="py-1 text-right font-black" :class="summary.neto >= 0 ? 'text-emerald-900' : 'text-rose-900'"
+                          x-text="(summary.neto >= 0 ? '+' : '') + formatNumber(summary.neto) + ' ' + summary.currency"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Firmas de Conformidad -->
+            <div class="grid grid-cols-2 gap-12 pt-5 text-center text-xs">
+              <div class="border-t border-gray-400 pt-2">
+                <p class="font-bold text-gray-800">Elaborado y Entregado por:</p>
+                <p class="text-gray-600 mt-1">Caja / Tesorería TEV</p>
+                <p class="text-[10px] text-gray-400">Control Operativo Diario</p>
+              </div>
+              <div class="border-t border-gray-400 pt-2">
+                <p class="font-bold text-gray-800">Recibido y Aprobado por:</p>
+                <p class="text-gray-600 mt-1">Dirección General</p>
+                <p class="text-[10px] text-gray-400">Todo Eléctrico Valencia, C.A.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Botones de Acción al Final del Reporte (no-print) -->
+        <div class="pt-6 border-t mt-6 flex justify-between items-center no-print">
+          <button @click="showOnePageModal = false" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm border border-gray-300 transition">
+            ⬅️ Volver a la Aplicación
+          </button>
+          <button @click="printReport()" class="px-6 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-sm shadow-md flex items-center gap-2 transition">
+            <span>🖨️ Imprimir / Guardar en PDF</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    
+    <!-- ======================================================== -->
+    <!-- MODAL ACTUALIZAR TASA BCV OFICIAL -->
+    <!-- ======================================================== -->
+    
+
+    <!-- ======================================================== -->

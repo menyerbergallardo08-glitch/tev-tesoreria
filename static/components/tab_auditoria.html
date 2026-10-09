@@ -1,0 +1,81 @@
+      <div x-show="activeTab === 'auditoria' && (currentUser?.role === 'directivo' || currentUser?.role === 'administradora')" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <span>🛡️ Pistas de Auditoría y Trazabilidad Forense</span>
+              <span class="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">Inalterable</span>
+            </h2>
+            <p class="text-sm text-gray-500">Registro cronológico de quién, cuándo y qué acción realizó en el sistema</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" x-model="auditFilterAction" @input="loadAuditLogs()" placeholder="Filtrar por acción..."
+                   class="p-2 border border-gray-300 rounded-xl text-xs">
+            <input type="text" x-model="auditFilterUser" @input="loadAuditLogs()" placeholder="Filtrar por usuario..."
+                   class="p-2 border border-gray-300 rounded-xl text-xs">
+            <button @click="loadAuditLogs()" class="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-1">
+              <span>🔄 Actualizar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-3.5">ID / Fecha & Hora</th>
+                  <th class="p-3.5">Usuario Responsable</th>
+                  <th class="p-3.5">Acción Realizada</th>
+                  <th class="p-3.5">Entidad Afectada</th>
+                  <th class="p-3.5">Dirección IP</th>
+                  <th class="p-3.5 text-center">Detalle Forense</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-xs">
+                <template x-if="auditLogs.length === 0">
+                  <tr>
+                    <td colspan="6" class="p-8 text-center text-gray-400 font-medium">No se encontraron eventos de auditoría registrados.</td>
+                  </tr>
+                </template>
+                <template x-for="log in auditLogs" :key="log.id">
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="p-3.5">
+                      <span class="font-bold text-gray-800" x-text="'#' + log.id"></span>
+                      <div class="text-[11px] text-gray-500 font-mono" x-text="log.timestamp"></div>
+                    </td>
+                    <td class="p-3.5">
+                      <span class="font-bold text-teal-900 font-mono" x-text="log.username"></span>
+                      <div class="text-[10px] text-gray-400" x-text="'User ID: ' + (log.user_id || 'Sys')"></div>
+                    </td>
+                    <td class="p-3.5">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="{
+                              'bg-emerald-100 text-emerald-800': log.action.includes('SALE') || log.action.includes('CREATE'),
+                              'bg-blue-100 text-blue-800': log.action.includes('ABONO') || log.action.includes('TRANSFER'),
+                              'bg-amber-100 text-amber-800': log.action.includes('CLOSE') || log.action.includes('UPDATE'),
+                              'bg-rose-100 text-rose-800': log.action.includes('VOID') || log.action.includes('RESET') || log.action.includes('DELETE')
+                            }"
+                            x-text="log.action">
+                      </span>
+                    </td>
+                    <td class="p-3.5 font-medium text-gray-700">
+                      <span x-text="log.entity_type"></span>
+                      <span x-show="log.entity_id" class="text-gray-400" x-text="' (#' + log.entity_id + ')'"></span>
+                    </td>
+                    <td class="p-3.5 font-mono text-gray-500" x-text="log.ip_address || '127.0.0.1'"></td>
+                    <td class="p-3.5 text-center">
+                      <button @click="viewAuditDetail(log)" class="px-2.5 py-1 bg-gray-100 hover:bg-slate-200 text-gray-700 rounded-lg text-xs font-bold transition">
+                        🔍 Ver Datos
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ======================================================== -->

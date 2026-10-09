@@ -1,0 +1,159 @@
+      <div x-show="activeTab === 'ventas_acum'" class="space-y-6">
+        
+        <!-- Header con Selector de Modo: Por Día vs Por Mes -->
+        <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <span>📈 Ventas Acumuladas & Reporte SENIAT</span>
+              <span class="text-xs px-2.5 py-0.5 bg-indigo-100 text-indigo-900 rounded-full font-bold" x-text="salesAccumulatedData?.period_label || 'Ventas'"></span>
+            </h2>
+            <p class="text-xs text-gray-500">Auditoría de facturas fiscales, notas de entrega (contado/crédito) y retenciones</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            
+            <!-- Selector de Modo (Día vs Mes) -->
+            <div class="flex items-center bg-slate-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
+              <button type="button" @click="salesFilterMode = 'dia'; loadSalesAccumulated()"
+                      :class="salesFilterMode === 'dia' ? 'bg-indigo-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                      class="px-3 py-1.5 rounded-xl text-xs transition cursor-pointer">
+                📅 Por Día
+              </button>
+              <button type="button" @click="salesFilterMode = 'mes'; loadSalesAccumulated()"
+                      :class="salesFilterMode === 'mes' ? 'bg-indigo-700 text-white shadow font-black' : 'text-gray-700 font-bold hover:bg-gray-200'"
+                      class="px-3 py-1.5 rounded-xl text-xs transition cursor-pointer">
+                📆 Por Mes
+              </button>
+            </div>
+
+            <!-- Input Fecha si es Por Día -->
+            <div x-show="salesFilterMode === 'dia'" class="flex items-center gap-1 bg-white border border-gray-300 rounded-xl px-2.5 py-1.5 text-xs font-bold shadow-sm">
+              <span>Día:</span>
+              <input type="date" x-model="salesFilterDate" @change="loadSalesAccumulated()" class="border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none">
+            </div>
+
+            <!-- Select Mes si es Por Mes -->
+            <div x-show="salesFilterMode === 'mes'">
+              <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white cursor-pointer shadow-sm">
+                <option value="2026-09">Septiembre 2026 (Actual)</option>
+                <option value="2026-08">Agosto 2026</option>
+                <option value="2026-10">Octubre 2026</option>
+              </select>
+            </div>
+
+            <button type="button" @click="loadSalesAccumulated()" class="p-2 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer" title="Refrescar">
+              🔄
+            </button>
+          </div>
+        </div>
+
+        <!-- 5 Tarjetas Ejecutivas Claras e Inequívocas -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          
+          <!-- 1. Total Facturación Fiscal -->
+          <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-emerald-900 uppercase">🧾 Facturación Fiscal (Con IVA)</p>
+              <p class="text-xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_fiscal_iva_usd || 0)"></p>
+            </div>
+            <div class="pt-2 border-t border-emerald-200 text-[10px] text-emerald-800 flex justify-between font-bold">
+              <span>Contado: $<span x-text="formatNumber(salesAccumulatedData?.fac_contado_usd || 0)"></span></span>
+              <span>Crédito: $<span x-text="formatNumber(salesAccumulatedData?.fac_credito_usd || 0)"></span></span>
+            </div>
+          </div>
+
+          <!-- 2. Total Notas de Entrega / Despacho -->
+          <div class="bg-blue-50 p-4 rounded-2xl border border-blue-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-blue-900 uppercase">📦 Notas de Entrega (Despacho)</p>
+              <p class="text-xl font-black text-blue-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_notes_despacho_usd || 0)"></p>
+            </div>
+            <div class="pt-2 border-t border-blue-200 text-[10px] text-blue-800 flex justify-between font-bold">
+              <span>Contado: $<span x-text="formatNumber(salesAccumulatedData?.not_contado_usd || 0)"></span></span>
+              <span>Crédito: $<span x-text="formatNumber(salesAccumulatedData?.not_credito_usd || 0)"></span></span>
+            </div>
+          </div>
+
+          <!-- 3. Total Ventas de Contado (Entró a Caja) -->
+          <div class="bg-teal-50 p-4 rounded-2xl border border-teal-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-teal-900 uppercase">💵 Total Ventas de Contado</p>
+              <p class="text-xl font-black text-teal-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_sales_contado_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-teal-700 font-semibold mt-2">Cobrado en Efectivo / POS / Banco</p>
+          </div>
+
+          <!-- 4. Total Ventas a Crédito (Cartera CxC) -->
+          <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-200 flex flex-col justify-between">
+            <div>
+              <p class="text-[11px] font-black text-indigo-900 uppercase">📑 Total Ventas a Crédito (CxC)</p>
+              <p class="text-xl font-black text-indigo-950 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.total_sales_credito_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-indigo-700 font-semibold mt-2">Cuentas por Cobrar generadas</p>
+          </div>
+
+          <!-- 5. Venta Neta Total -->
+          <div class="bg-slate-900 text-white p-4 rounded-2xl flex flex-col justify-between shadow-md">
+            <div>
+              <p class="text-[11px] font-black text-emerald-300 uppercase">⭐ Venta Comercial Neta Total</p>
+              <p class="text-xl font-black text-emerald-400 mt-1" x-text="'$' + formatNumber(salesAccumulatedData?.net_sales_usd || 0)"></p>
+            </div>
+            <p class="text-[10px] text-gray-300 font-semibold mt-2">Facturas + Notas - Devoluciones</p>
+          </div>
+        </div>
+
+        <!-- Tabla Detallada de Documentos Emitidos en el Periodo -->
+        <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200 space-y-3">
+          <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+            <h3 class="text-sm font-black text-gray-900">📑 Detalle de Ventas y Documentos del Periodo</h3>
+            <span class="text-xs text-gray-500 font-bold" x-text="(salesAccumulatedData?.records?.length || 0) + ' documentos'"></span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-2.5">Fecha</th>
+                  <th class="p-2.5">Documento</th>
+                  <th class="p-2.5">N° Control / Factura</th>
+                  <th class="p-2.5">Cliente</th>
+                  <th class="p-2.5 text-center">Condición</th>
+                  <th class="p-2.5 text-right">Monto Original</th>
+                  <th class="p-2.5 text-right">Monto ($ USD)</th>
+                  <th class="p-2.5 text-right">Retención ($)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="rec in salesAccumulatedData?.records" :key="rec.id">
+                  <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-2.5 font-bold" x-text="rec.date"></td>
+                    <td class="p-2.5">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black"
+                            :class="rec.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-100 text-emerald-800' : (rec.doc_type === 'NOTA_ENTREGA' ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800')"
+                            x-text="rec.doc_type === 'FACTURA_FISCAL' ? 'Factura Fiscal' : (rec.doc_type === 'NOTA_ENTREGA' ? 'Nota Entrega' : rec.doc_type)"></span>
+                    </td>
+                    <td class="p-2.5 font-mono font-bold" x-text="rec.doc_number"></td>
+                    <td class="p-2.5 font-semibold text-gray-800" x-text="rec.client_name"></td>
+                    <td class="p-2.5 text-center">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            :class="rec.is_credit ? 'bg-indigo-100 text-indigo-800' : 'bg-teal-100 text-teal-800'"
+                            x-text="rec.is_credit ? 'Crédito (CxC)' : 'Contado'"></span>
+                    </td>
+                    <td class="p-2.5 text-right font-semibold" x-text="(rec.currency === 'USD' ? '$' : 'Bs. ') + formatNumber(rec.amount_original)"></td>
+                    <td class="p-2.5 text-right font-black text-gray-900" x-text="'$' + formatNumber(rec.amount_usd)"></td>
+                    <td class="p-2.5 text-right font-bold text-purple-900" x-text="rec.tax_retention_amount > 0 ? '$' + formatNumber(rec.tax_retention_amount) : '-'"></td>
+                  </tr>
+                </template>
+                <tr x-show="!salesAccumulatedData?.records || salesAccumulatedData?.records.length === 0">
+                  <td colspan="8" class="p-6 text-center text-gray-400">No se encontraron ventas para este periodo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 3: FLUJO DE CAJA INTEGRAL (CON 3 VISTAS + ONE-PAGE) -->
+      <!-- ======================================================== -->

@@ -1,0 +1,84 @@
+      <div x-show="activeTab === 'usuarios' && currentUser?.role === 'directivo'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Gestión de Usuarios y Accesos</h2>
+            <p class="text-sm text-gray-500">Crear nuevas cuentas, restablecer contraseñas y administrar permisos</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="purgeTestUsers()" class="py-2.5 px-3.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Eliminar cuentas de prueba y dejar solo el usuario Master">
+              <span>👥🧹 Limpiar Usuarios de Prueba</span>
+            </button>
+            <button @click="resetSystemDemo()" class="py-2.5 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Eliminar transacciones de prueba y comenzar operaciones reales limpias">
+              <span>🧹 Resetear Pruebas a 0.00</span>
+            </button>
+            <button @click="showNewUserModal = true" class="btn-large bg-purple-700 hover:bg-purple-800 text-white text-xs sm:text-sm py-2 px-3 sm:px-4 shadow flex items-center gap-1">
+              ➕ Crear Usuario
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-4">ID</th>
+                  <th class="p-4">Nombre Completo</th>
+                  <th class="p-4">Usuario</th>
+                  <th class="p-4">Rol Asignado</th>
+                  <th class="p-4 text-center">Estado</th>
+                  <th class="p-4 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-sm">
+                <template x-for="u in usersList" :key="u.id">
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="p-4 font-bold text-gray-600" x-text="u.id"></td>
+                    <td class="p-4 font-bold text-gray-800" x-text="u.full_name"></td>
+                    <td class="p-4 font-mono font-bold text-teal-900" x-text="u.username"></td>
+                    <td class="p-4">
+                      <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                            :class="{
+                              'bg-teal-100 text-teal-800': u.role === 'cajera',
+                              'bg-amber-100 text-amber-800': u.role === 'administradora',
+                              'bg-purple-100 text-purple-800': u.role === 'directivo'
+                            }"
+                            x-text="getRoleLabel(u.role)">
+                      </span>
+                    </td>
+                    <td class="p-4 text-center">
+                      <span class="px-2 py-0.5 rounded-full text-xs font-bold"
+                            :class="u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                            x-text="u.is_active ? 'Activo' : 'Inactivo'">
+                      </span>
+                    </td>
+                    <td class="p-4 text-center">
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button @click="openEditUserModal(u)" class="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1" title="Editar Nombre, Usuario o Rol">
+                          ✏️ Editar
+                        </button>
+                        <button @click="openResetPasswordModal(u)" class="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold" title="Cambiar clave">
+                          🔑 Clave
+                        </button>
+                        <button x-show="u.id !== currentUser.id" @click="toggleUserStatus(u.id)"
+                                :class="u.is_active ? 'text-amber-700 bg-amber-50 hover:bg-amber-100' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
+                                class="p-1.5 rounded-lg text-xs font-bold">
+                          <span x-text="u.is_active ? 'Pausar' : 'Activar'"></span>
+                        </button>
+                        <button x-show="u.id !== currentUser.id && u.username !== 'master' && u.username !== 'directivo'" @click="deleteUser(u)"
+                                class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1" title="Eliminar usuario">
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 7: PISTAS DE AUDITORÍA & TRAZABILIDAD (DIRECTIVO) -->
+      <!-- ======================================================== -->

@@ -1,0 +1,33 @@
+    <!-- MODAL NUEVO USUARIO -->
+    <div x-show="showNewUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900">➕ Registrar Nuevo Usuario</h3>
+        <form @submit.prevent="createUser()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nombre Completo</label>
+            <input type="text" x-model="newUserForm.full_name" required placeholder="Ej: María Pérez" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Usuario</label>
+            <input type="text" x-model="newUserForm.username" required placeholder="Ej: mperez" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Rol</label>
+            <select x-model="newUserForm.role" required class="w-full p-2.5 border rounded-xl bg-white">
+              <option value="cajera">Cajera / Asistente Administrativa</option>
+              <option value="administradora">Administradora</option>
+              <option value="directivo">Directivo / Dueño</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Contraseña</label>
+            <input type="password" x-model="newUserForm.password" required minlength="4" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showNewUserModal = false" class="p-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+            <button type="submit" class="p-2.5 bg-purple-700 text-white rounded-xl font-bold shadow">Crear Usuario</button>
+          </div>
+        </form>
+      </div>
+    </div>
+

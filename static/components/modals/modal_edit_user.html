@@ -1,0 +1,37 @@
+    <!-- MODAL EDITAR USUARIO -->
+    <div x-show="showEditUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-gray-100 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-bold text-gray-900">✏️ Editar Usuario</h3>
+          <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold" x-text="'ID: ' + editUserForm.id"></span>
+        </div>
+        <p class="text-xs text-gray-500">Modifique el nombre, usuario o rol asignado</p>
+        <form @submit.prevent="saveEditUser()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nombre Completo</label>
+            <input type="text" x-model="editUserForm.full_name" required placeholder="Ej: María Pérez" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nombre de Usuario (Login)</label>
+            <input type="text" x-model="editUserForm.username" required placeholder="Ej: mperez" class="w-full p-2.5 border rounded-xl font-mono text-teal-900 font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Rol Asignado</label>
+            <select x-model="editUserForm.role" required class="w-full p-2.5 border rounded-xl bg-white font-medium">
+              <option value="cajera">Cajera / Asistente Administrativa</option>
+              <option value="administradora">Administradora</option>
+              <option value="directivo">Directivo / Dueño</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Nueva Contraseña (Opcional - dejar vacío para mantener la actual)</label>
+            <input type="password" x-model="editUserForm.password" placeholder="••••••••" minlength="4" class="w-full p-2.5 border rounded-xl">
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-4">
+            <button type="button" @click="showEditUserModal = false" class="p-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold">Cancelar</button>
+            <button type="submit" class="p-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold shadow">Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+

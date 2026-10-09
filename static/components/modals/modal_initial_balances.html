@@ -1,0 +1,41 @@
+    <!-- MODAL CARGAR SALDOS INICIALES (AJUSTADO RESPONSIVE Y SCROLLABLE) -->
+    <div x-show="showInitialBalancesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+         style="overflow-y: auto;">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full border border-gray-100 flex flex-col my-auto"
+           style="max-height: 85vh; max-width: 480px;">
+        <div class="flex items-center justify-between pb-3 border-b flex-shrink-0">
+          <div>
+            <h3 class="text-lg font-black text-gray-900">⚙️ Saldos Iniciales del Mes</h3>
+            <p class="text-xs text-gray-500">Apertura con la que inició cada caja en <strong x-text="filterMonth"></strong></p>
+          </div>
+          <button type="button" @click="showInitialBalancesModal = false" class="text-gray-400 hover:text-gray-800 font-black text-2xl px-2 py-1 leading-none rounded-lg hover:bg-gray-100 cursor-pointer" title="Cerrar">✕</button>
+        </div>
+
+        <form @submit.prevent="saveInitialBalances()" class="flex flex-col overflow-hidden pt-3">
+          <div class="space-y-2 pr-1" style="max-height: 48vh; overflow-y: auto;">
+            <template x-for="item in monthlyBalancesForm" :key="item.account_id">
+              <div class="bg-slate-50 p-2 rounded-xl border border-gray-200 flex items-center justify-between gap-2">
+                <div class="truncate">
+                  <p class="text-xs font-bold text-gray-800 truncate" x-text="item.name"></p>
+                  <span class="text-[9px] px-1 py-0.5 rounded bg-gray-200 text-gray-700 font-semibold" x-text="item.currency"></span>
+                </div>
+                <div class="w-32 flex-shrink-0">
+                  <input type="number" step="0.01" min="0" x-model.number="item.initial_balance" required
+                         class="w-full p-1.5 border border-gray-300 rounded-lg text-right font-black text-sm bg-white focus:ring-2 focus:ring-teal-500">
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 pt-4 mt-3 border-t flex-shrink-0">
+            <button type="button" @click="showInitialBalancesModal = false" class="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs cursor-pointer">
+              ⬅️ Volver
+            </button>
+            <button type="submit" class="py-2.5 px-3 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl font-bold text-xs shadow cursor-pointer">
+              💾 Guardar Saldos
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+

@@ -1,0 +1,103 @@
+    <!-- ======================================================== -->
+    <!-- MODAL PROFESIONAL: REGISTRAR ABONO / LIQUIDACIÓN CXC -->
+    <!-- ======================================================== -->
+    <div x-show="showAbonoModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div @click.away="showAbonoModal = false" class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-5 border border-gray-100">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div>
+            <h3 class="text-lg sm:text-xl font-black text-gray-900 flex items-center gap-2">
+              <span x-text="selectedCreditObj?.is_cashea ? '📥 Liquidar Saldo Cashea' : '➕ Registrar Abono a Cuenta por Cobrar'"></span>
+            </h3>
+            <p class="text-xs text-gray-500">Ingrese el pago o abono para rebajar la deuda y sumar a caja/bancos</p>
+          </div>
+          <button type="button" @click="showAbonoModal = false" class="text-gray-400 hover:text-gray-700 font-black text-xl p-1">&times;</button>
+        </div>
+
+        <!-- Tarjeta de Resumen de la Deuda -->
+        <div class="p-4 rounded-2xl border space-y-2"
+             :class="selectedCreditObj?.is_cashea ? 'bg-amber-50/80 border-amber-200' : 'bg-purple-50/80 border-purple-200'">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-gray-600 font-semibold">Documento / Venta:</span>
+            <strong class="text-gray-900" x-text="selectedCreditObj?.doc_type + ' #' + selectedCreditObj?.doc_number"></strong>
+          </div>
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-gray-600 font-semibold">Deudor:</span>
+            <strong class="text-gray-900" x-text="selectedCreditObj?.client_name"></strong>
+          </div>
+          <div class="flex justify-between items-center text-xs pt-1 border-t border-gray-200/60">
+            <span class="text-gray-600 font-semibold">Monto Original:</span>
+            <span class="font-bold text-gray-800" x-text="'$' + formatNumber(selectedCreditObj?.original_amount_usd || 0)"></span>
+          </div>
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-emerald-700 font-semibold">Total Ya Abonado:</span>
+            <span class="font-bold text-emerald-700" x-text="'$' + formatNumber(selectedCreditObj?.total_abonado_usd || 0)"></span>
+          </div>
+          <div class="flex justify-between items-center text-sm pt-1 border-t border-gray-200 font-black">
+            <span class="text-rose-700">Saldo Pendiente:</span>
+            <span class="text-rose-700" x-text="'$' + formatNumber(selectedCreditObj?.pending_balance_usd || 0) + ' (Bs. ' + formatNumber((selectedCreditObj?.pending_balance_usd || 0) * bcvRate) + ')'"></span>
+          </div>
+        </div>
+
+        <!-- Formulario de Abono -->
+        <form @submit.prevent="submitAbono()" class="space-y-4">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">Monto a Abonar / Cobrar ($ USD): *</label>
+              <input type="number" step="0.01" min="0.01" :max="selectedCreditObj?.pending_balance_usd"
+                     x-model.number="abonoForm.amount_original" required
+                     placeholder="Ej: 50.00"
+                     class="w-full p-2.5 border border-purple-300 rounded-xl text-sm font-black text-purple-950 bg-white focus:ring-2 focus:ring-purple-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">Fecha del Abono: *</label>
+              <input type="date" x-model="abonoForm.date" required
+                     class="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
+            <select x-model.number="abonoForm.account_id" required
+                    class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
+              <template x-for="acc in accounts" :key="acc.id">
+                <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+              </template>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">N° Referencia / Depósito:</label>
+              <input type="text" x-model="abonoForm.reference_number" placeholder="Ej: Depósito #90421"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-800 mb-1">Concepto / Detalle:</label>
+              <input type="text" x-model="abonoForm.description" placeholder="Ej: Abono parcial en efectivo"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+            <button type="button" @click="showAbonoModal = false"
+                    class="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer">
+              Cancelar
+            </button>
+            <button type="submit"
+                    :class="selectedCreditObj?.is_cashea ? 'bg-amber-500 hover:bg-amber-600 text-black' : 'bg-purple-700 hover:bg-purple-800 text-white'"
+                    class="px-5 py-2.5 text-xs font-black rounded-xl shadow-md transition cursor-pointer flex items-center gap-1.5">
+              <span>💾 Confirmar y Registrar Abono</span>
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->

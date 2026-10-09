@@ -1,0 +1,388 @@
+      <div x-show="activeTab === 'flujo'" class="space-y-6">
+
+        <!-- Barra de Control y Selector de Vistas -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-black text-gray-800">🌊 Flujo de Caja Integral</h2>
+            <p class="text-sm text-gray-500">Conciliación multidivisa, diferencial cambiario y reportes ejecutivos</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <select x-model="filterMonth" @change="loadCashFlowAll()" class="p-2.5 border border-gray-300 rounded-xl text-sm font-bold bg-white">
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+
+            <button @click="openInitialBalancesModal()"
+                    class="p-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-xl text-sm font-bold border border-teal-200">
+              ⚙️ Saldos Iniciales
+            </button>
+
+            <!-- BOTÓN ONE-PAGE EXECUTIVE REPORT -->
+            <button @click="openOnePageReport()"
+                    class="btn-large bg-tev-green hover:bg-tev-darkgreen text-white text-sm py-2.5 px-4 shadow flex items-center gap-2">
+              <span>📄 Reporte One-Page (PDF)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sub-pestañas de visualización del Flujo -->
+        <div class="flex space-x-2 border-b border-gray-200 pb-2">
+          <button @click="cashFlowSubTab = 'resumen'"
+                  :class="cashFlowSubTab === 'resumen' ? 'bg-teal-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition">
+            Resumen del Mes y Billeteras
+          </button>
+          <button @click="cashFlowSubTab = 'anual'"
+                  :class="cashFlowSubTab === 'anual' ? 'bg-teal-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition">
+            Matriz Anual (ENE a DIC)
+          </button>
+          <button @click="cashFlowSubTab = 'diario'"
+                  :class="cashFlowSubTab === 'diario' ? 'bg-teal-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'"
+                  class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition">
+            Detalle Día a Día
+          </button>
+        </div>
+
+        <!-- SUB-VISTA 1: RESUMEN DEL MES Y BILLETERAS -->
+        <div x-show="cashFlowSubTab === 'resumen'" class="space-y-6">
+
+          <!-- Tarjetas del Flujo con Diferencial Cambiario -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">(=) Saldo Inicial Total</p>
+              <p class="text-2xl font-black text-gray-800 mt-2">$<span x-text="formatNumber(cashFlowData.initial_balance_usd)"></span></p>
+              <p class="text-xs text-gray-500 mt-1">Con el que arrancó el mes</p>
+            </div>
+
+            <div class="bg-emerald-50 p-6 rounded-3xl shadow-sm border border-emerald-200 flex flex-col justify-between">
+              <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider">(+) Total Ingresos</p>
+              <p class="text-2xl font-black text-emerald-900 mt-2">$<span x-text="formatNumber(cashFlowData.total_inflows_usd)"></span></p>
+              <div class="text-xs text-emerald-700 mt-1">
+                Ventas: $<span x-text="formatNumber(cashFlowData.inflows_breakdown?.ventas_usd)"></span> | Cobros: $<span x-text="formatNumber(cashFlowData.inflows_breakdown?.cobros_cxc_usd)"></span>
+              </div>
+            </div>
+
+            <div class="bg-rose-50 p-6 rounded-3xl shadow-sm border border-rose-200 flex flex-col justify-between">
+              <p class="text-xs font-bold text-rose-700 uppercase tracking-wider">(-) Total Egresos</p>
+              <p class="text-2xl font-black text-rose-900 mt-2">$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></p>
+              <div class="text-xs text-rose-700 mt-1">
+                Gastos: $<span x-text="formatNumber(cashFlowData.outflows_breakdown?.gastos_operativos_usd)"></span> | Prov: $<span x-text="formatNumber(cashFlowData.outflows_breakdown?.pagos_proveedores_usd)"></span>
+              </div>
+            </div>
+
+            <div class="p-6 rounded-3xl shadow-sm border flex flex-col justify-between"
+                 :class="cashFlowData.fx_differential_usd >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'">
+              <p class="text-xs font-bold uppercase tracking-wider"
+                 :class="cashFlowData.fx_differential_usd >= 0 ? 'text-blue-700' : 'text-amber-700'">
+                (+/-) Diferencial Cambiario
+              </p>
+              <p class="text-2xl font-black mt-2"
+                 :class="cashFlowData.fx_differential_usd >= 0 ? 'text-blue-900' : 'text-amber-900'">
+                $<span x-text="formatNumber(cashFlowData.fx_differential_usd)"></span>
+              </p>
+              <p class="text-xs opacity-80 mt-1">Resultado de traspasos de divisas</p>
+            </div>
+
+            <div class="bg-teal-900 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
+              <p class="text-xs font-bold text-teal-200 uppercase tracking-wider">(=) Saldo Final Disponible</p>
+              <p class="text-2xl font-black mt-2 text-white">$<span x-text="formatNumber(cashFlowData.final_balance_usd)"></span></p>
+              <p class="text-xs text-teal-200 mt-1">En todas las cajas y bancos</p>
+            </div>
+          </div>
+
+          <!-- Desglose por Caja / Billetera -->
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">Desglose de Flujo de Caja por Billetera / Banco</h3>
+                <p class="text-xs text-gray-500">Muestra el movimiento en su moneda de origen y el consolidado en dólares</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                    <th class="p-4">Caja o Cuenta</th>
+                    <th class="p-4 text-center">Moneda</th>
+                    <th class="p-4 text-right">Saldo Inicial</th>
+                    <th class="p-4 text-right text-emerald-700">(+) Ingresos</th>
+                    <th class="p-4 text-right text-rose-700">(-) Egresos</th>
+                    <th class="p-4 text-right text-blue-700">(+/-) Traspasos</th>
+                    <th class="p-4 text-right font-black text-gray-900">(=) Saldo Final Real</th>
+                    <th class="p-4 text-right font-black text-teal-800">Saldo Final ($ USD)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                  <template x-for="acc in cashFlowData.accounts_detail" :key="acc.account_id">
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="p-4 font-bold text-gray-800" x-text="acc.name"></td>
+                      <td class="p-4 text-center font-bold">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs bg-slate-100 text-slate-800" x-text="acc.currency"></span>
+                      </td>
+                      <td class="p-4 text-right font-medium text-gray-600" x-text="formatNumber(acc.initial_balance)"></td>
+                      <td class="p-4 text-right font-bold text-emerald-600" x-text="formatNumber(acc.inflows_orig)"></td>
+                      <td class="p-4 text-right font-bold text-rose-600" x-text="formatNumber(acc.outflows_orig)"></td>
+                      <td class="p-4 text-right font-medium text-blue-600" x-text="formatNumber(acc.transfers_net_orig)"></td>
+                      <td class="p-4 text-right font-black text-gray-900">
+                        <span x-text="formatNumber(acc.final_balance)"></span> <span class="text-xs text-gray-500" x-text="acc.currency"></span>
+                      </td>
+                      <td class="p-4 text-right font-black text-teal-800 bg-teal-50/50">
+                        $<span x-text="formatNumber(acc.final_balance_usd)"></span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VISTA 2: MATRIZ ANUAL (ENE A DIC - IMAGEN 5) -->
+        <div x-show="cashFlowSubTab === 'anual'" class="space-y-6">
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+              <h3 class="text-lg font-bold text-gray-800">Flujo de Caja Anual Multicolumna (2026)</h3>
+              <p class="text-xs text-gray-500">Formato corporativo mensualizado de Enero a Diciembre</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-right border-collapse text-xs">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-700 font-bold border-b border-gray-300">
+                    <th class="p-3 text-left">Concepto</th>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <th class="p-3 text-center" x-text="m.month_label"></th>
+                    </template>
+                    <th class="p-3 text-right font-black bg-teal-50 text-teal-900">Total Anual</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-gray-800 font-medium">
+                  <!-- Ingresos -->
+                  <tr class="bg-emerald-50/50 font-bold text-emerald-900 text-left">
+                    <td class="p-3" :colspan="annualCashFlow.months?.length + 2">INGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Ventas Mostrador</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.ventas)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('ventas'))"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Cobros CxC</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.cxc)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('cxc'))"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-emerald-800">
+                    <td class="p-3 text-left">Total Ingresos</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.total_in)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(sumAnnual('total_in'))"></td>
+                  </tr>
+
+                  <!-- Egresos -->
+                  <tr class="bg-rose-50/50 font-bold text-rose-900 text-left">
+                    <td class="p-3" :colspan="annualCashFlow.months?.length + 2">EGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Gastos Operativos (12 Partidas)</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.gastos)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('gastos'))"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6">Pagos a Proveedores</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.prov)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(sumAnnual('prov'))"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-rose-800">
+                    <td class="p-3 text-left">Total Egresos</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" x-text="formatNumber(m.total_out)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(sumAnnual('total_out'))"></td>
+                  </tr>
+
+                  <!-- Flujo Neto -->
+                  <tr class="font-black bg-teal-50 text-teal-900 border-t-2 border-teal-300">
+                    <td class="p-3 text-left">(=) Flujo Neto del Periodo</td>
+                    <template x-for="m in annualCashFlow.months" :key="m.month_index">
+                      <td class="p-3" :class="m.net < 0 ? 'text-rose-700' : 'text-teal-900'" x-text="formatNumber(m.net)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-200 text-teal-950" x-text="formatNumber(sumAnnual('net'))"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-VISTA 3: DETALLE DÍA A DÍA (MATRIZ MULTICOLUMNA IDÉNTICA A LA ANUAL) -->
+        <div x-show="cashFlowSubTab === 'diario'" class="space-y-6">
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-4">
+              <div>
+                <h3 class="text-lg font-bold text-gray-800">Flujo de Caja Diario Multicolumna (<span x-text="filterMonth"></span>)</h3>
+                <p class="text-xs text-gray-500">Matriz día a día por rubro contable con cuadre mensualizado</p>
+              </div>
+
+              <!-- Selector de estilo de vista si desea alternar con la lista de auditoría -->
+              <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                <button @click="dailyViewMode = 'matriz'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                        :class="dailyViewMode === 'matriz' ? 'bg-white text-teal-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
+                  📊 Matriz Multicolumna
+                </button>
+                <button @click="dailyViewMode = 'lista'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                        :class="dailyViewMode === 'lista' ? 'bg-white text-teal-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'">
+                  📋 Lista de Auditoría
+                </button>
+              </div>
+            </div>
+
+            <!-- VISTA A: MATRIZ MULTICOLUMNA (IDÉNTICA A LA IMAGEN ANUAL) -->
+            <div x-show="dailyViewMode === 'matriz'" class="overflow-x-auto">
+              <table class="w-full text-right border-collapse text-xs whitespace-nowrap">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-700 font-bold border-b border-gray-300">
+                    <th class="p-3 text-left sticky left-0 bg-gray-100 z-10 min-w-[200px] shadow-sm">Concepto</th>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <th class="p-3 text-center min-w-[65px]"
+                          :class="{'bg-teal-50/70 font-black text-teal-950': d.count > 0}"
+                          x-text="d.day_num < 10 ? '0' + d.day_num : d.day_num">
+                      </th>
+                    </template>
+                    <th class="p-3 text-right font-black bg-teal-50 text-teal-900 min-w-[100px]">Total Mes</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-gray-800 font-medium">
+                  <!-- INGRESOS -->
+                  <tr class="bg-emerald-50/50 font-bold text-emerald-900 text-left">
+                    <td class="p-3 sticky left-0 bg-emerald-50/90 z-10 shadow-sm" :colspan="dailyCashFlow?.length + 2">INGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Ventas Mostrador</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.ventas > 0}" x-text="formatNumber(d.ventas)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.ventas || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Cobros CxC</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.cxc > 0}" x-text="formatNumber(d.cxc)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.cxc || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Otros Ingresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.otros_in > 0}" x-text="formatNumber(d.otros_in)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.otros_in || 0)"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-emerald-800">
+                    <td class="p-3 text-left sticky left-0 bg-gray-50 z-10 shadow-sm">Total Ingresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" x-text="formatNumber(d.total_in)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(dailyCashFlowTotals.total_in || 0)"></td>
+                  </tr>
+
+                  <!-- EGRESOS -->
+                  <tr class="bg-rose-50/50 font-bold text-rose-900 text-left">
+                    <td class="p-3 sticky left-0 bg-rose-50/90 z-10 shadow-sm" :colspan="dailyCashFlow?.length + 2">EGRESOS</td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Gastos Operativos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.gastos > 0}" x-text="formatNumber(d.gastos)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.gastos || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Pagos a Proveedores</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.prov > 0}" x-text="formatNumber(d.prov)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.prov || 0)"></td>
+                  </tr>
+                  <tr>
+                    <td class="p-3 text-left pl-6 sticky left-0 bg-white z-10 shadow-sm">Otros Egresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="{'font-bold text-gray-900': d.otros_out > 0}" x-text="formatNumber(d.otros_out)"></td>
+                    </template>
+                    <td class="p-3 font-bold bg-teal-50/50" x-text="formatNumber(dailyCashFlowTotals.otros_out || 0)"></td>
+                  </tr>
+                  <tr class="font-bold bg-gray-50 text-rose-800">
+                    <td class="p-3 text-left sticky left-0 bg-gray-50 z-10 shadow-sm">Total Egresos</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" x-text="formatNumber(d.total_out)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-100 text-teal-950" x-text="formatNumber(dailyCashFlowTotals.total_out || 0)"></td>
+                  </tr>
+
+                  <!-- FLUJO NETO -->
+                  <tr class="font-black bg-teal-50 text-teal-900 border-t-2 border-teal-300">
+                    <td class="p-3 text-left sticky left-0 bg-teal-50 z-10 shadow-sm">(=) Flujo Neto del Periodo</td>
+                    <template x-for="d in dailyCashFlow" :key="d.date">
+                      <td class="p-3" :class="d.net < 0 ? 'text-rose-700' : d.net > 0 ? 'text-teal-900 font-black' : 'text-gray-400'" x-text="formatNumber(d.net)"></td>
+                    </template>
+                    <td class="p-3 font-black bg-teal-200 text-teal-950" x-text="formatNumber(dailyCashFlowTotals.net || 0)"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- VISTA B: LISTA DE AUDITORÍA DETALLADA DÍA A DÍA -->
+            <div x-show="dailyViewMode === 'lista'" class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                    <th class="p-3">Fecha</th>
+                    <th class="p-3 text-center">N° Movimientos</th>
+                    <th class="p-3 text-right text-emerald-700">(+) Ventas ($)</th>
+                    <th class="p-3 text-right text-emerald-700">(+) Cobros ($)</th>
+                    <th class="p-3 text-right text-emerald-800 font-bold">(+) Total Ingresos ($)</th>
+                    <th class="p-3 text-right text-rose-700">(-) Gastos ($)</th>
+                    <th class="p-3 text-right text-rose-700">(-) Proveedores ($)</th>
+                    <th class="p-3 text-right text-rose-800 font-bold">(-) Total Egresos ($)</th>
+                    <th class="p-3 text-right font-black text-gray-900">(=) Flujo Neto del Día ($)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="d in dailyCashFlow" :key="d.date">
+                    <tr class="hover:bg-slate-50 transition" :class="{'bg-teal-50/30': d.count > 0}">
+                      <td class="p-3 font-semibold text-gray-700" x-text="d.date"></td>
+                      <td class="p-3 text-center font-bold text-xs text-gray-500" x-text="d.count"></td>
+                      <td class="p-3 text-right text-emerald-600" x-text="d.ventas > 0 ? '$' + formatNumber(d.ventas) : '-'"></td>
+                      <td class="p-3 text-right text-emerald-600" x-text="d.cxc > 0 ? '$' + formatNumber(d.cxc) : '-'"></td>
+                      <td class="p-3 text-right font-bold text-emerald-700" x-text="d.total_in > 0 ? '$' + formatNumber(d.total_in) : '-'"></td>
+                      <td class="p-3 text-right text-rose-600" x-text="d.gastos > 0 ? '$' + formatNumber(d.gastos) : '-'"></td>
+                      <td class="p-3 text-right text-rose-600" x-text="d.prov > 0 ? '$' + formatNumber(d.prov) : '-'"></td>
+                      <td class="p-3 text-right font-bold text-rose-700" x-text="d.total_out > 0 ? '$' + formatNumber(d.total_out) : '-'"></td>
+                      <td class="p-3 text-right font-black" :class="d.net < 0 ? 'text-rose-600' : d.net > 0 ? 'text-emerald-700' : 'text-gray-400'">
+                        <span x-text="d.count > 0 ? '$' + formatNumber(d.net) : '-'"></span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 4: PRESUPUESTOS Y ALERTAS (IDÉNTICO AL EXCEL) -->
+      <!-- ======================================================== -->

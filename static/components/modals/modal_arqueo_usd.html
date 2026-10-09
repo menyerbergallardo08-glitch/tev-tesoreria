@@ -1,0 +1,99 @@
+    <!-- MODAL COMPROBANTE DE ARQUEO Y CIERRE DE TURNO -->
+    <!-- ======================================================== -->
+    <div x-show="showArqueoReceiptModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full border border-gray-200 my-8 max-h-[92vh] overflow-y-auto">
+        <!-- Barra de Botones no-print -->
+        <div class="flex items-center justify-between pb-3 mb-4 border-b no-print">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🧾</span>
+            <h3 class="text-lg font-black text-gray-900">Comprobante de Arqueo</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="executePrintReceipt()" class="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5">
+              <span>🖨️</span> Imprimir Comprobante
+            </button>
+            <button @click="showArqueoReceiptModal = false" class="p-1.5 text-gray-400 hover:text-gray-700 font-bold text-xl">✕</button>
+          </div>
+        </div>
+
+        <!-- ÁREA IMPRIMIBLE DEL ARQUEO -->
+        <div id="arqueo-print-area" class="p-4 bg-white text-gray-900 border border-gray-200 rounded-2xl space-y-4">
+          <!-- Encabezado -->
+          <div class="text-center border-b pb-3">
+            <img src="/static/logo.jpg" alt="Todo Eléctrico Valencia" class="h-12 mx-auto object-contain mb-1">
+            <h2 class="text-base font-black tracking-tight">TODO ELÉCTRICO VALENCIA, C.A.</h2>
+            <p class="text-[11px] font-bold text-gray-600">RIF: J-50248654-2</p>
+            <p class="text-xs font-black text-teal-800 mt-1 uppercase tracking-wide">COMPROBANTE DE ARQUEO FÍSICO DE CAJA</p>
+            <div class="mt-2 text-[11px] text-gray-600 flex justify-between px-2">
+              <span>Fecha: <strong x-text="new Date().toLocaleDateString('es-VE')"></strong></span>
+              <span>Hora: <strong x-text="new Date().toLocaleTimeString('es-VE', {hour: '2-digit', minute:'2-digit'})"></strong></span>
+            </div>
+            <p class="text-[11px] text-gray-700 text-left px-2 mt-1">
+              Responsable: <strong x-text="currentUser?.full_name"></strong> (<span x-text="getRoleLabel(currentUser?.role)"></span>)
+            </p>
+          </div>
+
+          <!-- Tabla de Conteo Físico -->
+          <div>
+            <h4 class="text-xs font-black uppercase text-gray-700 mb-1">Desglose de Billetes (USD):</h4>
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="py-1 px-2 text-left">Denominación</th>
+                  <th class="py-1 px-2 text-center">Cantidad</th>
+                  <th class="py-1 px-2 text-right">Subtotal ($)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr><td class="py-1 px-2">Billetes de $100</td><td class="py-1 px-2 text-center" x-text="arqueo.b100"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b100 * 100)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $50</td><td class="py-1 px-2 text-center" x-text="arqueo.b50"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b50 * 50)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $20</td><td class="py-1 px-2 text-center" x-text="arqueo.b20"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b20 * 20)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $10</td><td class="py-1 px-2 text-center" x-text="arqueo.b10"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b10 * 10)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $5</td><td class="py-1 px-2 text-center" x-text="arqueo.b5"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b5 * 5)"></td></tr>
+                <tr><td class="py-1 px-2">Billetes de $1</td><td class="py-1 px-2 text-center" x-text="arqueo.b1"></td><td class="py-1 px-2 text-right font-bold" x-text="'$' + formatNumber(arqueo.b1 * 1)"></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Físico y Comparación -->
+          <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-xs space-y-1">
+            <div class="flex justify-between text-sm">
+              <span class="font-bold text-teal-900">Total Físico en Gaveta:</span>
+              <strong class="text-base font-black text-teal-950" x-text="'$' + formatNumber(calculatePhysicalUsd())"></strong>
+            </div>
+            <div class="flex justify-between text-gray-600 pt-1 border-t border-teal-200">
+              <span>Saldo Sistema (Caja Efectivo USD):</span>
+              <span class="font-bold text-gray-800" x-text="'$' + formatNumber(getAccountBalance('Efectivo USD'))"></span>
+            </div>
+            <div class="flex justify-between pt-1 font-bold"
+                 :class="(calculatePhysicalUsd() - getAccountBalance('Efectivo USD')) >= 0 ? 'text-emerald-800' : 'text-rose-800'">
+              <span>Diferencia Arqueo:</span>
+              <span x-text="(calculatePhysicalUsd() - getAccountBalance('Efectivo USD') >= 0 ? '+' : '') + '$' + formatNumber(calculatePhysicalUsd() - getAccountBalance('Efectivo USD'))"></span>
+            </div>
+          </div>
+
+          <!-- Firmas -->
+          <div class="grid grid-cols-2 gap-6 pt-8 text-center text-[10px]">
+            <div class="border-t border-gray-400 pt-1">
+              <p class="font-bold text-gray-800">Entregado por (Cajero):</p>
+              <p class="text-gray-500 mt-4" x-text="currentUser?.full_name"></p>
+            </div>
+            <div class="border-t border-gray-400 pt-1">
+              <p class="font-bold text-gray-800">Recibido por (Administración):</p>
+              <p class="text-gray-500 mt-4">Firma y Sello</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 flex justify-between no-print">
+          <button @click="showArqueoReceiptModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs">
+            Cerrar
+          </button>
+          <button @click="executePrintReceipt()" class="px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-bold text-xs shadow flex items-center gap-1">
+            <span>🖨️</span> Imprimir Comprobante
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->

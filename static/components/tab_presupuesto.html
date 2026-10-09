@@ -1,0 +1,125 @@
+      <div x-show="activeTab === 'presupuesto'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Control Presupuestario Mensual por Partida</h2>
+            <p class="text-sm text-gray-500">Semáforo de presupuesto asignado vs gasto ejecutado (Idéntico a su Excel)</p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+              <button @click="openNewCategoryModal()" class="px-4 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-sm font-bold shadow-sm flex items-center gap-2 transition">
+                <span class="text-base">➕</span> Nueva Partida Presupuestaria
+              </button>
+            </template>
+            <select x-model="filterCategoryStatus" @change="loadCategories()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold bg-white">
+              <option value="all">Todas las Partidas</option>
+              <option value="active">Solo Activas</option>
+              <option value="inactive">Solo Inactivas</option>
+            </select>
+            <select x-model="filterMonth" @change="loadCategories()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                  <th class="p-4">ID</th>
+                  <th class="p-4">Partida Presupuestaria</th>
+                  <th class="p-4 text-center">Vigencia</th>
+                  <th class="p-4 text-right">Monto Máximo ($)</th>
+                  <th class="p-4 text-right">Monto Gastado ($)</th>
+                  <th class="p-4 text-right">Restante ($)</th>
+                  <th class="p-4 text-center">% Ejecución</th>
+                  <th class="p-4 text-center">Estatus</th>
+                  <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                    <th class="p-4 text-center">Gestión</th>
+                  </template>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 text-sm">
+                <template x-for="cat in categories" :key="cat.id">
+                  <tr class="hover:bg-slate-50 transition" :class="{'opacity-60 bg-gray-50/70': !cat.is_active}">
+                    <td class="p-4 font-bold text-gray-600" x-text="cat.code"></td>
+                    <td class="p-4 font-bold text-gray-800">
+                      <span x-text="cat.name"></span>
+                      <template x-if="!cat.is_active">
+                        <span class="ml-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">(Inactivada)</span>
+                      </template>
+                    </td>
+                    <td class="p-4 text-center whitespace-nowrap">
+                      <span class="px-2.5 py-0.5 rounded-full text-xs font-bold"
+                            :class="cat.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'"
+                            x-text="cat.is_active ? 'Vigente' : 'Inactiva'">
+                      </span>
+                    </td>
+                    <td class="p-4 text-right font-semibold text-gray-700">$<span x-text="formatNumber(cat.monthly_budget_usd)"></span></td>
+                    <td class="p-4 text-right font-bold" :class="cat.status === 'ALERTA' ? 'text-rose-600' : 'text-gray-800'">
+                      $<span x-text="formatNumber(cat.spent_usd)"></span>
+                    </td>
+                    <td class="p-4 text-right font-bold" :class="cat.remaining_usd < 0 ? 'text-rose-600' : 'text-emerald-700'">
+                      $<span x-text="formatNumber(cat.remaining_usd)"></span>
+                    </td>
+                    <td class="p-4 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <span class="font-bold text-xs" x-text="cat.percentage_spent + '%'"></span>
+                        <div class="w-16 bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div class="h-2 rounded-full"
+                                :class="cat.percentage_spent > 100 ? 'bg-rose-500' : cat.percentage_spent > 85 ? 'bg-amber-500' : 'bg-emerald-500'"
+                                :style="'width: ' + Math.min(cat.percentage_spent, 100) + '%'"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="p-4 text-center whitespace-nowrap">
+                      <span class="px-3 py-1 rounded-full text-xs font-black tracking-wide"
+                            :class="cat.status === 'ALERTA' ? 'bg-rose-100 text-rose-700 border border-rose-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'"
+                            x-text="cat.status">
+                      </span>
+                    </td>
+                    <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                      <td class="p-4 text-center">
+                        <div class="flex items-center justify-center gap-2">
+                          <button @click="openEditCategory(cat)" class="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold" title="Ajustar Presupuesto o Estado">
+                            ⚙️ Ajustar
+                          </button>
+                          <button @click="toggleCategoryActive(cat)"
+                                  :class="cat.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200'"
+                                  class="p-1.5 border rounded-lg text-xs font-bold transition">
+                            <span x-text="cat.is_active ? '🚫 Inactivar' : '✅ Reactivar'"></span>
+                          </button>
+                        </div>
+                      </td>
+                    </template>
+                  </tr>
+                </template>
+              </tbody>
+              <tfoot>
+                <tr class="bg-gray-50 font-black border-t-2 border-gray-300 text-gray-900">
+                  <td class="p-4" colspan="2">TOTAL GENERAL</td>
+                  <td class="p-4 text-right">$<span x-text="formatNumber(calculateTotalBudget())"></span></td>
+                  <td class="p-4 text-right text-rose-600">$<span x-text="formatNumber(calculateTotalSpent())"></span></td>
+                  <td class="p-4 text-right" :class="calculateTotalRemaining() < 0 ? 'text-rose-600' : 'text-emerald-700'">
+                    $<span x-text="formatNumber(calculateTotalRemaining())"></span>
+                  </td>
+                  <td class="p-4 text-center" x-text="calculateTotalPercentage() + '%'"></td>
+                  <td class="p-4 text-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-black"
+                          :class="calculateTotalRemaining() < 0 ? 'bg-rose-200 text-rose-800' : 'bg-emerald-200 text-emerald-900'"
+                          x-text="calculateTotalRemaining() < 0 ? 'ALERTA' : 'APTO'">
+                    </span>
+                  </td>
+                  <td class="p-4"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB 6: GESTIÓN DE USUARIOS (DIRECTIVO) -->
+      <!-- ======================================================== -->
