@@ -119,13 +119,23 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
                 detail=f"Conflicto / Duplicado: Ya existe un registro activo para {data.doc_type} #{clean_doc} en fecha {data.date} (ID #{existing_doc.id})."
             )
 
-    amount_total = float(data.amount_usd)
-    abono_val = float(data.abono_usd) if data.abono_usd else 0.0
+    raw_amt = getattr(data, 'amount_usd', None)
+    if raw_amt is None or raw_amt == 0:
+        raw_amt = getattr(data, 'amount_original', 0.0)
+    amount_total = float(raw_amt or 0.0)
+    if amount_total <= 0:
+        raise HTTPException(status_code=400, detail="El monto de la venta debe ser mayor a 0.00.")
+
+    raw_abono = getattr(data, 'abono_usd', None)
+    if raw_abono is None or raw_abono == 0:
+        raw_abono = getattr(data, 'initial_downpayment_amount', 0.0)
+    abono_val = float(raw_abono or 0.0)
     
     # Determinar cuenta destino
-    target_acc_id = data.account_id
-    if data.is_credit and abono_val > 0 and data.abono_account_id:
-        target_acc_id = data.abono_account_id
+    target_acc_id = getattr(data, 'account_id', None)
+    abono_acc_id = getattr(data, 'abono_account_id', None) or getattr(data, 'initial_downpayment_account_id', None)
+    if data.is_credit and abono_val > 0 and abono_acc_id:
+        target_acc_id = abono_acc_id
     elif not target_acc_id:
         # Fallback a la primera cuenta activa disponible
         first_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
@@ -137,6 +147,9 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
         raise HTTPException(status_code=400, detail="La cuenta seleccionada no existe o está inactiva.")
 
     # 3. Lógica Contable de Venta a Crédito vs Contado
+    ret_amount = float(getattr(data, 'tax_retention_amount', 0.0) or 0.0)
+    ret_proof = getattr(data, 'tax_retention_proof', '') or ''
+
     if data.is_credit:
         if abono_val < 0 or abono_val > amount_total:
             raise HTTPException(status_code=400, detail="El abono inicial no puede ser negativo ni mayor al total de la venta.")
@@ -152,7 +165,7 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             account_id=target_acc_id,
             amount_original=abono_val if abono_val > 0 else 0.0,
             currency='USD',
-            exchange_rate=data.exchange_rate or 1.0,
+            exchange_rate=getattr(data, 'exchange_rate', 1.0) or 1.0,
             amount_usd=abono_val if abono_val > 0 else 0.0, # Solo entra a caja el abono real!
             doc_type=data.doc_type,
             doc_number=data.doc_number.strip() if data.doc_number else None,
@@ -165,6 +178,8 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             reference_number=data.reference_number,
             pos_terminal=data.pos_terminal,
             pos_lot_number=data.pos_lot_number,
+            tax_retention_amount=ret_amount,
+            tax_retention_proof=ret_proof,
             description=f"Venta a Crédito Total: ${amount_total:.2f} | Abono Inicial: ${abono_val:.2f} | Saldo CxC: ${pending_balance:.2f}. {data.description or ''}".strip(),
             status='REGISTRADO',
             created_by_id=user.id
@@ -177,9 +192,9 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             movement_type='INGRESO',
             subtype='VENTA_DIARIA',
             account_id=target_acc_id,
-            amount_original=data.amount_usd,
+            amount_original=amount_total,
             currency='USD',
-            exchange_rate=data.exchange_rate or 1.0,
+            exchange_rate=getattr(data, 'exchange_rate', 1.0) or 1.0,
             amount_usd=amount_total,
             doc_type=data.doc_type,
             doc_number=data.doc_number.strip() if data.doc_number else None,
@@ -192,6 +207,8 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             reference_number=data.reference_number,
             pos_terminal=data.pos_terminal,
             pos_lot_number=data.pos_lot_number,
+            tax_retention_amount=ret_amount,
+            tax_retention_proof=ret_proof,
             description=data.description or f"Venta de Contado {data.doc_type} #{data.doc_number or ''}".strip(),
             status='REGISTRADO',
             created_by_id=user.id

@@ -436,12 +436,14 @@ class TestBackupServiceEdgeCases:
 
         # 1. Éxito remoto
         with patch("services.backup_service.get_s3_config", return_value={"endpoint": "http://x", "bucket": "b", "access_key": "k", "secret_key": "s", "region": "auto"}), \
-             patch("services.backup_service.upload_to_s3_compatible", return_value=True):
+             patch("services.backup_service.upload_to_s3_compatible", return_value=True), \
+             patch("services.backup_service.delete_from_s3_compatible", return_value=True):
             res = bs.generate_deterministic_backup(mock_db, mock_user)
             assert res["remote_status"] == "REMOTE_BACKUP_SUCCESS"
 
         # 2. JSON corrupto post-generación
-        with patch("json.load", return_value={"corrupted": True}):
+        with patch("json.load", return_value={"corrupted": True}), \
+             patch("services.backup_service.delete_from_s3_compatible", return_value=True):
             with pytest.raises(Exception):
                 bs.generate_deterministic_backup(mock_db, mock_user)
 

@@ -7,7 +7,7 @@ class SaleCreate(BaseModel):
     doc_number: str
     client_name: Optional[str] = ''
     client_rif: Optional[str] = ''
-    amount_usd: float = Field(..., gt=0)
+    amount_usd: Optional[float] = 0.0
     payment_method: str = 'EFECTIVO_USD'
     account_id: Optional[int] = None
     exchange_rate: Optional[float] = 1.0
@@ -20,6 +20,12 @@ class SaleCreate(BaseModel):
     pos_lot_number: Optional[str] = None
     reference_number: Optional[str] = None
     description: Optional[str] = ''
+    amount_original: Optional[float] = None
+    currency: Optional[str] = 'USD'
+    tax_retention_amount: Optional[float] = 0.0
+    tax_retention_proof: Optional[str] = ''
+    initial_downpayment_amount: Optional[float] = 0.0
+    initial_downpayment_account_id: Optional[int] = None
 
 class SaleVoidRequest(BaseModel):
     transaction_id: int

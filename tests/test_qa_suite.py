@@ -143,6 +143,47 @@ def run_qa_suite():
     assert res_bcv.json()["rate"] > 10.0
     print(f"  [OK] Tasa BCV resuelta: Bs. {res_bcv.json()['rate']:.2f}")
 
+    # 10. Live Point-of-Sale, Live-Monitor, Accumulated Sales & Receivables
+    print("\n[TEST 8] Puntos de Venta Live, Monitor en Caliente y CxC...")
+    res_live = client.post("/api/sales/live", json={
+        "date": "2026-09-17",
+        "doc_type": "NOTA_ENTREGA",
+        "doc_number": f"QA-LIVE-{ts}",
+        "client_name": "Cliente Live Mostrador",
+        "amount_original": 125.0,
+        "amount_usd": 125.0,
+        "currency": "USD",
+        "account_id": acc_id
+    }, headers=headers_master)
+    assert res_live.status_code == 200
+    assert res_live.json()["success"] == True
+    print("  [OK] /api/sales/live procesó y registró cobro exitosamente.")
+
+    # Live Monitor
+    res_mon = client.get("/api/sales/live-monitor?date=2026-09-17", headers=headers_master)
+    assert res_mon.status_code == 200
+    assert "sales" in res_mon.json()
+    assert "live_funds_expected" in res_mon.json()
+    print("  [OK] /api/sales/live-monitor respondió métricas en caliente.")
+
+    # Accumulated Sales
+    res_accum = client.get("/api/sales/accumulated?filter_mode=dia&date=2026-09-17", headers=headers_master)
+    assert res_accum.status_code == 200
+    assert "total_fiscal_iva_usd" in res_accum.json()
+    assert "records" in res_accum.json()
+    print("  [OK] /api/sales/accumulated reportó histórico de ventas con éxito.")
+
+    # Receivables listing
+    res_rec = client.get("/api/receivables", headers=headers_master)
+    assert res_rec.status_code == 200
+    print("  [OK] /api/receivables respondió listado de cartera CxC.")
+
+    # Cash close summary
+    res_close_sum = client.get("/api/cash-close/summary?date=2026-09-17", headers=headers_master)
+    assert res_close_sum.status_code == 200
+    assert "sales_summary" in res_close_sum.json()
+    print("  [OK] /api/cash-close/summary respondió auditoría diaria.")
+
     print("\n=================================================================")
     print("  QA SUITE v2.1: 100% DE PRUEBAS COMPLETADAS EXITOSAMENTE")
     print("=================================================================\n")

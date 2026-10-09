@@ -285,4 +285,106 @@ def test_full_routers_and_services_coverage():
     res_bad_cf = client.get("/api/dashboard/cash-flow?month=bad-format", headers=h_master)
     assert res_bad_cf.status_code in [400, 422]
 
+    # 14. Cobertura Exhaustiva: Sales Live, Monitor, Accumulated, Cash-Close y Receivables
+    # A. Venta Live a Crédito con abono inicial
+    res_live_cred = client.post("/api/sales/live", json={
+        "date": "2026-09-17",
+        "doc_type": "NOTA_ENTREGA",
+        "doc_number": f"LIVE-CRED-{ts}",
+        "client_name": "Cliente Credito Live",
+        "client_rif": "J-12345678",
+        "is_credit": True,
+        "amount_original": 200.0,
+        "amount_usd": 200.0,
+        "currency": "USD",
+        "initial_downpayment_amount": 50.0,
+        "initial_downpayment_account_id": 1,
+        "pos_terminal": "POS Banesco"
+    }, headers=h_master)
+    assert res_live_cred.status_code == 200
+    cred_tx_id = res_live_cred.json()["id"]
+
+    # B. Venta Fiscal con retención y POS Bancaribe
+    res_live_ret = client.post("/api/sales/live", json={
+        "date": "2026-09-17",
+        "doc_type": "FACTURA_FISCAL",
+        "doc_number": f"LIVE-FAC-{ts}",
+        "client_name": "Empresa Fiscal SA",
+        "is_credit": False,
+        "amount_original": 100.0,
+        "currency": "USD",
+        "account_id": 1,
+        "pos_terminal": "POS Bancaribe",
+        "tax_retention_amount": 10.0,
+        "tax_retention_proof": "20260900000088"
+    }, headers=h_master)
+    assert res_live_ret.status_code == 200
+
+    # C. Monitor en Vivo
+    res_mon_now = client.get("/api/sales/live-monitor?date=2026-09-17", headers=h_master)
+    assert res_mon_now.status_code == 200
+    res_mon_today = client.get("/api/sales/live-monitor", headers=h_master)
+    assert res_mon_today.status_code == 200
+
+    # D. Ventas Acumuladas por mes y por día
+    res_acc_mes = client.get("/api/sales/accumulated?filter_mode=mes&month=2026-09", headers=h_master)
+    assert res_acc_mes.status_code == 200
+    res_acc_dia = client.get("/api/sales/accumulated?filter_mode=dia&date=2026-09-17", headers=h_master)
+    assert res_acc_dia.status_code == 200
+    res_acc_dec = client.get("/api/sales/accumulated?filter_mode=mes&month=2026-12", headers=h_master)
+    assert res_acc_dec.status_code == 200
+    res_acc_def = client.get("/api/sales/accumulated", headers=h_master)
+    assert res_acc_def.status_code == 200
+
+    # E. Receivables y Abono
+    res_receivables = client.get("/api/receivables?status_filter=TODOS&search=Credito", headers=h_master)
+    assert res_receivables.status_code == 200
+    res_receivables_pend = client.get("/api/receivables", headers=h_master)
+    assert res_receivables_pend.status_code == 200
+
+    res_abono = client.post(f"/api/receivables/{cred_tx_id}/abono", json={
+        "date": "2026-09-17",
+        "amount_original": 30.0,
+        "currency": "USD",
+        "account_id": 1,
+        "reference_number": "REF-ABONO-123"
+    }, headers=h_master)
+    assert res_abono.status_code == 200
+
+    # Abono en VES
+    res_abono_ves = client.post(f"/api/receivables/{cred_tx_id}/abono", json={
+        "date": "2026-09-17",
+        "amount_original": 368.0,
+        "currency": "VES",
+        "account_id": 1
+    }, headers=h_master)
+    assert res_abono_ves.status_code == 200
+
+    # F. Cuadre de Caja Diario (Summary, Save, History)
+    res_cc_sum = client.get("/api/cash-close/summary?date=2026-09-17", headers=h_master)
+    assert res_cc_sum.status_code == 200
+    res_cc_def = client.get("/api/cash-close/summary", headers=h_master)
+    assert res_cc_def.status_code == 200
+
+    res_cc_save = client.post("/api/cash-close", json={
+        "date": "2026-09-17",
+        "status": "CUADRADO",
+        "cajero_name": "Master QA",
+        "profit_sales_total_usd": 300.0,
+        "net_sales_usd": 300.0,
+        "notes": "Cuadre conforme test"
+    }, headers=h_master)
+    assert res_cc_save.status_code == 200
+
+    # Actualizar cuadre existente
+    res_cc_update = client.post("/api/cash-close", json={
+        "date": "2026-09-17",
+        "notes": "Cuadre actualizado conforme"
+    }, headers=h_master)
+    assert res_cc_update.status_code == 200
+
+    res_cc_hist = client.get("/api/cash-close/history?limit=10", headers=h_master)
+    assert res_cc_hist.status_code == 200
+    assert len(res_cc_hist.json()) >= 1
+
 

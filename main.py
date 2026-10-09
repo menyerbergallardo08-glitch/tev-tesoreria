@@ -10,9 +10,9 @@ from database import engine, Base
 from routers.auth import router as auth_router
 from routers.sales import router as sales_router
 from routers.expenses import router as expenses_router
-from routers.cxc import router as cxc_router
+from routers.cxc import router as cxc_router, receivables_router
 from routers.accounts import router as accounts_router
-from routers.cash_close import router as cash_close_router
+from routers.cash_close import router as cash_close_router, cash_close_legacy_router
 from routers.categories import router as categories_router
 from routers.transfers import router as transfers_router
 from routers.audit import router as audit_router
@@ -58,8 +58,10 @@ app.include_router(auth_router)
 app.include_router(sales_router)
 app.include_router(expenses_router)
 app.include_router(cxc_router)
+app.include_router(receivables_router)
 app.include_router(accounts_router)
 app.include_router(cash_close_router)
+app.include_router(cash_close_legacy_router)
 app.include_router(categories_router)
 app.include_router(transfers_router)
 app.include_router(audit_router)
