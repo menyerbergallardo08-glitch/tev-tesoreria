@@ -227,3 +227,20 @@ def test_full_routers_and_services_coverage():
             assert download_from_s3_compatible("dummy.json", "dummy.json") is True
             assert delete_from_s3_compatible("dummy.json") is True
 
+    # 13. Routers: Dashboard (Flujo de Caja Mensual, Anual y Diario)
+    res_cf_aug = client.get("/api/dashboard/cash-flow?month=2026-08", headers=h_master)
+    assert res_cf_aug.status_code == 200
+    res_cf_dec = client.get("/api/dashboard/cash-flow?month=2026-12", headers=h_master)
+    assert res_cf_dec.status_code == 200
+    res_cf_annual = client.get("/api/dashboard/cash-flow-annual?year=2026", headers=h_master)
+    assert res_cf_annual.status_code == 200
+    assert len(res_cf_annual.json()["months"]) == 12
+    res_cf_daily = client.get("/api/dashboard/cash-flow-daily?month=2026-08", headers=h_master)
+    assert res_cf_daily.status_code == 200
+    assert len(res_cf_daily.json()["days"]) == 31
+    res_cf_daily_dec = client.get("/api/dashboard/cash-flow-daily?month=2026-12", headers=h_master)
+    assert res_cf_daily_dec.status_code == 200
+    res_bad_cf = client.get("/api/dashboard/cash-flow?month=bad-format", headers=h_master)
+    assert res_bad_cf.status_code in [400, 422]
+
+
