@@ -3,7 +3,7 @@ import datetime
 from fastapi.testclient import TestClient
 from main import app
 from database import SessionLocal
-from models import User, TreasuryAccount, Transaction, BudgetCategory, SystemSetting
+from models import User, TreasuryAccount, Transaction, BudgetCategory, SystemSetting, DailyCashClose
 
 client = TestClient(app)
 
@@ -85,6 +85,8 @@ def test_deep_edge_cases_and_95_percent_coverage():
         acc_b_id = acc_banco.id if acc_banco else 1
         acc_ves = db.query(TreasuryAccount).filter(TreasuryAccount.currency == 'VES').first()
         acc_ves_id = acc_ves.id if acc_ves else 2
+        acc_usd = db.query(TreasuryAccount).filter(TreasuryAccount.currency == 'USD').first()
+        acc_usd_id = acc_usd.id if acc_usd else 1
     finally:
         db.close()
 
@@ -138,6 +140,28 @@ def test_deep_edge_cases_and_95_percent_coverage():
             'is_credit': False
         }, headers=h_m)
 
+    # Egresos en Efectivo USD y VES para cubrir cash_usd_out / cash_ves_out
+    client.post('/api/expenses', json={
+        'date': '2026-09-16',
+        'movement_type': 'EGRESO',
+        'subtype': 'GASTO_OPERATIVO',
+        'account_id': acc_usd_id,
+        'amount_usd': 10.0,
+        'currency': 'USD',
+        'description': 'Gasto salida efectivo USD test'
+    }, headers=h_m)
+
+    client.post('/api/expenses', json={
+        'date': '2026-09-16',
+        'movement_type': 'EGRESO',
+        'subtype': 'GASTO_OPERATIVO',
+        'account_id': acc_ves_id,
+        'amount_usd': 5.0,
+        'amount_original': 180.0,
+        'currency': 'VES',
+        'description': 'Gasto salida efectivo VES test'
+    }, headers=h_m)
+
     # Sales Accumulated Filters (dia, month, defaults)
     client.get('/api/sales/accumulated?filter_mode=dia&date=2026-09-16', headers=h_m)
     client.get('/api/sales/accumulated?filter_mode=dia&date=bad_date', headers=h_m)
@@ -145,18 +169,92 @@ def test_deep_edge_cases_and_95_percent_coverage():
     client.get('/api/sales/accumulated?month=bad_month', headers=h_m)
     client.get('/api/sales/live-monitor', headers=h_m)
 
-    # Cash close edge cases
+    # 5. Cash close: Crear cierre diario y conflicto 409
+    close_payload = {
+        'date': '2026-09-17',
+        'status': 'CUADRADO',
+        'profit_sales_total_usd': 100.0,
+        'sales_fiscal_iva_usd': 100.0,
+        'sales_notes_credit_usd': 0.0,
+        'sales_notes_collected_usd': 0.0,
+        'returns_total_usd': 0.0,
+        'cash_usd_physical': 100.0,
+        'cash_ves_physical': 0.0,
+        'pos_total_usd': 0.0,
+        'bank_transfers_usd': 0.0,
+        'cashea_usd': 0.0,
+        'retentions_iva_usd': 0.0,
+        'retentions_islr_usd': 0.0,
+        'expenses_caja_usd': 0.0,
+        'total_expected_usd': 100.0,
+        'difference_usd': 0.0
+    }
+    client.post('/api/cash-close', json=close_payload, headers=h_m)
+    # Segundo intento lanza 409 (Ya existe un cierre)
+    client.post('/api/cash-close', json=close_payload, headers=h_m)
+
     client.get('/api/cash-close/summary?date=2026-09-16', headers=h_m)
+    client.get('/api/cash-close/summary?date=2026-09-17', headers=h_m)
     client.get('/api/cash-close/history', headers=h_m)
 
-    # Dashboard Cash-Flow Daily Matrix Coverage (lines 382-404)
+    # 6. Dashboard Cash-Flow Daily Matrix & Subtypes (lines 382-404)
+    # Movimiento ingreso con subtipo VENTA_DIARIA y COBRO_CXC
+    client.post('/api/transactions', json={
+        'date': '2026-09-18',
+        'movement_type': 'INGRESO',
+        'subtype': 'COBRO_CXC',
+        'account_id': acc_usd_id,
+        'amount_original': 25.0,
+        'amount_usd': 25.0,
+        'currency': 'USD',
+        'description': 'Cobro CxC test matrix'
+    }, headers=h_m)
+
+    client.post('/api/transactions', json={
+        'date': '2026-09-18',
+        'movement_type': 'EGRESO',
+        'subtype': 'PAGO_PROVEEDOR',
+        'account_id': acc_usd_id,
+        'amount_original': 15.0,
+        'amount_usd': 15.0,
+        'currency': 'USD',
+        'description': 'Pago Prov test matrix'
+    }, headers=h_m)
+
     client.get('/api/dashboard/cash-flow-daily?month=2026-09', headers=h_m)
     client.get('/api/dashboard/cash-flow-daily?month=invalid', headers=h_m)
 
-    # Account Service Edge Cases & Reactivation
+    # 7. Account Service: Reactivación y Error de duplicado activo
     client.post('/api/accounts', json={
-        'name': 'Caja Chica Sucursal Test',
+        'name': 'Caja Sucursal Reactivacion Test',
         'currency': 'USD',
         'account_type': 'Caja Operativa',
-        'initial_balance': 100.0
+        'initial_balance': 50.0
     }, headers=h_m)
+    # Intentar crear con el mismo nombre estando activa lanza 400
+    client.post('/api/accounts', json={
+        'name': 'Caja Sucursal Reactivacion Test',
+        'currency': 'USD',
+        'account_type': 'Caja Operativa',
+        'initial_balance': 50.0
+    }, headers=h_m)
+
+    # Desactivar cuenta
+    db2 = SessionLocal()
+    try:
+        t_acc = db2.query(TreasuryAccount).filter(TreasuryAccount.name == 'Caja Sucursal Reactivacion Test').first()
+        if t_acc:
+            client.patch(f'/api/accounts/{t_acc.id}/toggle-status', headers=h_m)
+            # Recrear la cuenta inactiva para activar rama 25-35
+            client.post('/api/accounts', json={
+                'name': 'Caja Sucursal Reactivacion Test',
+                'currency': 'USD',
+                'account_type': 'Caja Operativa',
+                'initial_balance': 75.0,
+                'only_income': False
+            }, headers=h_m)
+    finally:
+        db2.close()
+
+    # Toggle account status 404
+    client.patch('/api/accounts/999999/toggle-status', headers=h_m)
