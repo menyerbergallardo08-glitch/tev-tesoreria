@@ -14,10 +14,41 @@ from core.audit import record_audit
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
 
+from typing import Optional
+
 @router.post("/login")
-def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username, User.is_active == True).first()
-    if not user or not verify_password(req.password, user.password_hash):
+async def login(request: Request, db: Session = Depends(get_db), req: Optional[LoginRequest] = None):
+    username = None
+    password = None
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            username = body.get("username")
+            password = body.get("password")
+        except Exception:
+            pass
+    elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+        try:
+            form = await request.form()
+            username = form.get("username")
+            password = form.get("password")
+        except Exception:
+            pass
+
+    if not username and req:
+        username = req.username
+        password = req.password
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nombre de usuario y contraseña requeridos."
+        )
+
+    user = db.query(User).filter(User.username == username.strip(), User.is_active == True).first()
+    if not user or not verify_password(password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos.",

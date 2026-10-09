@@ -64,7 +64,16 @@ export const api = {
     }
 
     if (!response.ok) {
-      const message = data?.detail || data?.message || `Error ${response.status}: ${response.statusText}`;
+      let message = `Error ${response.status}: ${response.statusText}`;
+      if (typeof data?.detail === 'string') {
+        message = data.detail;
+      } else if (Array.isArray(data?.detail)) {
+        message = data.detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join('; ');
+      } else if (typeof data?.message === 'string') {
+        message = data.message;
+      } else if (data?.detail && typeof data.detail === 'object') {
+        message = JSON.stringify(data.detail);
+      }
       throw new ApiError(message, response.status, data);
     }
 

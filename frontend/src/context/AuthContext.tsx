@@ -45,16 +45,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (username: string, password: string) => {
-    const params = new URLSearchParams();
-    params.append('username', username);
-    params.append('password', password);
-
-    const res = await api.request<{ access_token: string; user?: User }>('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
+    const res = await api.post<{ access_token: string; user?: User }>('/api/auth/login', {
+      username: username.trim(),
+      password,
     });
 
     api.setToken(res.access_token);
