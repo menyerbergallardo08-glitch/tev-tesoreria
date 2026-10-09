@@ -103,18 +103,21 @@ def create_transaction(
     if (getattr(account, 'only_income', False) or 'CASHEA' in account.name.upper()) and tx_in.movement_type == "EGRESO":
         raise HTTPException(status_code=400, detail=f"La cuenta '{account.name}' está configurada exclusivamente para registrar INGRESOS.")
 
-    # Control estricto de duplicados por referencia bancaria (en todas las cuentas)
-    if tx_in.reference_number and len(tx_in.reference_number.strip()) > 2 and tx_in.subtype != "VENTA_DIARIA":
-        ref = tx_in.reference_number.strip()
+    # Control inteligente de duplicados por referencia bancaria (mismo origen y tipo de movimiento)
+    generic_refs = {"0", "00", "000", "0000", "S/R", "N/A", "NA", "SIN REF", "SIN REFERENCIA", "EFECTIVO", "PAGO", "MANUAL"}
+    clean_ref = (tx_in.reference_number or "").strip()
+    if clean_ref and len(clean_ref) > 3 and tx_in.subtype != "VENTA_DIARIA" and clean_ref.upper() not in generic_refs:
         dup = db.query(Transaction).filter(
-            Transaction.reference_number.ilike(ref),
+            Transaction.account_id == account.id,
+            Transaction.movement_type == tx_in.movement_type,
+            Transaction.reference_number.ilike(clean_ref),
             Transaction.status != "ANULADO"
         ).first()
         if dup:
             acc_name = dup.account.name if dup.account else "Desconocida"
             raise HTTPException(
                 status_code=400,
-                detail=f"¡ALERTA DE PAGO DUPLICADO! La referencia bancaria '{ref}' ya fue registrada el {dup.date} por ${dup.amount_usd:.2f} en '{acc_name}' (Beneficiario: {dup.beneficiary}). Verifique para evitar pagos duplicados."
+                detail=f"¡ALERTA DE PAGO DUPLICADO! La referencia bancaria '{clean_ref}' ya fue registrada en '{acc_name}' el {dup.date} por ${dup.amount_usd:.2f} (Beneficiario: {dup.beneficiary}). Verifique para evitar pagos duplicados."
             )
 
     # 3. Tasa BCV Oficial Obligatoria (salvo cambio de divisas que es negociado)

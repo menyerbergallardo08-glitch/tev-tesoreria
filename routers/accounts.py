@@ -14,16 +14,36 @@ def list_accounts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    from models import Transaction
+    from sqlalchemy import func
     accounts = get_active_accounts(db, include_inactive=all)
-    return [{
-        "id": a.id,
-        "name": a.name,
-        "currency": a.currency,
-        "account_type": a.account_type,
-        "initial_balance": a.initial_balance,
-        "only_income": a.only_income,
-        "is_active": a.is_active
-    } for a in accounts]
+    res = []
+    for a in accounts:
+        ingresos = db.query(func.coalesce(func.sum(Transaction.amount_original), 0.0)).filter(
+            Transaction.account_id == a.id,
+            Transaction.movement_type == "INGRESO",
+            Transaction.status != "ANULADO"
+        ).scalar() or 0.0
+
+        egresos = db.query(func.coalesce(func.sum(Transaction.amount_original), 0.0)).filter(
+            Transaction.account_id == a.id,
+            Transaction.movement_type == "EGRESO",
+            Transaction.status != "ANULADO"
+        ).scalar() or 0.0
+
+        calc_balance = (a.initial_balance or 0.0) + float(ingresos) - float(egresos)
+
+        res.append({
+            "id": a.id,
+            "name": a.name,
+            "currency": a.currency,
+            "account_type": a.account_type,
+            "initial_balance": a.initial_balance,
+            "current_balance": round(calc_balance, 2),
+            "only_income": a.only_income,
+            "is_active": a.is_active
+        })
+    return res
 
 @router.post("")
 def add_account(

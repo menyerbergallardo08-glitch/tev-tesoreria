@@ -19,11 +19,23 @@ def toggle_account_status(db: Session, account_id: int) -> TreasuryAccount:
     return acc
 
 def create_account(db: Session, data) -> TreasuryAccount:
-    existing = db.query(TreasuryAccount).filter(TreasuryAccount.name == data.name).first()
+    clean_name = data.name.strip()
+    existing = db.query(TreasuryAccount).filter(TreasuryAccount.name.ilike(clean_name)).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Ya existe una cuenta con el nombre '{data.name}'.")
+        if not existing.is_active:
+            existing.is_active = True
+            existing.currency = data.currency.upper()
+            existing.account_type = data.account_type.upper()
+            if data.initial_balance is not None:
+                existing.initial_balance = data.initial_balance
+            if data.only_income is not None:
+                existing.only_income = data.only_income
+            db.commit()
+            db.refresh(existing)
+            return existing
+        raise HTTPException(status_code=400, detail=f"Ya existe una cuenta activa con el nombre '{data.name}'.")
     acc = TreasuryAccount(
-        name=data.name,
+        name=clean_name,
         currency=data.currency.upper(),
         account_type=data.account_type.upper(),
         initial_balance=data.initial_balance,

@@ -537,7 +537,7 @@
                 <div>
                   <label class="block text-[11px] font-bold text-indigo-900 mb-1">¿Por dónde cobraste el abono de hoy?:</label>
                   <select x-model.number="liveSaleForm.initial_downpayment_account_id" class="w-full input-large border border-indigo-300 font-bold bg-white text-indigo-950">
-                    <template x-for="acc in treasuryAccounts.filter(a => a.is_active)" :key="acc.id">
+                    <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
                       <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                     </template>
                   </select>
@@ -1314,7 +1314,7 @@
                 <label class="block text-xs font-bold text-blue-900 mb-1">🏦 Cuenta Destino (Entra):</label>
                 <select x-model.number="form.destination_account_id"
                         class="w-full input-large border border-blue-300 bg-white font-bold text-xs sm:text-sm text-blue-950">
-                  <template x-for="acc in treasuryAccounts.filter(a => a.id !== form.account_id)" :key="acc.id">
+                  <template x-for="acc in accounts.filter(a => a.id !== form.account_id && a.is_active)" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
                 </select>
@@ -1780,21 +1780,29 @@
               </h3>
               <p class="text-xs text-gray-500">Disponibilidad total en efectivo, puntos y cuentas bancarias corporativas</p>
             </div>
-            <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
-              <button @click="openNewAccountModal()" class="px-3.5 py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition cursor-pointer">
-                <span>➕</span> Nueva Caja / Cuenta
-              </button>
-            </template>
+            <div class="flex items-center gap-2">
+              <select x-model="filterAccountStatus" @change="loadAccounts()" class="p-2 border border-gray-300 rounded-xl text-xs font-semibold bg-white">
+                <option value="active">Solo Activas</option>
+                <option value="all">Todas las Cuentas</option>
+                <option value="inactive">Solo Inactivas / Pausadas</option>
+              </select>
+              <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                <button @click="openNewAccountModal()" class="px-3.5 py-2 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition cursor-pointer">
+                  <span>➕</span> Nueva Caja / Cuenta
+                </button>
+              </template>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 pt-2">
-            <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
-              <div class="bg-slate-50 p-4 rounded-2xl border border-gray-200 flex flex-col justify-between relative group hover:border-teal-400 transition">
+            <template x-for="acc in (filterAccountStatus === 'all' ? accounts : (filterAccountStatus === 'inactive' ? accounts.filter(a => !a.is_active) : accounts.filter(a => a.is_active)))" :key="acc.id">
+              <div :class="acc.is_active ? 'bg-slate-50 border-gray-200 hover:border-teal-400' : 'bg-red-50/50 border-red-200 opacity-80'"
+                   class="p-4 rounded-2xl border flex flex-col justify-between relative group transition">
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
                     <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-slate-700 border border-gray-200" x-text="acc.currency"></span>
                     <div class="flex items-center gap-1">
-                      <span class="text-[10px] text-gray-400" x-text="acc.account_type"></span>
+                      <span class="text-[10px]" :class="acc.is_active ? 'text-gray-400' : 'text-rose-600 font-bold'" x-text="acc.is_active ? acc.account_type : 'Inactiva'"></span>
                       <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
                         <button @click="openEditAccountModal(acc)" class="text-xs text-gray-400 hover:text-teal-700 p-0.5" title="Editar cuenta">✏️</button>
                       </template>
@@ -4265,15 +4273,18 @@
           }
         },
 
+        filterAccountStatus: 'active',
         async loadAccounts() {
           const token = this.getToken();
-          const res = await fetch('/api/accounts', {
+          const includeAll = (this.filterAccountStatus === 'all' || this.filterAccountStatus === 'inactive');
+          const res = await fetch('/api/accounts' + (includeAll ? '?all=true' : ''), {
             headers: { 'Authorization': 'Bearer ' + token }
           });
           if (res.ok) {
             this.accounts = await res.json();
             if (this.accounts.length > 0 && !this.form.account_id) {
-              this.form.account_id = this.accounts[0].id;
+              const firstActive = this.accounts.find(a => a.is_active);
+              this.form.account_id = firstActive ? firstActive.id : this.accounts[0].id;
               this.onAccountChange();
             }
           }

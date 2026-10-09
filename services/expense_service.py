@@ -19,9 +19,11 @@ def create_expense_transaction(db: Session, user: User, data, ip_address: str = 
         raise HTTPException(status_code=400, detail="La cuenta de egreso seleccionada no existe o está inactiva.")
 
     # Idempotencia por referencia / factura de proveedor
-    if data.reference_number:
-        clean_ref = data.reference_number.strip()
+    generic_refs = {"0", "00", "000", "0000", "S/R", "N/A", "NA", "SIN REF", "SIN REFERENCIA", "EFECTIVO", "PAGO", "MANUAL"}
+    clean_ref = (data.reference_number or "").strip()
+    if clean_ref and len(clean_ref) > 3 and clean_ref.upper() not in generic_refs:
         existing = db.query(Transaction).filter(
+            Transaction.account_id == data.account_id,
             Transaction.movement_type == 'EGRESO',
             Transaction.reference_number == clean_ref,
             Transaction.date == expense_date,

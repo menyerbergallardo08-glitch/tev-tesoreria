@@ -107,6 +107,7 @@ def init_all():
             ('Efectivo USD (Caja Tienda)', 'USD', 'EFECTIVO', 0.0),
             ('Efectivo VES (Gaveta Tienda)', 'VES', 'EFECTIVO', 0.0),
             ('Banesco Banco Universal (VES)', 'VES', 'BANCO', 0.0),
+            ('Banco Mercantil (VES)', 'VES', 'BANCO', 0.0),
             ('Bancaribe (VES)', 'VES', 'BANCO', 0.0),
             ('Banco de Venezuela (VES)', 'VES', 'BANCO', 0.0),
             ('Banco Nacional de Crédito - BNC (VES)', 'VES', 'BANCO', 0.0),
