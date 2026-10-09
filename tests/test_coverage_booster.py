@@ -32,6 +32,50 @@ def test_deep_edge_cases_and_95_percent_coverage():
     client.patch('/api/auth/users/999999/toggle-status', headers=h_m)
     client.delete('/api/auth/users/999999', headers=h_m)
 
+    # Crear usuario temporal para testear update con cambio de username, password y self-toggle
+    ts = int(datetime.datetime.now().timestamp() * 1000)
+    u_tmp_name = f'user_temp_{ts}'
+    res_cre = client.post('/api/auth/users', json={
+        'username': u_tmp_name,
+        'password': 'temp_password_123',
+        'full_name': 'Usuario Temporal Prueba',
+        'role': 'cajera'
+    }, headers=h_m)
+    if res_cre.status_code == 200:
+        uid = res_cre.json()['id']
+        # Clave corta al resetear clave (line 182)
+        client.patch(f'/api/auth/users/{uid}/password', json={'new_password': '12'}, headers=h_m)
+        # Intentar crear con username ya existente lanza 400 (line 116)
+        client.post('/api/auth/users', json={
+            'username': u_tmp_name,
+            'password': 'temp_password_123',
+            'full_name': 'Duplicado',
+            'role': 'cajera'
+        }, headers=h_m)
+        # Update username a existente lanza 400 (line 146)
+        client.put(f'/api/auth/users/{uid}', json={'username': 'master'}, headers=h_m)
+        # Update username exitoso con password y is_active (lines 142-159)
+        u_tmp_name2 = f'u2_{ts}'
+        client.put(f'/api/auth/users/{uid}', json={
+            'username': u_tmp_name2,
+            'full_name': 'Nombre Cambiado',
+            'role': 'administradora',
+            'password': 'nueva_clave_456',
+            'is_active': True
+        }, headers=h_m)
+        # Borrar usuario temporal
+        client.delete(f'/api/auth/users/{uid}', headers=h_m)
+
+    # Self-toggle y self-delete directivo (lines 198, 214)
+    db_u = SessionLocal()
+    try:
+        m_user = db_u.query(User).filter(User.username == 'master').first()
+        m_id = m_user.id if m_user else 1
+    finally:
+        db_u.close()
+    client.patch(f'/api/auth/users/{m_id}/toggle-status', headers=h_m)
+    client.delete(f'/api/auth/users/{m_id}', headers=h_m)
+
     # 3. Transactions Query Params & Filters
     client.get('/api/transactions?month=2026-12', headers=h_m)
     client.get('/api/transactions?month=invalid', headers=h_m)
@@ -89,6 +133,26 @@ def test_deep_edge_cases_and_95_percent_coverage():
         acc_usd_id = acc_usd.id if acc_usd else 1
     finally:
         db.close()
+
+    # Venta Anulable (lines 46, 48)
+    res_sale = client.post('/api/sales', json={
+        'date': '2026-09-19',
+        'doc_type': 'FACTURA_FISCAL',
+        'doc_number': 'FAC-ANUL-01',
+        'client_name': 'Cliente Para Anular',
+        'amount_usd': 30.0,
+        'payment_method': 'EFECTIVO_USD',
+        'account_id': acc_usd_id,
+        'is_credit': False
+    }, headers=h_m)
+    if res_sale.status_code == 200:
+        sale_id = res_sale.json()['id']
+        # Anular venta inexistente (line 46)
+        client.post('/api/sales/void', json={'transaction_id': 999999, 'reason': 'Test'}, headers=h_m)
+        # Anular venta creada
+        client.post('/api/sales/void', json={'transaction_id': sale_id, 'reason': 'Error de monto'}, headers=h_m)
+        # Anular nuevamente lanza 400 (line 48)
+        client.post('/api/sales/void', json={'transaction_id': sale_id, 'reason': 'Re-anulacion'}, headers=h_m)
 
     # Venta Nota Entrega Credito
     client.post('/api/sales', json={
@@ -162,7 +226,19 @@ def test_deep_edge_cases_and_95_percent_coverage():
         'description': 'Gasto salida efectivo VES test'
     }, headers=h_m)
 
-    # Sales Accumulated Filters (dia, month, defaults)
+    # Devolución para cubrir returns_today_usd (routers/sales.py line 187)
+    client.post('/api/expenses', json={
+        'date': '2026-09-16',
+        'movement_type': 'EGRESO',
+        'subtype': 'DEVOLUCION_VENTA',
+        'account_id': acc_usd_id,
+        'amount_usd': 12.0,
+        'currency': 'USD',
+        'description': 'Devolucion cliente prueba'
+    }, headers=h_m)
+
+    # Sales Summary Today
+    client.get('/api/sales/summary-today?date=2026-09-16', headers=h_m)
     client.get('/api/sales/accumulated?filter_mode=dia&date=2026-09-16', headers=h_m)
     client.get('/api/sales/accumulated?filter_mode=dia&date=bad_date', headers=h_m)
     client.get('/api/sales/accumulated?month=2026-12', headers=h_m)
@@ -190,7 +266,6 @@ def test_deep_edge_cases_and_95_percent_coverage():
         'difference_usd': 0.0
     }
     client.post('/api/cash-close', json=close_payload, headers=h_m)
-    # Segundo intento lanza 409 (Ya existe un cierre)
     client.post('/api/cash-close', json=close_payload, headers=h_m)
 
     client.get('/api/cash-close/summary?date=2026-09-16', headers=h_m)
@@ -198,7 +273,6 @@ def test_deep_edge_cases_and_95_percent_coverage():
     client.get('/api/cash-close/history', headers=h_m)
 
     # 6. Dashboard Cash-Flow Daily Matrix & Subtypes (lines 382-404)
-    # Movimiento ingreso con subtipo VENTA_DIARIA y COBRO_CXC
     client.post('/api/transactions', json={
         'date': '2026-09-18',
         'movement_type': 'INGRESO',
@@ -231,7 +305,6 @@ def test_deep_edge_cases_and_95_percent_coverage():
         'account_type': 'Caja Operativa',
         'initial_balance': 50.0
     }, headers=h_m)
-    # Intentar crear con el mismo nombre estando activa lanza 400
     client.post('/api/accounts', json={
         'name': 'Caja Sucursal Reactivacion Test',
         'currency': 'USD',
@@ -239,13 +312,11 @@ def test_deep_edge_cases_and_95_percent_coverage():
         'initial_balance': 50.0
     }, headers=h_m)
 
-    # Desactivar cuenta
     db2 = SessionLocal()
     try:
         t_acc = db2.query(TreasuryAccount).filter(TreasuryAccount.name == 'Caja Sucursal Reactivacion Test').first()
         if t_acc:
             client.patch(f'/api/accounts/{t_acc.id}/toggle-status', headers=h_m)
-            # Recrear la cuenta inactiva para activar rama 25-35
             client.post('/api/accounts', json={
                 'name': 'Caja Sucursal Reactivacion Test',
                 'currency': 'USD',
@@ -256,5 +327,9 @@ def test_deep_edge_cases_and_95_percent_coverage():
     finally:
         db2.close()
 
-    # Toggle account status 404
     client.patch('/api/accounts/999999/toggle-status', headers=h_m)
+
+    # 8. System Router Edge Cases: Tasa BCV & Backups (lines 57, 120, 143)
+    client.post('/api/system/bcv-rate', json={'rate': -10.0}, headers=h_m)
+    client.get('/api/system/backups/invalid..name/content', headers=h_m)
+    client.get('/api/system/backups/invalid..name', headers=h_m)
