@@ -15,6 +15,17 @@ if RAW_DB_URL.startswith('postgres://'):
 else:
     DATABASE_URL = RAW_DB_URL
 
+# Si es PostgreSQL sin driver explícito (+psycopg o +psycopg2), verificar disponibilidad
+if DATABASE_URL.startswith('postgresql://'):
+    try:
+        import psycopg  # noqa
+    except ImportError:
+        try:
+            import psycopg2  # noqa
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg2://', 1)
+        except ImportError:
+            pass
+
 if DATABASE_URL.startswith('sqlite'):
     engine = create_engine(
         DATABASE_URL,
