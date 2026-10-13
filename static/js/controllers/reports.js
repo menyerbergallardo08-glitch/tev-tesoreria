@@ -223,7 +223,4 @@ window.TEVReports = {
             this.showToast('error', 'Error en Reseteo', err.message);
           }
         }
-      };
-    }
-
 };

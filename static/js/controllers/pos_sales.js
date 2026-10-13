@@ -226,8 +226,11 @@ window.TEVPosSales = {
               this.liveSaleForm.tax_retention_amount = 0;
               this.liveSaleForm.tax_retention_proof = '';
               this.hasRetention = false;
-              this.hasCasheaDownpayment = false;
-              await this.loadInitialData();
+              try {
+                await this.loadInitialData();
+              } catch (refreshErr) {
+                console.warn('[TEV] Advertencia en refresco post-venta:', refreshErr);
+              }
             } else {
               this.showToast('error', 'No se pudo registrar', (d && d.detail) ? d.detail : 'Ocurrió un error en la validación.');
             }

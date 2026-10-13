@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 from fastapi import HTTPException
 from models import Transaction, TreasuryAccount, User, TransactionType, PaymentMethod
 from core.audit import record_audit
@@ -105,13 +106,17 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
     sale_date = datetime.datetime.strptime(data.date, "%Y-%m-%d").date()
     
     # 1. Validación de Idempotencia y No Duplicidad (Pilar 3)
-    if data.doc_number:
-        clean_doc = data.doc_number.strip()
+    clean_doc = data.doc_number.strip() if data.doc_number else ""
+    if clean_doc:
+        clean_doc_norm = clean_doc.upper().replace(" ", "")
         existing_doc = db.query(Transaction).filter(
             Transaction.doc_type == data.doc_type,
-            Transaction.doc_number == clean_doc,
             Transaction.date == sale_date,
-            Transaction.status != 'ANULADO'
+            Transaction.status != 'ANULADO',
+            or_(
+                func.upper(Transaction.doc_number) == clean_doc.upper(),
+                func.replace(func.upper(func.coalesce(Transaction.doc_number, '')), ' ', '') == clean_doc_norm
+            )
         ).first()
         if existing_doc:
             raise HTTPException(
@@ -119,12 +124,31 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
                 detail=f"Conflicto / Duplicado: Ya existe un registro activo para {data.doc_type} #{clean_doc} en fecha {data.date} (ID #{existing_doc.id})."
             )
 
+    # 1.1 Protección Anti-Doble Clic / Ráfaga (< 5 segundos para misma venta sin documento o mismo cliente)
     raw_amt = getattr(data, 'amount_usd', None)
     if raw_amt is None or raw_amt == 0:
         raw_amt = getattr(data, 'amount_original', 0.0)
     amount_total = float(raw_amt or 0.0)
     if amount_total <= 0:
         raise HTTPException(status_code=400, detail="El monto de la venta debe ser mayor a 0.00.")
+
+    if not clean_doc:
+        recent_cutoff = datetime.datetime.utcnow() - datetime.timedelta(seconds=5)
+        burst_dup = db.query(Transaction).filter(
+            Transaction.movement_type == 'INGRESO',
+            Transaction.subtype == 'VENTA_DIARIA',
+            Transaction.created_by_id == user.id,
+            Transaction.doc_type == data.doc_type,
+            Transaction.client_name == (data.client_name.strip() if data.client_name else 'Cliente Mostrador'),
+            Transaction.created_at >= recent_cutoff,
+            Transaction.amount_usd == amount_total,
+            Transaction.status != 'ANULADO'
+        ).first()
+        if burst_dup:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Reintento rápido bloqueado: Ya se registró una venta idéntica por ${amount_total:.2f} hace menos de 5 segundos (ID #{burst_dup.id})."
+            )
 
     raw_abono = getattr(data, 'abono_usd', None)
     if raw_abono is None or raw_abono == 0:
