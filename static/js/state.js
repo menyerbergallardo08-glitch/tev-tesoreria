@@ -8,6 +8,7 @@ window.TEVState = {
         loginForm: { username: '', password: '' },
 
         accounts: [],
+        allAccountsList: [],
         categories: [],
         transactions: [],
         usersList: [],
@@ -58,6 +59,7 @@ window.TEVState = {
         hasRetention: false,
         hasCasheaDownpayment: false,
         isSubmittingSale: false,
+        isSubmittingMovement: false,
         loadingBcv: false,
 
         

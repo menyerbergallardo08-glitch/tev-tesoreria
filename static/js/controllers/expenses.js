@@ -40,6 +40,8 @@ window.TEVExpenses = {
         },
 
         async executeSubmitTransaction() {
+          if (this.isSubmittingMovement) return;
+          this.isSubmittingMovement = true;
           this.showConfirmModal = false;
           const token = this.getToken();
           try {
@@ -83,10 +85,14 @@ window.TEVExpenses = {
             }
           } catch (err) {
             this.showToast('error', 'Error en Registro', err.message);
+          } finally {
+            this.isSubmittingMovement = false;
           }
         },
 
         async executeTransfer() {
+          if (this.isSubmittingMovement) return;
+          this.isSubmittingMovement = true;
           const token = this.getToken();
           try {
             const res = await fetch('/api/transactions/transfer', {
@@ -109,6 +115,8 @@ window.TEVExpenses = {
             }
           } catch (err) {
             this.showToast('error', 'Error en Traspaso', err.message);
+          } finally {
+            this.isSubmittingMovement = false;
           }
         },
 
@@ -361,6 +369,7 @@ window.TEVExpenses = {
             this.showNewAccountModal = false;
             this.showToast('success', 'Caja Creada', `La cuenta "${data.name}" fue creada exitosamente`);
             await this.loadAccounts();
+            await this.loadAllAccounts();
             this.form.account_id = data.id;
             this.onAccountChange();
           } catch (err) {
@@ -395,8 +404,40 @@ window.TEVExpenses = {
             this.showEditAccountModal = false;
             this.showToast('success', 'Caja Actualizada', 'Los datos de la cuenta fueron guardados');
             await this.loadAccounts();
+            await this.loadAllAccounts();
           } catch (err) {
             this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        async toggleAccountStatus(acc) {
+          const token = this.getToken();
+          try {
+            const res = await fetch(`/api/accounts/${acc.id}/toggle-status`, {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al cambiar estado');
+            this.showToast('success', 'Estado Actualizado', data.message);
+            await this.loadAccounts();
+            await this.loadAllAccounts();
+          } catch(err) {
+            this.showToast('error', 'Error', err.message);
+          }
+        },
+
+        async loadAllAccounts() {
+          const token = this.getToken();
+          try {
+            const res = await fetch('/api/accounts?all=true', {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.allAccountsList = await res.json();
+            }
+          } catch(err) {
+            console.error(err);
           }
         },
 

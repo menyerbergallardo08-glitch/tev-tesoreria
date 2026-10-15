@@ -15,6 +15,16 @@ class AccountUpdate(BaseModel):
     only_income: Optional[bool] = None
     is_active: Optional[bool] = None
 
+from typing import List
+
+class MonthlyBalanceItem(BaseModel):
+    account_id: int
+    initial_balance: float
+
+class MonthlyBalancesBulkPayload(BaseModel):
+    month: str
+    balances: List[MonthlyBalanceItem]
+
 class MonthlyBalanceCreate(BaseModel):
     account_id: int
     month: str # 'YYYY-MM'

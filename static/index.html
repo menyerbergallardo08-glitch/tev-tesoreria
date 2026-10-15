@@ -224,6 +224,14 @@
             </button>
           </template>
 
+          <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+            <button @click="activeTab = 'cuentas'; loadAllAccounts()"
+                    :class="activeTab === 'cuentas' ? 'bg-teal-700 text-white shadow ring-2 ring-teal-300' : 'text-teal-800 bg-teal-50 hover:bg-teal-100'"
+                    class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
+              <span>🏦 Cajas y Bancos</span>
+            </button>
+          </template>
+
 
 
           <template x-if="currentUser?.role === 'directivo'">
@@ -1225,8 +1233,11 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="submitMovement()" class="w-full sm:w-auto px-8 py-3.5 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer">
-                <span>💾</span> Registrar Salida de Dinero
+              <button type="button" @click="submitMovement()" :disabled="isSubmittingMovement"
+                      class="w-full sm:w-auto px-8 py-3.5 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50">
+                <span x-show="!isSubmittingMovement">💾</span>
+                <span x-show="!isSubmittingMovement">Registrar Salida de Dinero</span>
+                <span x-show="isSubmittingMovement" class="flex items-center gap-2"><span>⏳</span> Procesando Salida...</span>
               </button>
             </div>
 
@@ -1775,9 +1786,18 @@
             <!-- Select Mes si es Por Mes -->
             <div x-show="salesFilterMode === 'mes'">
               <select x-model="filterMonth" @change="loadSalesAccumulated()" class="p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white cursor-pointer shadow-sm">
-                <option value="2026-09">Septiembre 2026 (Actual)</option>
+                <option value="2026-01">Enero 2026</option>
+                <option value="2026-02">Febrero 2026</option>
+                <option value="2026-03">Marzo 2026</option>
+                <option value="2026-04">Abril 2026</option>
+                <option value="2026-05">Mayo 2026</option>
+                <option value="2026-06">Junio 2026</option>
+                <option value="2026-07">Julio 2026</option>
                 <option value="2026-08">Agosto 2026</option>
-                <option value="2026-10">Octubre 2026</option>
+                <option value="2026-09">Septiembre 2026</option>
+                <option value="2026-10">Octubre 2026 (Mes Actual)</option>
+                <option value="2026-11">Noviembre 2026</option>
+                <option value="2026-12">Diciembre 2026</option>
               </select>
             </div>
 
@@ -1909,9 +1929,19 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <select x-model="filterMonth" @change="loadCashFlowAll()" class="p-2.5 border border-gray-300 rounded-xl text-sm font-bold bg-white">
+            <select x-model="filterMonth" @change="loadCashFlowAll()" class="p-2.5 border border-gray-300 rounded-xl text-sm font-bold bg-white cursor-pointer shadow-sm">
+              <option value="2026-01">Enero 2026</option>
+              <option value="2026-02">Febrero 2026</option>
+              <option value="2026-03">Marzo 2026</option>
+              <option value="2026-04">Abril 2026</option>
+              <option value="2026-05">Mayo 2026</option>
+              <option value="2026-06">Junio 2026</option>
+              <option value="2026-07">Julio 2026</option>
               <option value="2026-08">Agosto 2026</option>
               <option value="2026-09">Septiembre 2026</option>
+              <option value="2026-10">Octubre 2026 (Mes Actual)</option>
+              <option value="2026-11">Noviembre 2026</option>
+              <option value="2026-12">Diciembre 2026</option>
             </select>
 
             <button @click="openInitialBalancesModal()"
@@ -2307,9 +2337,19 @@
               <option value="active">Solo Activas</option>
               <option value="inactive">Solo Inactivas</option>
             </select>
-            <select x-model="filterMonth" @change="loadCategories()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold">
+            <select x-model="filterMonth" @change="loadCategories()" class="p-2 border border-gray-300 rounded-xl text-sm font-semibold bg-white cursor-pointer shadow-sm">
+              <option value="2026-01">Enero 2026</option>
+              <option value="2026-02">Febrero 2026</option>
+              <option value="2026-03">Marzo 2026</option>
+              <option value="2026-04">Abril 2026</option>
+              <option value="2026-05">Mayo 2026</option>
+              <option value="2026-06">Junio 2026</option>
+              <option value="2026-07">Julio 2026</option>
               <option value="2026-08">Agosto 2026</option>
               <option value="2026-09">Septiembre 2026</option>
+              <option value="2026-10">Octubre 2026 (Mes Actual)</option>
+              <option value="2026-11">Noviembre 2026</option>
+              <option value="2026-12">Diciembre 2026</option>
             </select>
           </div>
         </div>
@@ -2406,6 +2446,85 @@
                   <td class="p-4"></td>
                 </tr>
               </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- TAB: GESTIÓN DE CAJAS Y CUENTAS BANCARIAS -->
+      <!-- ======================================================== -->
+      <div x-show="activeTab === 'cuentas'" class="space-y-6">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-black text-gray-900 flex items-center gap-2">
+              <span>🏦</span> Cajas Físicas y Cuentas Bancarias
+            </h2>
+            <p class="text-xs text-gray-500">Cree nuevas cajas, habilite o deshabilite puntos de cobro y configure saldos</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button @click="loadAllAccounts()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-xl text-xs font-bold transition cursor-pointer">
+              🔄 Actualizar Cuentas
+            </button>
+            <button @click="openNewAccountModal()" class="px-4 py-2.5 bg-tev-green hover:bg-tev-darkgreen text-white rounded-xl text-xs font-black shadow flex items-center gap-2 transition cursor-pointer">
+              <span>➕</span> Nueva Caja o Banco
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla y Tarjetas de Cuentas -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-3">Nombre de Caja / Cuenta</th>
+                  <th class="p-3">Moneda</th>
+                  <th class="p-3">Tipo</th>
+                  <th class="p-3 text-right">Saldo Inicial Base</th>
+                  <th class="p-3 text-right">Saldo Actual en Libros</th>
+                  <th class="p-3 text-center">Estado</th>
+                  <th class="p-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="acc in (allAccountsList.length ? allAccountsList : accounts)" :key="acc.id">
+                  <tr class="border-b hover:bg-slate-50 transition" :class="!acc.is_active ? 'opacity-60 bg-gray-50' : ''">
+                    <td class="p-3 font-bold text-gray-900 flex items-center gap-2">
+                      <span x-text="acc.account_type === 'EFECTIVO' ? '💵' : (acc.account_type === 'BILLETERA' ? '📱' : '🏦')"></span>
+                      <span x-text="acc.name"></span>
+                    </td>
+                    <td class="p-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black"
+                            :class="acc.currency === 'USD' ? 'bg-emerald-100 text-emerald-800' : (acc.currency === 'USDT' ? 'bg-teal-100 text-teal-800' : 'bg-blue-100 text-blue-800')"
+                            x-text="acc.currency"></span>
+                    </td>
+                    <td class="p-3 text-gray-600 font-medium" x-text="acc.account_type"></td>
+                    <td class="p-3 text-right font-semibold text-gray-600" x-text="'$' + formatNumber(acc.initial_balance || 0)"></td>
+                    <td class="p-3 text-right font-black" :class="acc.current_balance >= 0 ? 'text-gray-900' : 'text-rose-600'" x-text="'$' + formatNumber(acc.current_balance || 0)"></td>
+                    <td class="p-3 text-center">
+                      <span class="px-2.5 py-1 rounded-full text-[10px] font-black inline-flex items-center gap-1"
+                            :class="acc.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
+                        <span class="w-1.5 h-1.5 rounded-full" :class="acc.is_active ? 'bg-emerald-600' : 'bg-rose-600'"></span>
+                        <span x-text="acc.is_active ? 'Activa' : 'Inactiva'"></span>
+                      </span>
+                    </td>
+                    <td class="p-3 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <button @click="openEditAccountModal(acc)" title="Editar Nombre / Saldo Inicial"
+                                class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-gray-700 rounded-lg text-xs font-bold transition cursor-pointer">
+                          ✏️ Editar
+                        </button>
+                        <button @click="toggleAccountStatus(acc)"
+                                :class="acc.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'"
+                                class="px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer">
+                          <span x-text="acc.is_active ? '🚫 Deshabilitar' : '✅ Habilitar'"></span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
             </table>
           </div>
         </div>

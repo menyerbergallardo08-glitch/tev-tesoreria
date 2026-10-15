@@ -1,12 +1,57 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from database import get_db
-from models import TreasuryAccount, User
+from models import TreasuryAccount, AccountMonthlyBalance, User
 from core.security import get_current_user, require_roles
-from schemas.accounts import AccountCreate, AccountUpdate, MonthlyBalanceCreate
+from schemas.accounts import AccountCreate, AccountUpdate, MonthlyBalanceCreate, MonthlyBalancesBulkPayload
 from services.account_service import get_active_accounts, toggle_account_status, create_account
 
 router = APIRouter(prefix="/api/accounts", tags=["Cajas y Bancos"])
+
+@router.get("/monthly-balances")
+def get_monthly_balances(
+    month: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    accounts = get_active_accounts(db, include_inactive=False)
+    res = []
+    for a in accounts:
+        bal = db.query(AccountMonthlyBalance).filter(
+            AccountMonthlyBalance.account_id == a.id,
+            AccountMonthlyBalance.month == month
+        ).first()
+        init_val = bal.initial_balance if bal else (a.initial_balance or 0.0)
+        res.append({
+            "account_id": a.id,
+            "name": a.name,
+            "currency": a.currency,
+            "initial_balance": round(float(init_val), 2)
+        })
+    return {"month": month, "balances": res}
+
+@router.post("/monthly-balances")
+def set_monthly_balances(
+    payload: MonthlyBalancesBulkPayload,
+    current_user: User = Depends(require_roles(["administradora", "directivo"])),
+    db: Session = Depends(get_db)
+):
+    for item in payload.balances:
+        bal = db.query(AccountMonthlyBalance).filter(
+            AccountMonthlyBalance.account_id == item.account_id,
+            AccountMonthlyBalance.month == payload.month
+        ).first()
+        if not bal:
+            bal = AccountMonthlyBalance(
+                account_id=item.account_id,
+                month=payload.month,
+                initial_balance=float(item.initial_balance)
+            )
+            db.add(bal)
+        else:
+            bal.initial_balance = float(item.initial_balance)
+    db.commit()
+    return {"status": "success", "message": f"Saldos iniciales para {payload.month} guardados correctamente."}
 
 @router.get("")
 def list_accounts(

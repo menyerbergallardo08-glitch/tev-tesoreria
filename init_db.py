@@ -79,7 +79,10 @@ def init_all():
         # 3. Ensure Master Administrator User exists
         default_users = [
             ('master', 'master2026*', 'Superintendente Master TEV', 'directivo'),
-            ('directivo', 'tev2026*', 'Dirección General TEV', 'directivo')
+            ('directivo', 'tev2026*', 'Dirección General TEV', 'directivo'),
+            ('administradora', 'admin2026*', 'Administradora TEV', 'administradora'),
+            ('cajera1', 'caja12026*', 'Cajera Principal TEV', 'cajera'),
+            ('cajera2', 'caja22026*', 'Cajera Auxiliar TEV', 'cajera')
         ]
         for uname, pwd, fname, role in default_users:
             u = db.query(User).filter(User.username == uname).first()
