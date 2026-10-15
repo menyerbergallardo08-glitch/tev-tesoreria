@@ -342,7 +342,7 @@ window.TEVExpenses = {
           this.newAccountForm = {
             name: '',
             currency: 'USD',
-            account_type: 'Caja Operativa',
+            account_type: 'EFECTIVO',
             initial_balance: 0.0
           };
           this.showNewAccountModal = true;
@@ -355,13 +355,20 @@ window.TEVExpenses = {
           }
           const token = this.getToken();
           try {
+            const payload = {
+              name: this.newAccountForm.name.trim(),
+              currency: this.newAccountForm.currency || 'USD',
+              account_type: this.newAccountForm.account_type || 'EFECTIVO',
+              initial_balance: parseFloat(this.newAccountForm.initial_balance) || 0.0,
+              only_income: false
+            };
             const res = await fetch('/api/accounts', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
               },
-              body: JSON.stringify(this.newAccountForm)
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al crear la cuenta');
@@ -370,33 +377,47 @@ window.TEVExpenses = {
             this.showToast('success', 'Caja Creada', `La cuenta "${data.name}" fue creada exitosamente`);
             await this.loadAccounts();
             await this.loadAllAccounts();
-            this.form.account_id = data.id;
-            this.onAccountChange();
+            if (this.form) {
+              this.form.account_id = data.id;
+              if (typeof this.onAccountChange === 'function') {
+                try { this.onAccountChange(); } catch(e) {}
+              }
+            }
           } catch (err) {
             this.showToast('error', 'Error', err.message);
           }
         },
 
         openEditAccountModal(acc) {
-          this.editingAccount = { ...acc };
+          if (!acc) return;
+          this.editingAccount = {
+            id: acc.id,
+            name: acc.name || '',
+            currency: acc.currency || 'USD',
+            account_type: acc.account_type || 'EFECTIVO',
+            initial_balance: acc.initial_balance !== undefined ? acc.initial_balance : 0.0,
+            is_active: Boolean(acc.is_active)
+          };
           this.showEditAccountModal = true;
         },
 
         async saveEditAccount() {
+          if (!this.editingAccount || !this.editingAccount.id) return;
           const token = this.getToken();
           try {
+            const payload = {
+              name: this.editingAccount.name ? this.editingAccount.name.trim() : undefined,
+              account_type: this.editingAccount.account_type || 'EFECTIVO',
+              initial_balance: parseFloat(this.editingAccount.initial_balance) || 0.0,
+              is_active: (this.editingAccount.is_active === true || this.editingAccount.is_active === 'true')
+            };
             const res = await fetch('/api/accounts/' + this.editingAccount.id, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
               },
-              body: JSON.stringify({
-                name: this.editingAccount.name,
-                account_type: this.editingAccount.account_type,
-                initial_balance: this.editingAccount.initial_balance,
-                is_active: this.editingAccount.is_active
-              })
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al actualizar');
@@ -411,6 +432,7 @@ window.TEVExpenses = {
         },
 
         async toggleAccountStatus(acc) {
+          if (!acc || !acc.id) return;
           const token = this.getToken();
           try {
             const res = await fetch(`/api/accounts/${acc.id}/toggle-status`, {
@@ -434,10 +456,14 @@ window.TEVExpenses = {
               headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
-              this.allAccountsList = await res.json();
+              const list = await res.json();
+              this.allAccountsList = list;
+              if (!this.accounts || this.accounts.length === 0) {
+                this.accounts = list.filter(a => a.is_active);
+              }
             }
           } catch(err) {
-            console.error(err);
+            console.error('Error cargando cuentas completas:', err);
           }
         },
 

@@ -224,7 +224,7 @@ window.TEVState = {
         editingCat: {},
         newCatForm: { code: null, name: '', monthly_budget_usd: 0 },
         editingAccount: {},
-        newAccountForm: { name: '', currency: 'USD', account_type: 'Caja Operativa', initial_balance: 0 },
+        newAccountForm: { name: '', currency: 'USD', account_type: 'EFECTIVO', initial_balance: 0 },
         selectedUserForReset: null,
 
         changePasswordForm: { old_password: '', new_password: '' },

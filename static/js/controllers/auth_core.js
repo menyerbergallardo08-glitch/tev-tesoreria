@@ -58,6 +58,7 @@ window.TEVAuthCore = {
 
         async loadInitialData() {
           await this.loadAccounts();
+          await this.loadAllAccounts();
           await this.loadCategories();
           await this.loadTransactions();
           if (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo') {
