@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 from pydantic import BaseModel
 from typing import Optional
 
@@ -34,3 +34,18 @@ class TransferCreate(BaseModel):
     exchange_rate: float = 1.0
     reference_number: Optional[str] = ""
     description: Optional[str] = "Traspaso / Cambio de divisas"
+
+class TransactionUpdate(BaseModel):
+    amount_original: Optional[float] = None
+    currency: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    amount_usd: Optional[float] = None
+    credit_original_amount_usd: Optional[float] = None
+    credit_balance_pending_usd: Optional[float] = None
+    client_name: Optional[str] = None
+    doc_type: Optional[str] = None
+    doc_number: Optional[str] = None
+    is_credit: Optional[bool] = None
+    credit_status: Optional[str] = None
+    description: Optional[str] = None
+

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Transaction, TreasuryAccount, SystemSetting, User
 from core.security import get_current_user, require_roles
-from schemas.transactions import TransactionCreate, TransferCreate
+from schemas.transactions import TransactionCreate, TransferCreate, TransactionUpdate
 
 router = APIRouter(prefix="/api/transactions", tags=["Transacciones de Tesorería"])
 
@@ -320,3 +320,23 @@ def cancel_transaction(
     tx.status = "ANULADO"
     db.commit()
     return {"success": True, "message": f"Movimiento #{id} ha sido ANULADO"}
+
+@router.patch("/{id}")
+def update_transaction(
+    id: int,
+    data: TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["administradora", "directivo"]))
+):
+    tx = db.query(Transaction).filter(Transaction.id == id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+    
+    update_data = data.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(tx, field, val)
+    
+    db.commit()
+    db.refresh(tx)
+    return {"success": True, "message": f"Movimiento #{id} actualizado", "transaction": {"id": tx.id, "amount_usd": tx.amount_usd}}
+
