@@ -117,7 +117,8 @@ def init_all():
             ('Cashea (VES)', 'VES', 'BANCO', 0.0),
             ('Banesco Panamá (USD)', 'USD', 'BANCO', 0.0),
             ('Zelle / Custodia USD', 'USD', 'BANCO', 0.0),
-            ('Billetera Binance USDT', 'USDT', 'BILLETERA', 0.0)
+            ('Billetera Binance USDT', 'USDT', 'BILLETERA', 0.0),
+            ('Saldo a Favor Clientes (Notas de Crédito)', 'USD', 'OTRO', 0.0)
         ]
         for name, curr, atype, init_bal in default_accounts:
             acc = db.query(TreasuryAccount).filter(TreasuryAccount.name == name).first()

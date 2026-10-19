@@ -124,11 +124,27 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
                 detail=f"Conflicto / Duplicado: Ya existe un registro activo para {data.doc_type} #{clean_doc} en fecha {data.date} (ID #{existing_doc.id})."
             )
 
-    # 1.1 Protección Anti-Doble Clic / Ráfaga (< 5 segundos para misma venta sin documento o mismo cliente)
-    raw_amt = getattr(data, 'amount_usd', None)
-    if raw_amt is None or raw_amt == 0:
-        raw_amt = getattr(data, 'amount_original', 0.0)
-    amount_total = float(raw_amt or 0.0)
+    # 1.1 Conversión Monetaria y Normalización Estricta (Pilar 1: Cero fuga cambiaria)
+    currency = getattr(data, 'currency', 'USD') or 'USD'
+    rate = float(getattr(data, 'exchange_rate', 1.0) or 1.0)
+    if rate <= 1.0 and currency == 'VES':
+        from models.system import SystemSetting
+        bcv_s = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+        rate = float(bcv_s.value) if (bcv_s and bcv_s.value) else 827.74
+
+    raw_usd = getattr(data, 'amount_usd', None)
+    raw_orig = getattr(data, 'amount_original', None)
+
+    if currency == 'VES':
+        orig_val = float(raw_orig if (raw_orig is not None and raw_orig > 0) else (raw_usd or 0.0))
+        amount_total = round(orig_val / rate, 2)
+        amount_original_val = orig_val
+    else:
+        usd_val = float(raw_usd if (raw_usd is not None and raw_usd > 0) else (raw_orig or 0.0))
+        amount_total = round(usd_val, 2)
+        amount_original_val = usd_val
+        rate = 1.0
+
     if amount_total <= 0:
         raise HTTPException(status_code=400, detail="El monto de la venta debe ser mayor a 0.00.")
 
@@ -160,6 +176,12 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
     abono_acc_id = getattr(data, 'abono_account_id', None) or getattr(data, 'initial_downpayment_account_id', None)
     if data.is_credit and abono_val > 0 and abono_acc_id:
         target_acc_id = abono_acc_id
+    elif getattr(data, 'payment_method', '') == 'NOTA_CREDITO':
+        # Saldo a Favor / Nota de Crédito: canal virtual
+        nc_acc = db.query(TreasuryAccount).filter(TreasuryAccount.name.ilike('%Nota%Crédito%')).first()
+        if not nc_acc:
+            nc_acc = db.query(TreasuryAccount).filter(TreasuryAccount.name.ilike('%Saldo a Favor%')).first()
+        target_acc_id = nc_acc.id if nc_acc else 1
     elif not target_acc_id:
         # Fallback a la primera cuenta activa disponible
         first_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
@@ -179,7 +201,7 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             raise HTTPException(status_code=400, detail="El abono inicial no puede ser negativo ni mayor al total de la venta.")
         
         pending_balance = round(amount_total - abono_val, 2)
-        credit_status = 'PAGADO' if pending_balance == 0 else ('PARCIALMENTE_PAGADO' if abono_val > 0 else 'PENDIENTE')
+        credit_status = 'PAGADO' if pending_balance <= 0.01 else ('PARCIALMENTE_PAGADO' if abono_val > 0 else 'PENDIENTE')
         
         tx = Transaction(
             branch_id=user.branch_id,
@@ -187,10 +209,10 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             movement_type='INGRESO',
             subtype='VENTA_DIARIA',
             account_id=target_acc_id,
-            amount_original=abono_val if abono_val > 0 else 0.0,
-            currency='USD',
-            exchange_rate=getattr(data, 'exchange_rate', 1.0) or 1.0,
-            amount_usd=abono_val if abono_val > 0 else 0.0, # Solo entra a caja el abono real!
+            amount_original=amount_original_val,
+            currency=currency,
+            exchange_rate=rate,
+            amount_usd=abono_val if abono_val > 0 else 0.0, # Impacto de caja real de hoy
             doc_type=data.doc_type,
             doc_number=data.doc_number.strip() if data.doc_number else None,
             client_name=data.client_name.strip() if data.client_name else 'Cliente Mostrador',
@@ -216,9 +238,9 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             movement_type='INGRESO',
             subtype='VENTA_DIARIA',
             account_id=target_acc_id,
-            amount_original=amount_total,
-            currency='USD',
-            exchange_rate=getattr(data, 'exchange_rate', 1.0) or 1.0,
+            amount_original=amount_original_val,
+            currency=currency,
+            exchange_rate=rate,
             amount_usd=amount_total,
             doc_type=data.doc_type,
             doc_number=data.doc_number.strip() if data.doc_number else None,

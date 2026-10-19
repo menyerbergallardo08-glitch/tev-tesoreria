@@ -112,8 +112,12 @@ def list_receivables(
             Transaction.status != "ANULADO"
         ).order_by(Transaction.date.asc()).all()
 
+        total_credit = c.credit_original_amount_usd if (c.credit_original_amount_usd and c.credit_original_amount_usd > 0) else c.amount_usd
         total_abonado = sum(a.amount_usd for a in abonos)
-        pending = max(0.0, c.amount_usd - total_abonado)
+        if c.credit_balance_pending_usd is not None:
+            pending = max(0.0, c.credit_balance_pending_usd - total_abonado)
+        else:
+            pending = max(0.0, total_credit - total_abonado)
 
         res.append({
             "id": c.id,
@@ -122,10 +126,10 @@ def list_receivables(
             "doc_number": c.doc_number,
             "client_name": c.client_name or c.beneficiary,
             "client_rif": c.client_rif or "-",
-            "original_amount_usd": round(c.amount_usd, 2),
+            "original_amount_usd": round(total_credit, 2),
             "total_abonado_usd": round(total_abonado, 2),
             "pending_balance_usd": round(pending, 2),
-            "credit_status": "PAGADO" if pending <= 0.01 else ("PARCIALMENTE_PAGADO" if total_abonado > 0 else "PENDIENTE"),
+            "credit_status": "PAGADO" if pending <= 0.01 else ("PARCIALMENTE_PAGADO" if (total_credit - pending) > 0.01 else "PENDIENTE"),
             "abonos_count": len(abonos),
             "abonos_history": [
                 {

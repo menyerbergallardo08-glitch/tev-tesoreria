@@ -137,6 +137,17 @@ window.TEVPosSales = {
           }
           this.liveSaleForm.amount_original = amt;
 
+          // Conversión monetaria explícita antes de enviar
+          const bcv = parseFloat(this.bcvRate) || 827.74;
+          if (this.liveSaleForm.currency === 'VES') {
+            this.liveSaleForm.amount_usd = parseFloat((amt / bcv).toFixed(2));
+            this.liveSaleForm.exchange_rate = bcv;
+          } else {
+            this.liveSaleForm.amount_usd = amt;
+            this.liveSaleForm.exchange_rate = 1.0;
+          }
+          this.liveSaleForm.payment_method = this.paymentMethod || 'EFECTIVO_USD';
+
           if (!this.liveSaleForm.doc_number || !this.liveSaleForm.doc_number.trim()) {
             this.showToast('warning', 'N° Documento Requerido', 'Por favor ingrese el número de Factura o Nota de Entrega.');
             this.isSubmittingSale = false;

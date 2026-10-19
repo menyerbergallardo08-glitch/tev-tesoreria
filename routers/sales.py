@@ -147,61 +147,79 @@ def get_live_monitor(
         acc_name = acc.name.upper() if acc else ""
 
         if t.movement_type == "INGRESO":
+            sale_value = t.credit_original_amount_usd if (t.is_credit and t.credit_original_amount_usd and t.credit_original_amount_usd > 0) else t.amount_usd
+
             if t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
                 if t.is_credit:
-                    fac_credito_usd += t.amount_usd
+                    fac_credito_usd += sale_value
                 else:
-                    fac_contado_usd += t.amount_usd
+                    fac_contado_usd += sale_value
             elif t.doc_type == "NOTA_ENTREGA":
                 if t.is_credit:
-                    not_credito_usd += t.amount_usd
+                    not_credito_usd += sale_value
                 else:
-                    not_contado_usd += t.amount_usd
+                    not_contado_usd += sale_value
             elif t.subtype in ["ABONO_CXC", "COBRO_CXC"]:
                 abonos_today_usd += t.amount_usd
 
+            # Fondos físicos / bancarios efectivamente ingresados en caja hoy
             if not t.is_credit:
+                cash_in_usd = t.amount_usd
+                cash_in_orig = t.amount_original
+            else:
+                # En venta a crédito, a caja solo entra el abono inicial (total - pendiente)
+                downpayment_usd = max(0.0, sale_value - (t.credit_balance_pending_usd or 0.0))
+                cash_in_usd = downpayment_usd
+                cash_in_orig = round(downpayment_usd * (t.exchange_rate or active_bcv), 2) if t.currency == "VES" else downpayment_usd
+
+            if cash_in_usd > 0:
                 if "EFECTIVO USD" in acc_name:
-                    cash_usd_expected += t.amount_original
+                    cash_usd_expected += cash_in_orig if t.currency == "USD" else cash_in_usd
                 elif "EFECTIVO VES" in acc_name:
-                    cash_ves_expected += t.amount_original
+                    cash_ves_expected += cash_in_orig if t.currency == "VES" else round(cash_in_usd * active_bcv, 2)
                 elif "CASHEA" in acc_name:
-                    cashea_usd += t.amount_usd
+                    cashea_usd += cash_in_usd
                 elif t.pos_terminal:
                     p = t.pos_terminal.upper()
                     if "BANESCO" in p:
-                        pos_banesco += t.amount_usd
+                        pos_banesco += cash_in_usd
                     elif "BANCARIBE" in p:
-                        pos_bancaribe += t.amount_usd
+                        pos_bancaribe += cash_in_usd
                     elif "VENEZUELA" in p or "BDV" in p:
-                        pos_bdv += t.amount_usd
+                        pos_bdv += cash_in_usd
                     elif "BNC" in p:
-                        pos_bnc += t.amount_usd
+                        pos_bnc += cash_in_usd
                     else:
-                        pos_banesco += t.amount_usd
+                        pos_banesco += cash_in_usd
                 elif "BANCO" in acc_name:
-                    pago_movil_usd += t.amount_usd
+                    pago_movil_usd += cash_in_usd
+
+            # EXCLUSIVO VENTAS: En el stream de ventas del turno SOLO entran ventas reales
+            recent_stream.append({
+                "id": t.id,
+                "created_at": t.created_at.strftime("%I:%M %p") if t.created_at else "",
+                "doc_type": t.doc_type,
+                "doc_number": t.doc_number,
+                "client_name": t.client_name or t.beneficiary,
+                "is_credit": t.is_credit,
+                "movement_type": t.movement_type,
+                "subtype": t.subtype,
+                "account_name": t.account.name if t.account else "CxC",
+                "amount_original": round(t.amount_original, 2),
+                "currency": t.currency,
+                "amount_usd": round(sale_value, 2)
+            })
 
         elif t.movement_type == "EGRESO":
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
                 returns_today_usd += t.amount_usd
             elif t.subtype == "GASTO_OPERATIVO":
                 expenses_today_usd += t.amount_usd
-
-        recent_stream.append({
-            "id": t.id,
-            "created_at": t.created_at.strftime("%I:%M %p") if t.created_at else "",
-            "doc_type": t.doc_type,
-            "doc_number": t.doc_number,
-            "client_name": t.client_name,
-            "is_credit": t.is_credit,
-            "movement_type": t.movement_type,
-            "subtype": t.subtype,
-            "account_name": t.account.name if t.account else "CxC",
-            "amount_original": round(t.amount_original, 2),
-            "currency": t.currency,
-            "amount_usd": round(t.amount_usd, 2)
-        })
+                # Descontar del arqueo de gaveta si el gasto se pagó en efectivo
+                if "EFECTIVO USD" in acc_name:
+                    cash_usd_expected = max(0.0, cash_usd_expected - t.amount_usd)
+                elif "EFECTIVO VES" in acc_name:
+                    cash_ves_expected = max(0.0, cash_ves_expected - (t.amount_original if t.currency == "VES" else round(t.amount_usd * active_bcv, 2)))
 
     total_sales_today = fac_contado_usd + fac_credito_usd + not_contado_usd + not_credito_usd - returns_today_usd
 
