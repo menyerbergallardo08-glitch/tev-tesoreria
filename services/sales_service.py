@@ -3,7 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from fastapi import HTTPException
 from models import Transaction, TreasuryAccount, User, TransactionType, PaymentMethod
 from core.audit import record_audit
@@ -107,6 +107,14 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
     
     # 1. Validación de Idempotencia y No Duplicidad (Pilar 3)
     clean_doc = data.doc_number.strip() if data.doc_number else ""
+
+    # Bloqueo atómico contra carreras concurrentes (Advisory lock por documento y fecha)
+    if db.bind.dialect.name == 'postgresql':
+        lock_str = f"sale_{user.branch_id}_{sale_date}_{clean_doc.upper().replace(' ', '') if clean_doc else data.amount_original}"
+        import zlib
+        lock_id = zlib.crc32(lock_str.encode('utf-8')) & 0x7FFFFFFF
+        db.execute(text("SELECT pg_advisory_xact_lock(:lid)"), {"lid": lock_id})
+
     if clean_doc:
         clean_doc_norm = clean_doc.upper().replace(" ", "")
         existing_doc = db.query(Transaction).filter(

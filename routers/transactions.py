@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from database import get_db
 from models import Transaction, TreasuryAccount, SystemSetting, User
 from core.security import get_current_user, require_roles
@@ -103,9 +104,16 @@ def create_transaction(
     if (getattr(account, 'only_income', False) or 'CASHEA' in account.name.upper()) and tx_in.movement_type == "EGRESO":
         raise HTTPException(status_code=400, detail=f"La cuenta '{account.name}' está configurada exclusivamente para registrar INGRESOS.")
 
+    # Bloqueo atómico contra carreras concurrentes en la misma cuenta y fecha
+    clean_ref = (tx_in.reference_number or "").strip()
+    if db.bind.dialect.name == 'postgresql':
+        lock_str = f"tx_{current_user.branch_id}_{account.id}_{tx_in.date}_{clean_ref.upper() if clean_ref else tx_in.amount_original}"
+        import zlib
+        lock_id = zlib.crc32(lock_str.encode('utf-8')) & 0x7FFFFFFF
+        db.execute(text("SELECT pg_advisory_xact_lock(:lid)"), {"lid": lock_id})
+
     # Control inteligente de duplicados por referencia bancaria (mismo origen y tipo de movimiento)
     generic_refs = {"0", "00", "000", "0000", "S/R", "N/A", "NA", "SIN REF", "SIN REFERENCIA", "EFECTIVO", "PAGO", "MANUAL"}
-    clean_ref = (tx_in.reference_number or "").strip()
     if clean_ref and len(clean_ref) > 3 and tx_in.subtype != "VENTA_DIARIA" and clean_ref.upper() not in generic_refs:
         dup = db.query(Transaction).filter(
             Transaction.account_id == account.id,

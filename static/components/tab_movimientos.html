@@ -205,7 +205,7 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="submitMovement()" :disabled="isSubmittingMovement"
+              <button type="submit" :disabled="isSubmittingMovement"
                       class="w-full sm:w-auto px-8 py-3.5 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50">
                 <span x-show="!isSubmittingMovement">💾</span>
                 <span x-show="!isSubmittingMovement">Registrar Salida de Dinero</span>

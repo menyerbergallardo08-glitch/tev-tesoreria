@@ -2,11 +2,13 @@
 window.TEVExpenses = {
         async submitMovement() {
           if (this.isSubmittingMovement) return;
+          this.isSubmittingMovement = true;
 
           const rawAmt = String(this.form.amount_original || '').replace(',', '.').trim();
           const amt = parseFloat(rawAmt);
           if (isNaN(amt) || amt <= 0) {
             this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a cero.');
+            this.isSubmittingMovement = false;
             return;
           }
           this.form.amount_original = amt;
@@ -14,6 +16,7 @@ window.TEVExpenses = {
           if (this.form.movement_type === 'TRANSFERENCIA') {
             if (!this.form.destination_account_id) {
               this.showToast('warning', 'Cuenta Destino Requerida', 'Por favor seleccione la cuenta bancaria o caja destino.');
+              this.isSubmittingMovement = false;
               return;
             }
             this.transferForm.source_account_id = this.form.account_id;
@@ -22,7 +25,11 @@ window.TEVExpenses = {
             this.transferForm.date = this.form.date;
             this.transferForm.reference_number = this.form.reference_number;
             this.transferForm.description = this.form.description || 'Traspaso entre cuentas';
-            await this.executeTransfer();
+            try {
+              await this.executeTransfer();
+            } finally {
+              this.isSubmittingMovement = false;
+            }
             this.form.amount_original = '';
             this.form.reference_number = '';
             this.form.description = '';
@@ -31,6 +38,7 @@ window.TEVExpenses = {
 
           if (this.form.subtype === 'GASTO_OPERATIVO' && !this.form.category_id) {
             this.showToast('warning', 'Partida Requerida', 'Por favor seleccione la Partida Presupuestaria del gasto.');
+            this.isSubmittingMovement = false;
             return;
           }
           

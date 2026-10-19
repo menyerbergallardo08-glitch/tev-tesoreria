@@ -1,5 +1,6 @@
 import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from fastapi import HTTPException
 from models import Transaction, TreasuryAccount, BudgetCategory, User
 from core.seniat import validate_and_format_retention_proof
@@ -19,8 +20,16 @@ def create_expense_transaction(db: Session, user: User, data, ip_address: str = 
         raise HTTPException(status_code=400, detail="La cuenta de egreso seleccionada no existe o está inactiva.")
 
     # Idempotencia por referencia / factura de proveedor
-    generic_refs = {"0", "00", "000", "0000", "S/R", "N/A", "NA", "SIN REF", "SIN REFERENCIA", "EFECTIVO", "PAGO", "MANUAL"}
     clean_ref = (data.reference_number or "").strip()
+
+    # Bloqueo atómico contra carreras concurrentes en la misma cuenta y fecha
+    if db.bind.dialect.name == 'postgresql':
+        lock_str = f"exp_{user.branch_id}_{data.account_id}_{expense_date}_{clean_ref.upper() if clean_ref else data.amount_usd}"
+        import zlib
+        lock_id = zlib.crc32(lock_str.encode('utf-8')) & 0x7FFFFFFF
+        db.execute(text("SELECT pg_advisory_xact_lock(:lid)"), {"lid": lock_id})
+
+    generic_refs = {"0", "00", "000", "0000", "S/R", "N/A", "NA", "SIN REF", "SIN REFERENCIA", "EFECTIVO", "PAGO", "MANUAL"}
     if clean_ref and len(clean_ref) > 3 and clean_ref.upper() not in generic_refs:
         existing = db.query(Transaction).filter(
             Transaction.account_id == data.account_id,

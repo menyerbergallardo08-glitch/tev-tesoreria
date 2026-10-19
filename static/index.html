@@ -6,13 +6,8 @@
   <title>Todo Eléctrico Valencia - Sistema de Tesorería y Flujo de Caja</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Alpine.js CDN -->
+  <!-- Alpine.js (Instancia única oficial) -->
   <script defer src="/static/alpine.min.js"></script>
-  <script>
-    if (!window.Alpine) {
-      document.write('<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"><\/script>');
-    }
-  </script>
   <!-- TEV Tesorería ES6 Modular Engine -->
   <script type="module" src="/static/js/app.js"></script>
 
@@ -38,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.3.4"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.3.4"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.3.4"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.3.4"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.3.4"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.3.4"></script>
-  <script src="/static/js/controllers/reports.js?v=2.3.4"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.3.4"></script>
+  <script src="/static/js/state.js?v=2.3.5"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.3.5"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.3.5"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.3.5"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.3.5"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.3.5"></script>
+  <script src="/static/js/controllers/reports.js?v=2.3.5"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.3.5"></script>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
@@ -728,7 +723,7 @@
             </div>
 
             <!-- Botón de Registro en Caliente -->
-            <button type="button" @click="submitLiveSale()" :disabled="isSubmittingSale"
+            <button type="submit" :disabled="isSubmittingSale"
                     class="w-full py-4 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50">
               <span x-show="!isSubmittingSale">💾</span>
               <span x-show="!isSubmittingSale" x-text="liveSaleForm.is_credit ? 'Guardar Venta a Crédito en CxC' : (liveSaleForm.doc_type === 'DEVOLUCION' ? 'Procesar Devolución en Caja' : '💾 Registrar Venta / Cobro')"></span>
@@ -1235,7 +1230,7 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="submitMovement()" :disabled="isSubmittingMovement"
+              <button type="submit" :disabled="isSubmittingMovement"
                       class="w-full sm:w-auto px-8 py-3.5 bg-tev-green hover:bg-tev-darkgreen text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50">
                 <span x-show="!isSubmittingMovement">💾</span>
                 <span x-show="!isSubmittingMovement">Registrar Salida de Dinero</span>
