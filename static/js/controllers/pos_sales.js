@@ -138,7 +138,7 @@ window.TEVPosSales = {
           this.liveSaleForm.amount_original = amt;
 
           // Conversión monetaria explícita antes de enviar
-          const bcv = parseFloat(this.bcvRate) || 827.74;
+          const bcv = (parseFloat(this.bcvRate) && parseFloat(this.bcvRate) > 100) ? parseFloat(this.bcvRate) : 881.88;
           if (this.liveSaleForm.currency === 'VES') {
             this.liveSaleForm.amount_usd = parseFloat((amt / bcv).toFixed(2));
             this.liveSaleForm.exchange_rate = bcv;

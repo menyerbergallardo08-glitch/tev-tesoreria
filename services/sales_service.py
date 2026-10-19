@@ -135,10 +135,12 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
     # 1.1 Conversión Monetaria y Normalización Estricta (Pilar 1: Cero fuga cambiaria)
     currency = getattr(data, 'currency', 'USD') or 'USD'
     rate = float(getattr(data, 'exchange_rate', 1.0) or 1.0)
-    if rate <= 1.0 and currency == 'VES':
-        from models.system import SystemSetting
-        bcv_s = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-        rate = float(bcv_s.value) if (bcv_s and bcv_s.value) else 827.74
+    if currency == 'VES':
+        from core.bcv import resolve_effective_bcv_rate
+        bcv_dict = resolve_effective_bcv_rate(db)
+        live_rate = float(bcv_dict.get('rate') or 881.8769)
+        if rate <= 1.0 or abs(rate - live_rate) > 20.0:
+            rate = live_rate
 
     raw_usd = getattr(data, 'amount_usd', None)
     raw_orig = getattr(data, 'amount_original', None)

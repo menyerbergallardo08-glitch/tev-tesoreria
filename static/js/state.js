@@ -188,8 +188,8 @@ window.TEVState = {
         duplicateWarning: false,
         duplicateWarningMessage: '',
 
-        bcvRate: parseFloat(localStorage.getItem('tev_bcv_rate')) || 827.74,
-        newBcvRate: parseFloat(localStorage.getItem('tev_bcv_rate')) || 827.74,
+        bcvRate: parseFloat(localStorage.getItem('tev_bcv_rate')) || 881.88,
+        newBcvRate: parseFloat(localStorage.getItem('tev_bcv_rate')) || 881.88,
         showBcvRateModal: false,
         suppliers: [],
         selectedSupplierId: '',

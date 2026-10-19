@@ -100,6 +100,7 @@ window.TEVReports = {
               if (data.rate && data.rate > 0) {
                 this.bcvRate = data.rate;
                 this.newBcvRate = data.rate;
+                try { localStorage.setItem('tev_bcv_rate', String(data.rate)); } catch(e){}
                 if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
                   this.form.exchange_rate = this.bcvRate;
                 }

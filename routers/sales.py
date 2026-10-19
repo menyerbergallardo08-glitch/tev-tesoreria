@@ -149,16 +149,16 @@ def get_live_monitor(
         if t.movement_type == "INGRESO":
             sale_value = t.credit_original_amount_usd if (t.is_credit and t.credit_original_amount_usd and t.credit_original_amount_usd > 0) else t.amount_usd
 
-            if t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
-                if t.is_credit:
-                    fac_credito_usd += sale_value
-                else:
-                    fac_contado_usd += sale_value
-            elif t.doc_type == "NOTA_ENTREGA":
+            if t.doc_type == "NOTA_ENTREGA":
                 if t.is_credit:
                     not_credito_usd += sale_value
                 else:
                     not_contado_usd += sale_value
+            elif t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
+                if t.is_credit:
+                    fac_credito_usd += sale_value
+                else:
+                    fac_contado_usd += sale_value
             elif t.subtype in ["ABONO_CXC", "COBRO_CXC"]:
                 abonos_today_usd += t.amount_usd
 
