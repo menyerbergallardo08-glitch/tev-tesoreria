@@ -152,6 +152,22 @@ def create_transaction(
     # Normalizar movement_type si el frontend envió TRANSFERENCIA
     mov_type = "TRASPASO" if tx_in.movement_type == "TRANSFERENCIA" else tx_in.movement_type
 
+    # Control anti-doble clic / ráfaga (< 4 segundos para mismo usuario, cuenta y monto)
+    recent_cutoff = datetime.datetime.utcnow() - datetime.timedelta(seconds=4)
+    burst_dup = db.query(Transaction).filter(
+        Transaction.account_id == account.id,
+        Transaction.movement_type == mov_type,
+        Transaction.amount_original == tx_in.amount_original,
+        Transaction.created_by_id == current_user.id,
+        Transaction.created_at >= recent_cutoff,
+        Transaction.status != "ANULADO"
+    ).first()
+    if burst_dup:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Reintento rápido bloqueado: Ya se registró este movimiento por {tx_in.currency} {tx_in.amount_original} hace menos de 4 segundos (ID #{burst_dup.id})."
+        )
+
     tx = Transaction(
         branch_id=current_user.branch_id,
         date=tx_in.date,
@@ -278,6 +294,19 @@ def verify_transaction(
     tx.verified_by_id = current_user.id
     db.commit()
     return {"success": True, "message": f"Movimiento #{id} marcado como VERIFICADO"}
+
+@router.post("/purge-voided")
+def purge_voided_transactions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["administradora", "directivo"]))
+):
+    voided = db.query(Transaction).filter(Transaction.status == "ANULADO").all()
+    count = len(voided)
+    for tx in voided:
+        db.query(Transaction).filter(Transaction.parent_transaction_id == tx.id).update({"parent_transaction_id": None})
+        db.delete(tx)
+    db.commit()
+    return {"success": True, "message": f"Se eliminaron definitivamente {count} transacciones anuladas.", "count": count}
 
 @router.delete("/{id}")
 def cancel_transaction(

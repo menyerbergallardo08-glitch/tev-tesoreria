@@ -126,21 +126,25 @@ window.TEVPosSales = {
 
         async submitLiveSale() {
           if (this.isSubmittingSale) return;
+          this.isSubmittingSale = true;
 
           const rawAmt = String(this.liveSaleForm.amount_original || '').replace(',', '.').trim();
           const amt = parseFloat(rawAmt);
           if (isNaN(amt) || amt <= 0) {
             this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a $0.00 a cobrar.');
+            this.isSubmittingSale = false;
             return;
           }
           this.liveSaleForm.amount_original = amt;
 
           if (!this.liveSaleForm.doc_number || !this.liveSaleForm.doc_number.trim()) {
             this.showToast('warning', 'N° Documento Requerido', 'Por favor ingrese el número de Factura o Nota de Entrega.');
+            this.isSubmittingSale = false;
             return;
           }
           if (!this.liveSaleForm.client_name || !this.liveSaleForm.client_name.trim()) {
             this.showToast('warning', 'Cliente Requerido', 'Por favor ingrese el nombre del cliente o empresa.');
+            this.isSubmittingSale = false;
             return;
           }
 
@@ -167,19 +171,23 @@ window.TEVPosSales = {
 
             if (isNaN(retAmt) || retAmt <= 0) {
               this.showToast('warning', 'Monto de Retención Inválido', 'El monto de retención debe ser mayor a $0.00.');
+              this.isSubmittingSale = false;
               return;
             }
             if (retAmt >= amt) {
               this.showToast('error', 'Retención Excesiva', `El monto retenido ($${retAmt.toFixed(2)}) no puede ser mayor o igual al total de la venta ($${amt.toFixed(2)}).`);
+              this.isSubmittingSale = false;
               return;
             }
             if (!proofVal) {
               this.showToast('warning', 'Comprobante Requerido', 'Debe indicar el Número de Comprobante SENIAT de 14 dígitos si aplicó una retención.');
+              this.isSubmittingSale = false;
               return;
             }
             const status = this.getRetentionValidationStatus(proofVal);
             if (!status.valid) {
               this.showToast('error', 'Comprobante Inválido', status.message || 'El comprobante debe tener exactamente 14 dígitos (AAAAMM00000000).');
+              this.isSubmittingSale = false;
               return;
             }
           } else {
@@ -190,10 +198,10 @@ window.TEVPosSales = {
           const token = this.getToken();
           if (!token) {
             this.showToast('error', 'Sesión Expirada', 'Su sesión ha expirado. Por favor cierre sesión e ingrese nuevamente.');
+            this.isSubmittingSale = false;
             return;
           }
 
-          this.isSubmittingSale = true;
           try {
             const res = await fetch('/api/sales/live', {
               method: 'POST',

@@ -145,3 +145,29 @@ def toggle_status(
         "is_active": acc.is_active,
         "message": f"Cuenta '{acc.name}' {'activada' if acc.is_active else 'inhabilitada'} correctamente."
     }
+
+@router.delete("/{account_id}")
+def delete_account(
+    account_id: int,
+    current_user: User = Depends(require_roles(["administradora", "directivo"])),
+    db: Session = Depends(get_db)
+):
+    from models import Transaction
+    acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == account_id).first()
+    if not acc:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada.")
+
+    tx_count = db.query(Transaction).filter(
+        (Transaction.account_id == account_id) | (Transaction.destination_account_id == account_id)
+    ).count()
+
+    if tx_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede eliminar la cuenta '{acc.name}' porque posee {tx_count} transacciones asociadas. Puede inhabilitarla en su lugar."
+        )
+
+    db.delete(acc)
+    db.commit()
+    return {"status": "success", "message": f"Cuenta '{acc.name}' eliminada exitosamente."}
+

@@ -498,11 +498,37 @@ window.TEVAuthCore = {
 
         getAvailableAccountsForForm() {
           if (!this.accounts || !Array.isArray(this.accounts)) return [];
-          const activeAccounts = this.accounts.filter(a => a.is_active);
-          if (this.form && this.form.movement_type === 'EGRESO') {
-            return activeAccounts.filter(a => !a.only_income && !(a.name && a.name.toUpperCase().includes('CASHEA')));
+          const seen = new Set();
+          const uniqueAccounts = [];
+          for (const a of this.accounts) {
+            if (!a.is_active) continue;
+            if (this.form && this.form.movement_type === 'EGRESO') {
+              if (a.only_income || (a.name && a.name.toUpperCase().includes('CASHEA'))) {
+                continue;
+              }
+            }
+            const norm = (a.name || '').trim().toLowerCase();
+            if (!seen.has(norm)) {
+              seen.add(norm);
+              uniqueAccounts.push(a);
+            }
           }
-          return activeAccounts;
+          return uniqueAccounts;
+        },
+
+        getUniqueActiveAccounts() {
+          if (!this.accounts || !Array.isArray(this.accounts)) return [];
+          const seen = new Set();
+          const unique = [];
+          for (const a of this.accounts) {
+            if (!a.is_active) continue;
+            const norm = (a.name || '').trim().toLowerCase();
+            if (!seen.has(norm)) {
+              seen.add(norm);
+              unique.push(a);
+            }
+          }
+          return unique;
         },
 
         getAccountBalance(name) {
