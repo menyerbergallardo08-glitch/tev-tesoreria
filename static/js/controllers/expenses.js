@@ -2,13 +2,11 @@
 window.TEVExpenses = {
         async submitMovement() {
           if (this.isSubmittingMovement) return;
-          this.isSubmittingMovement = true;
 
           const rawAmt = String(this.form.amount_original || '').replace(',', '.').trim();
           const amt = parseFloat(rawAmt);
           if (isNaN(amt) || amt <= 0) {
             this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a cero.');
-            this.isSubmittingMovement = false;
             return;
           }
           this.form.amount_original = amt;
@@ -16,7 +14,6 @@ window.TEVExpenses = {
           if (this.form.movement_type === 'TRANSFERENCIA') {
             if (!this.form.destination_account_id) {
               this.showToast('warning', 'Cuenta Destino Requerida', 'Por favor seleccione la cuenta bancaria o caja destino.');
-              this.isSubmittingMovement = false;
               return;
             }
             this.transferForm.source_account_id = this.form.account_id;
@@ -25,11 +22,7 @@ window.TEVExpenses = {
             this.transferForm.date = this.form.date;
             this.transferForm.reference_number = this.form.reference_number;
             this.transferForm.description = this.form.description || 'Traspaso entre cuentas';
-            try {
-              await this.executeTransfer();
-            } finally {
-              this.isSubmittingMovement = false;
-            }
+            await this.executeTransfer();
             this.form.amount_original = '';
             this.form.reference_number = '';
             this.form.description = '';
@@ -38,7 +31,6 @@ window.TEVExpenses = {
 
           if (this.form.subtype === 'GASTO_OPERATIVO' && !this.form.category_id) {
             this.showToast('warning', 'Partida Requerida', 'Por favor seleccione la Partida Presupuestaria del gasto.');
-            this.isSubmittingMovement = false;
             return;
           }
           
@@ -53,8 +45,16 @@ window.TEVExpenses = {
           if (this.isSubmittingMovement) return;
           this.isSubmittingMovement = true;
           this.showConfirmModal = false;
-          const token = this.getToken();
           try {
+            const token = this.getToken();
+            if (!token) {
+              this.showToast('error', 'Sesión Expirada', 'Su sesión ha expirado. Por favor inicie sesión nuevamente.');
+              return;
+            }
+
+            const currentAcc = (this.accounts || []).find(a => a.id == this.form.account_id);
+            const curr = (currentAcc && currentAcc.currency) || this.selectedAccountCurrency || 'USD';
+
             const payload = {
               date: this.form.date,
               movement_type: this.form.movement_type,
@@ -62,7 +62,7 @@ window.TEVExpenses = {
               account_id: this.form.account_id,
               category_id: this.form.category_id ? parseInt(this.form.category_id) : null,
               amount_original: parseFloat(this.form.amount_original),
-              currency: this.selectedAccountCurrency,
+              currency: curr,
               exchange_rate: parseFloat(this.form.exchange_rate) || 1.0,
               reference_number: this.form.reference_number || '',
               beneficiary: this.form.beneficiary || '',
@@ -103,8 +103,12 @@ window.TEVExpenses = {
         async executeTransfer() {
           if (this.isSubmittingMovement) return;
           this.isSubmittingMovement = true;
-          const token = this.getToken();
           try {
+            const token = this.getToken();
+            if (!token) {
+              this.showToast('error', 'Sesión Expirada', 'Su sesión ha expirado. Por favor inicie sesión nuevamente.');
+              return;
+            }
             const res = await fetch('/api/transactions/transfer', {
               method: 'POST',
               headers: {
