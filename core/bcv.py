@@ -106,8 +106,20 @@ def resolve_effective_bcv_rate(db: Session) -> dict:
                 db.add(SystemSetting(key='tasa_bcv', value=str(fresh_rate)))
             else:
                 setting_active.value = str(fresh_rate)
+            
+            setting_bcv_rate = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+            if not setting_bcv_rate:
+                db.add(SystemSetting(key='bcv_rate', value=str(fresh_rate)))
+            else:
+                setting_bcv_rate.value = str(fresh_rate)
             db.commit()
             current_val = fresh_rate
+    else:
+        # Asegurar que bcv_rate exista si tasa_bcv existe
+        setting_bcv_rate = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
+        if not setting_bcv_rate and current_val > 100.0:
+            db.add(SystemSetting(key='bcv_rate', value=str(current_val)))
+            db.commit()
 
     return {
         "rate": current_val,

@@ -166,8 +166,8 @@ def create_abono(
     if not account:
         raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
 
-    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     amount_original = float(data.get("amount_original", 0.0) or 0.0)
     currency = data.get("currency", "USD")

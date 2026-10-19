@@ -120,8 +120,8 @@ def get_live_monitor(
         Transaction.status != "ANULADO"
     ).order_by(Transaction.id.desc()).all()
 
-    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 36.80
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     fac_contado_usd = 0.0
     fac_credito_usd = 0.0

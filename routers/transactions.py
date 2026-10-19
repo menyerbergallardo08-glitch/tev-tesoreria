@@ -121,8 +121,8 @@ def create_transaction(
             )
 
     # 3. Tasa BCV Oficial Obligatoria (salvo cambio de divisas que es negociado)
-    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value) else 827.74
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     if tx_in.currency == "VES":
         if tx_in.subtype != "CAMBIO_DIVISAS":
