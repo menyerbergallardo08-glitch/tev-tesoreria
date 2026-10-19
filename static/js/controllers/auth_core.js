@@ -80,10 +80,18 @@ window.TEVAuthCore = {
           });
           if (res.ok) {
             this.accounts = await res.json();
-            if (this.accounts.length > 0 && !this.form.account_id) {
-              const firstActive = this.accounts.find(a => a.is_active);
-              this.form.account_id = firstActive ? firstActive.id : this.accounts[0].id;
-              this.onAccountChange();
+            if (this.accounts.length > 0) {
+              const available = typeof this.getAvailableAccountsForForm === 'function' 
+                ? this.getAvailableAccountsForForm() 
+                : this.accounts.filter(a => a.is_active);
+              const targetList = (available && available.length > 0) ? available : this.accounts;
+              if (!this.form.account_id || !targetList.some(a => a.id === this.form.account_id)) {
+                const firstActive = targetList.find(a => a.is_active) || targetList[0];
+                this.form.account_id = firstActive.id;
+              }
+              if (typeof this.onAccountChange === 'function') {
+                this.onAccountChange();
+              }
             }
           }
         },
@@ -486,6 +494,25 @@ window.TEVAuthCore = {
           } catch (e) {
             return String(jsonStr);
           }
+        },
+
+        getAvailableAccountsForForm() {
+          if (!this.accounts || !Array.isArray(this.accounts)) return [];
+          const activeAccounts = this.accounts.filter(a => a.is_active);
+          if (this.form && this.form.movement_type === 'EGRESO') {
+            return activeAccounts.filter(a => !a.only_income && !(a.name && a.name.toUpperCase().includes('CASHEA')));
+          }
+          return activeAccounts;
+        },
+
+        getAccountBalance(name) {
+          if (!this.accounts || !Array.isArray(this.accounts)) return 0.0;
+          const search = (name || '').trim().toLowerCase();
+          const acc = this.accounts.find(a => 
+            (a.name && a.name.toLowerCase() === search) ||
+            (a.name && a.name.toLowerCase().includes(search))
+          );
+          return acc ? (acc.current_balance || 0.0) : 0.0;
         },
 
 };

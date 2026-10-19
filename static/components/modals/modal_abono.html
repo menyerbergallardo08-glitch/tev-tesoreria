@@ -62,7 +62,7 @@
             <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
             <select x-model.number="abonoForm.account_id" required
                     class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
-              <template x-for="acc in accounts" :key="acc.id">
+              <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
                 <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
               </template>
             </select>

@@ -237,5 +237,12 @@ window.TEVCashClose = {
           this.showArqueoReceiptModal = true;
         },
 
+        printArqueoVES() {
+          window.print();
+        },
+
+        printCashCloseReceipt() {
+          window.print();
+        },
 
 };

@@ -518,4 +518,23 @@ window.TEVExpenses = {
           }
         },
 
+        getAvailableAccountsForForm() {
+          if (!this.accounts || !Array.isArray(this.accounts)) return [];
+          const activeAccounts = this.accounts.filter(a => a.is_active);
+          if (this.form && this.form.movement_type === 'EGRESO') {
+            return activeAccounts.filter(a => !a.only_income && !(a.name && a.name.toUpperCase().includes('CASHEA')));
+          }
+          return activeAccounts;
+        },
+
+        getAccountBalance(name) {
+          if (!this.accounts || !Array.isArray(this.accounts)) return 0.0;
+          const search = (name || '').trim().toLowerCase();
+          const acc = this.accounts.find(a => 
+            (a.name && a.name.toLowerCase() === search) ||
+            (a.name && a.name.toLowerCase().includes(search))
+          );
+          return acc ? (acc.current_balance || 0.0) : 0.0;
+        },
+
 };

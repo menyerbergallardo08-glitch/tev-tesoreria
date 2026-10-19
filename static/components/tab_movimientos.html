@@ -142,6 +142,7 @@
                 </div>
                 <select x-model.number="form.account_id" @change="onAccountChange()" required
                         class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
+                  <option value="" disabled :selected="!form.account_id">-- Seleccionar Cuenta de Salida --</option>
                   <template x-for="acc in getAvailableAccountsForForm()" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
@@ -153,6 +154,7 @@
                 <label class="block text-xs font-bold text-blue-900 mb-1">🏦 Cuenta Destino (Entra):</label>
                 <select x-model.number="form.destination_account_id"
                         class="w-full input-large border border-blue-300 bg-white font-bold text-xs sm:text-sm text-blue-950">
+                  <option value="" disabled :selected="!form.destination_account_id">-- Seleccionar Cuenta Destino --</option>
                   <template x-for="acc in accounts.filter(a => a.id !== form.account_id && a.is_active)" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>

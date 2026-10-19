@@ -38,14 +38,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.3.0"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.3.0"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.3.0"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.3.0"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.3.0"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.3.0"></script>
-  <script src="/static/js/controllers/reports.js?v=2.3.0"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.3.0"></script>
+  <script src="/static/js/state.js?v=2.3.1"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.3.1"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.3.1"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.3.1"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.3.1"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.3.1"></script>
+  <script src="/static/js/controllers/reports.js?v=2.3.1"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.3.1"></script>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
@@ -1172,6 +1172,7 @@
                 </div>
                 <select x-model.number="form.account_id" @change="onAccountChange()" required
                         class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
+                  <option value="" disabled :selected="!form.account_id">-- Seleccionar Cuenta de Salida --</option>
                   <template x-for="acc in getAvailableAccountsForForm()" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
@@ -1183,6 +1184,7 @@
                 <label class="block text-xs font-bold text-blue-900 mb-1">🏦 Cuenta Destino (Entra):</label>
                 <select x-model.number="form.destination_account_id"
                         class="w-full input-large border border-blue-300 bg-white font-bold text-xs sm:text-sm text-blue-950">
+                  <option value="" disabled :selected="!form.destination_account_id">-- Seleccionar Cuenta Destino --</option>
                   <template x-for="acc in accounts.filter(a => a.id !== form.account_id && a.is_active)" :key="acc.id">
                     <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                   </template>
@@ -3320,7 +3322,7 @@
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Cuenta Origen (Sale)</label>
               <select x-model.number="transferForm.origin_account_id" @change="onTransferAccountsChange()" required class="w-full p-2.5 border rounded-xl bg-white text-sm">
-                <template x-for="acc in accounts" :key="acc.id">
+                <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
                   <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                 </template>
               </select>
@@ -3328,7 +3330,7 @@
             <div>
               <label class="block text-sm font-bold text-gray-700 mb-1">Cuenta Destino (Entra)</label>
               <select x-model.number="transferForm.destination_account_id" @change="onTransferAccountsChange()" required class="w-full p-2.5 border rounded-xl bg-white text-sm">
-                <template x-for="acc in accounts" :key="acc.id">
+                <template x-for="acc in accounts.filter(a => a.is_active && a.id !== transferForm.origin_account_id)" :key="acc.id">
                   <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
                 </template>
               </select>
@@ -3955,7 +3957,7 @@
             <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
             <select x-model.number="abonoForm.account_id" required
                     class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
-              <template x-for="acc in accounts" :key="acc.id">
+              <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
                 <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
               </template>
             </select>
