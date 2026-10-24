@@ -355,6 +355,10 @@ def update_transaction(
     for field, val in update_data.items():
         old_data[field] = getattr(tx, field, None)
         setattr(tx, field, val)
+    if "beneficiary" in update_data and update_data["beneficiary"]:
+        tx.client_name = update_data["beneficiary"]
+    elif "client_name" in update_data and update_data["client_name"]:
+        tx.beneficiary = update_data["client_name"]
     
     ip = request.client.host if request.client else ""
     record_audit(db, current_user, 'UPDATE_TRANSACTION', 'Transaction', str(tx.id), {'changes': update_data, 'previous': old_data}, ip)

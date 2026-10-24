@@ -206,6 +206,12 @@ window.TEVExpenses = {
             this.showToast('success', 'Movimiento Corregido', `Se actualizaron los datos del registro #${this.editingTx.id}`);
             this.showEditTransactionModal = false;
             await this.loadTransactions();
+            if (typeof this.loadLiveMonitor === 'function') {
+              await this.loadLiveMonitor();
+            }
+            if (typeof this.loadSalesAccumulated === 'function') {
+              await this.loadSalesAccumulated();
+            }
           } catch (err) {
             this.showToast('error', 'Error al Guardar', err.message);
           } finally {
