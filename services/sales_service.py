@@ -242,16 +242,18 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
         )
     else:
         # Venta de Contado
+        is_nc = (getattr(data, 'payment_method', '') == 'NOTA_CREDITO')
+        cash_impact = 0.0 if is_nc else amount_total
         tx = Transaction(
             branch_id=user.branch_id,
             date=sale_date,
             movement_type='INGRESO',
             subtype='VENTA_DIARIA',
             account_id=target_acc_id,
-            amount_original=amount_original_val,
+            amount_original=0.0 if is_nc else amount_original_val,
             currency=currency,
             exchange_rate=rate,
-            amount_usd=amount_total,
+            amount_usd=cash_impact,
             doc_type=data.doc_type,
             doc_number=data.doc_number.strip() if data.doc_number else None,
             client_name=data.client_name.strip() if data.client_name else 'Cliente Mostrador',
@@ -265,7 +267,7 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             pos_lot_number=data.pos_lot_number,
             tax_retention_amount=ret_amount,
             tax_retention_proof=ret_proof,
-            description=data.description or f"Venta de Contado {data.doc_type} #{data.doc_number or ''}".strip(),
+            description=f"Venta compensada con Nota de Crédito #{data.reference_number or ''}. {data.description or ''}".strip() if is_nc else (data.description or f"Venta de Contado {data.doc_type} #{data.doc_number or ''}".strip()),
             status='REGISTRADO',
             created_by_id=user.id
         )

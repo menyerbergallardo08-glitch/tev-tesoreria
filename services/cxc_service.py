@@ -52,6 +52,8 @@ def create_historical_debt(db: Session, user: User, data, ip_address: str = "") 
     return tx
 
 def process_cxc_payment(db: Session, user: User, data, ip_address: str = "") -> Transaction:
+    from core.seniat import validate_and_format_retention_proof
+
     parent_tx = db.query(Transaction).filter(Transaction.id == data.transaction_id).with_for_update().first()
     if not parent_tx or parent_tx.status == 'ANULADO':
         raise HTTPException(status_code=404, detail="Deuda o nota de entrega no encontrada.")
@@ -63,41 +65,101 @@ def process_cxc_payment(db: Session, user: User, data, ip_address: str = "") -> 
     if payment_amount <= 0 or payment_amount > parent_tx.credit_balance_pending_usd + 0.01:
         raise HTTPException(status_code=400, detail=f"El monto del abono (${payment_amount:.2f}) no puede exceder el saldo pendiente (${parent_tx.credit_balance_pending_usd:.2f}).")
 
-    target_acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == data.account_id).with_for_update().first()
-    if not target_acc or not target_acc.is_active:
-        raise HTTPException(status_code=400, detail="La cuenta receptora no existe o está inactiva.")
-
+    pay_type = getattr(data, 'payment_type', 'COBRO') or 'COBRO'
     today_date = datetime.date.today()
-    new_balance = round(parent_tx.credit_balance_pending_usd - payment_amount, 2)
+    new_balance = round(max(0.0, parent_tx.credit_balance_pending_usd - payment_amount), 2)
     parent_tx.credit_balance_pending_usd = new_balance
     parent_tx.credit_status = 'PAGADO' if new_balance == 0 else 'PARCIALMENTE_PAGADO'
 
-    # Registrar el ingreso real a caja de hoy
-    abono_tx = Transaction(
-        branch_id=user.branch_id,
-        date=today_date,
-        movement_type='INGRESO',
-        subtype='ABONO_CXC',
-        account_id=target_acc.id,
-        amount_original=payment_amount,
-        currency='USD',
-        exchange_rate=data.exchange_rate or 1.0,
-        amount_usd=payment_amount,
-        doc_type='ABONO_CXC',
-        doc_number=f"ABONO-{parent_tx.doc_number or parent_tx.id}",
-        client_name=parent_tx.client_name,
-        client_rif=parent_tx.client_rif,
-        parent_transaction_id=parent_tx.id,
-        reference_number=data.reference_number,
-        description=f"Cobro / Abono a {parent_tx.doc_type} #{parent_tx.doc_number}. Saldo restante: ${new_balance:.2f}. {data.description or ''}".strip(),
-        status='REGISTRADO',
-        created_by_id=user.id
-    )
+    # Cuenta por defecto para asociar movimientos sin impacto en caja física
+    default_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
+    if not default_acc:
+        raise HTTPException(status_code=400, detail="No hay cuentas de tesorería activas.")
+
+    if pay_type == 'RETENCION':
+        # Validación comprobante SENIAT (14 dígitos)
+        formatted_proof = validate_and_format_retention_proof(data.retention_proof, payment_amount)
+        ret_type_label = data.retention_type or "IVA/ISLR"
+        
+        abono_tx = Transaction(
+            branch_id=user.branch_id,
+            date=today_date,
+            movement_type='INGRESO',
+            subtype='RETENCION_CLIENTE_CXC',
+            account_id=default_acc.id,
+            amount_original=0.0,  # CERO en caja física / banco
+            currency='USD',
+            exchange_rate=data.exchange_rate or 1.0,
+            amount_usd=0.0,       # CERO en flujo de efectivo físico
+            doc_type='RETENCION_CXC',
+            doc_number=f"RET-{formatted_proof}",
+            client_name=parent_tx.client_name,
+            client_rif=parent_tx.client_rif,
+            parent_transaction_id=parent_tx.id,
+            reference_number=formatted_proof,
+            tax_retention_amount=payment_amount,
+            tax_retention_proof=formatted_proof,
+            description=f"Retención SENIAT {ret_type_label} (Comprobante #{formatted_proof}) aplicada a {parent_tx.doc_type} #{parent_tx.doc_number}. Saldo restante: ${new_balance:.2f}. {data.description or ''}".strip(),
+            status='REGISTRADO',
+            created_by_id=user.id
+        )
+    elif pay_type == 'NOTA_CREDITO':
+        nc_ref = (data.credit_note_ref or data.reference_number or "S/N").strip()
+        abono_tx = Transaction(
+            branch_id=user.branch_id,
+            date=today_date,
+            movement_type='INGRESO',
+            subtype='CRUCE_NOTA_CREDITO',
+            account_id=default_acc.id,
+            amount_original=0.0,  # CERO en caja física / banco
+            currency='USD',
+            exchange_rate=data.exchange_rate or 1.0,
+            amount_usd=0.0,       # CERO en flujo de efectivo físico
+            doc_type='CRUCE_NC',
+            doc_number=f"CRUCE-NC-{nc_ref}",
+            client_name=parent_tx.client_name,
+            client_rif=parent_tx.client_rif,
+            parent_transaction_id=parent_tx.id,
+            reference_number=nc_ref,
+            description=f"Cruce con Nota de Crédito #{nc_ref} aplicado a {parent_tx.doc_type} #{parent_tx.doc_number}. Saldo restante: ${new_balance:.2f}. {data.description or ''}".strip(),
+            status='REGISTRADO',
+            created_by_id=user.id
+        )
+    else:
+        # COBRO ORDINARIO EN CAJA / BANCO
+        if not data.account_id:
+            raise HTTPException(status_code=400, detail="Debe seleccionar la cuenta receptora de los fondos.")
+        target_acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == data.account_id).with_for_update().first()
+        if not target_acc or not target_acc.is_active:
+            raise HTTPException(status_code=400, detail="La cuenta receptora no existe o está inactiva.")
+
+        abono_tx = Transaction(
+            branch_id=user.branch_id,
+            date=today_date,
+            movement_type='INGRESO',
+            subtype='ABONO_CXC',
+            account_id=target_acc.id,
+            amount_original=payment_amount,
+            currency=target_acc.currency,
+            exchange_rate=data.exchange_rate or 1.0,
+            amount_usd=payment_amount,
+            doc_type='ABONO_CXC',
+            doc_number=f"ABONO-{parent_tx.doc_number or parent_tx.id}",
+            client_name=parent_tx.client_name,
+            client_rif=parent_tx.client_rif,
+            parent_transaction_id=parent_tx.id,
+            reference_number=data.reference_number,
+            description=f"Cobro / Abono a {parent_tx.doc_type} #{parent_tx.doc_number}. Saldo restante: ${new_balance:.2f}. {data.description or ''}".strip(),
+            status='REGISTRADO',
+            created_by_id=user.id
+        )
+
     db.add(abono_tx)
     db.flush()
-    record_audit(db, user, 'PROCESS_CXC_PAYMENT', 'Transaction', str(abono_tx.id), {
+    record_audit(db, user, f'PROCESS_CXC_{pay_type}', 'Transaction', str(abono_tx.id), {
         'parent_id': parent_tx.id,
         'abono_usd': payment_amount,
+        'payment_type': pay_type,
         'saldo_restante': new_balance
     }, ip_address)
     db.commit()

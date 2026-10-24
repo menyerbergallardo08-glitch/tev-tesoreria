@@ -327,30 +327,51 @@ export const PosSalesPage: React.FC = () => {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Forma de Pago: *</label>
                 <select
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPaymentMethod(val);
+                    if (val === 'USDT') {
+                      const usdtAcc = accounts.find(a => a.currency === 'USDT' && a.is_active);
+                      if (usdtAcc) setAccountId(usdtAcc.id);
+                    } else if (val === 'ZELLE') {
+                      const zelleAcc = accounts.find(a => (a.name.toUpperCase().includes('ZELLE') || a.name.toUpperCase().includes('PANAM')) && a.is_active);
+                      if (zelleAcc) setAccountId(zelleAcc.id);
+                    }
+                  }}
                   className="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-tev-green focus:outline-none"
                 >
                   <option value="EFECTIVO_USD">💵 Efectivo Divisas ($ USD)</option>
                   <option value="EFECTIVO_VES">🇻🇪 Efectivo Bolívares (VES)</option>
+                  <option value="ZELLE">🇺🇸 Zelle ($ USD)</option>
+                  <option value="USDT">🪙 USDT / Cripto (Binance Pay)</option>
                   <option value="PUNTO_VENTA_POS">💳 Punto de Venta (Tarjeta)</option>
                   <option value="PAGO_MOVIL">📲 Pago Móvil / Transferencia</option>
                   <option value="CASHEA">🟡 Cashea</option>
+                  <option value="NOTA_CREDITO">📄 Cruce con Nota de Crédito / Saldo a Favor</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Caja o Cuenta Receptora: *</label>
-                <select
-                  value={accountId}
-                  onChange={(e) => setAccountId(parseInt(e.target.value))}
-                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-tev-green focus:outline-none"
-                >
-                  {accounts.filter(a => a.is_active).map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.currency}) - Saldo: {formatUSD(acc.current_balance)}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  {paymentMethod === 'NOTA_CREDITO' ? 'Nota de Crédito Aplicada:' : 'Caja o Cuenta Receptora: *'}
+                </label>
+                {paymentMethod === 'NOTA_CREDITO' ? (
+                  <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-xs font-semibold text-purple-900">
+                    Compensación Contable: No altera efectivo ni bancos. Indique el N° de NC en el campo de referencia.
+                  </div>
+                ) : (
+                  <select
+                    value={accountId}
+                    onChange={(e) => setAccountId(parseInt(e.target.value))}
+                    className="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-tev-green focus:outline-none"
+                  >
+                    {accounts.filter(a => a.is_active).map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.currency}) - Saldo: {formatUSD(acc.current_balance)}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           )}

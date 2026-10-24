@@ -13,8 +13,13 @@ class HistoricalDebtCreate(BaseModel):
 class CxCPaymentCreate(BaseModel):
     transaction_id: int
     amount_usd: float = Field(..., gt=0)
-    account_id: int
-    payment_method: str
+    account_id: Optional[int] = None
+    payment_method: str = 'ABONO_CXC'
+    payment_type: Optional[str] = 'COBRO'  # 'COBRO', 'RETENCION', 'NOTA_CREDITO'
     exchange_rate: Optional[float] = 1.0
     reference_number: Optional[str] = None
     description: Optional[str] = ''
+    retention_proof: Optional[str] = None
+    retention_type: Optional[str] = None
+    credit_note_ref: Optional[str] = None
+    credit_note_date: Optional[str] = None

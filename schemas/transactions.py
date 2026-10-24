@@ -43,6 +43,10 @@ class TransactionUpdate(BaseModel):
     credit_original_amount_usd: Optional[float] = None
     credit_balance_pending_usd: Optional[float] = None
     client_name: Optional[str] = None
+    client_rif: Optional[str] = None
+    beneficiary: Optional[str] = None
+    reference_number: Optional[str] = None
+    category_id: Optional[int] = None
     doc_type: Optional[str] = None
     doc_number: Optional[str] = None
     is_credit: Optional[bool] = None

@@ -1,12 +1,13 @@
 import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db
 from models import Transaction, TreasuryAccount, SystemSetting, User
 from core.security import get_current_user, require_roles
 from schemas.transactions import TransactionCreate, TransferCreate, TransactionUpdate
+from core.audit import record_audit
 
 router = APIRouter(prefix="/api/transactions", tags=["Transacciones de Tesorería"])
 
@@ -319,6 +320,7 @@ def purge_voided_transactions(
 @router.delete("/{id}")
 def cancel_transaction(
     id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["administradora", "directivo"]))
 ):
@@ -326,6 +328,8 @@ def cancel_transaction(
     if not tx:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     tx.status = "ANULADO"
+    ip = request.client.host if request.client else ""
+    record_audit(db, current_user, 'CANCEL_TRANSACTION', 'Transaction', str(tx.id), {'amount_usd': tx.amount_usd, 'status': 'ANULADO'}, ip)
     db.commit()
     return {"success": True, "message": f"Movimiento #{id} ha sido ANULADO"}
 
@@ -333,17 +337,27 @@ def cancel_transaction(
 def update_transaction(
     id: int,
     data: TransactionUpdate,
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["administradora", "directivo"]))
+    current_user: User = Depends(require_roles(["administradora", "directivo", "cajera", "cajero"]))
 ):
     tx = db.query(Transaction).filter(Transaction.id == id).first()
     if not tx:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     
     update_data = data.model_dump(exclude_unset=True)
+    if current_user.role in ["cajera", "cajero"]:
+        forbidden_fields = {'amount_original', 'amount_usd', 'exchange_rate', 'currency', 'account_id'}
+        if any(f in update_data for f in forbidden_fields):
+            raise HTTPException(status_code=403, detail="Las cajeras solo pueden corregir datos descriptivos (Beneficiario, Documento, Referencia, Descripción).")
+    
+    old_data = {}
     for field, val in update_data.items():
+        old_data[field] = getattr(tx, field, None)
         setattr(tx, field, val)
     
+    ip = request.client.host if request.client else ""
+    record_audit(db, current_user, 'UPDATE_TRANSACTION', 'Transaction', str(tx.id), {'changes': update_data, 'previous': old_data}, ip)
     db.commit()
     db.refresh(tx)
     return {"success": True, "message": f"Movimiento #{id} actualizado", "transaction": {"id": tx.id, "amount_usd": tx.amount_usd}}

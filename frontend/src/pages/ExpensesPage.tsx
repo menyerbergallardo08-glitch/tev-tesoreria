@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingDown, CheckCircle2, Building2 } from 'lucide-react';
+import { TrendingDown, CheckCircle2, Building2, Edit3, Trash2, X } from 'lucide-react';
 import { useTreasury } from '../context/TreasuryContext';
 import { useToast } from '../components/common/Toast';
 import { api } from '../api/client';
@@ -35,6 +35,14 @@ export const ExpensesPage: React.FC = () => {
   const [newSupName, setNewSupName] = useState('');
   const [newSupRif, setNewSupRif] = useState('');
   const [savingSup, setSavingSup] = useState(false);
+
+  // Modal para corrección de error de dedo
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [editBeneficiary, setEditBeneficiary] = useState('');
+  const [editDocNumber, setEditDocNumber] = useState('');
+  const [editReference, setEditReference] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     if (categories.length > 0 && !categoryId) {
@@ -100,6 +108,49 @@ export const ExpensesPage: React.FC = () => {
       showToast('error', 'Error Proveedor', err.message || 'No se pudo guardar');
     } finally {
       setSavingSup(false);
+    }
+  };
+
+  const handleOpenEdit = (tx: Transaction) => {
+    setEditingTx(tx);
+    setEditBeneficiary(tx.beneficiary || '');
+    setEditDocNumber(tx.doc_number || '');
+    setEditReference(tx.reference_number || '');
+    setEditDescription(tx.description || '');
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    setSavingEdit(true);
+    try {
+      await api.patch(`/api/transactions/${editingTx.id}`, {
+        beneficiary: editBeneficiary.trim(),
+        doc_number: editDocNumber.trim() || null,
+        reference_number: editReference.trim() || null,
+        description: editDescription.trim() || null,
+      });
+      showToast('success', 'Movimiento Corregido', `Se actualizaron los datos del registro #${editingTx.id}`);
+      setEditingTx(null);
+      await loadRecentExpenses();
+    } catch (err: any) {
+      showToast('error', 'Error al Corregir', err.message || 'No se pudo actualizar');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleVoidExpense = async (txId: number) => {
+    if (!confirm('¿Confirma que desea anular este egreso? El monto se revertirá en el saldo de la cuenta.')) {
+      return;
+    }
+    try {
+      await api.delete(`/api/transactions/${txId}`);
+      showToast('success', 'Egreso Anulado', `El movimiento #${txId} fue anulado`);
+      await loadAccounts();
+      await loadRecentExpenses();
+    } catch (err: any) {
+      showToast('error', 'Error al Anular', err.message || 'No se pudo anular el egreso');
     }
   };
 
@@ -437,12 +488,18 @@ export const ExpensesPage: React.FC = () => {
                   <th className="p-3">Subtipo</th>
                   <th className="p-3 text-right">Monto USD</th>
                   <th className="p-3 text-center">Estado</th>
+                  <th className="p-3 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {recentExpenses.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/50 transition">
-                    <td className="p-3 font-bold text-gray-900">{tx.beneficiary}</td>
+                    <td className="p-3 font-bold text-gray-900">
+                      <div>{tx.beneficiary}</div>
+                      {tx.reference_number && (
+                        <div className="text-[10px] text-gray-400 font-normal">Ref: {tx.reference_number}</div>
+                      )}
+                    </td>
                     <td className="p-3 text-gray-600">{tx.category_name || 'General'}</td>
                     <td className="p-3 text-gray-500">{tx.subtype?.replace('GASTO_', '')}</td>
                     <td className="p-3 text-right font-black text-rose-700">
@@ -452,6 +509,26 @@ export const ExpensesPage: React.FC = () => {
                       <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                         {tx.status}
                       </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(tx)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Corregir datos de texto (error de dedo)"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleVoidExpense(tx.id)}
+                          className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          title="Anular egreso y revertir saldo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -502,6 +579,84 @@ export const ExpensesPage: React.FC = () => {
                   className="px-4 py-1.5 bg-tev-green text-white text-xs font-bold rounded-lg shadow-sm"
                 >
                   {savingSup ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Corrección de Error de Dedo */}
+      {editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-black text-gray-900">✏️ Corregir Datos de Egreso #{editingTx.id}</h3>
+                <p className="text-[11px] text-gray-500">Subsanar errores de tipeo en proveedor, documento o referencia</p>
+              </div>
+              <button type="button" onClick={() => setEditingTx(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Beneficiario / Proveedor: *</label>
+                <input
+                  type="text"
+                  value={editBeneficiary}
+                  onChange={(e) => setEditBeneficiary(e.target.value)}
+                  required
+                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">N° Documento / Factura:</label>
+                  <input
+                    type="text"
+                    value={editDocNumber}
+                    onChange={(e) => setEditDocNumber(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">N° Referencia Bancaria:</label>
+                  <input
+                    type="text"
+                    value={editReference}
+                    onChange={(e) => setEditReference(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Concepto / Detalle:</label>
+                <input
+                  type="text"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="px-5 py-2 bg-tev-green hover:bg-tev-darkgreen text-white text-xs font-bold rounded-xl shadow-sm transition"
+                >
+                  {savingEdit ? 'Guardando...' : 'Guardar Corrección'}
                 </button>
               </div>
             </form>

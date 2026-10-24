@@ -139,6 +139,8 @@ def get_live_monitor(
     pos_bnc = 0.0
     pago_movil_usd = 0.0
     cashea_usd = 0.0
+    zelle_usd = 0.0
+    usdt_usd = 0.0
 
     recent_stream = []
 
@@ -179,6 +181,10 @@ def get_live_monitor(
                     cash_ves_expected += cash_in_orig if t.currency == "VES" else round(cash_in_usd * active_bcv, 2)
                 elif "CASHEA" in acc_name:
                     cashea_usd += cash_in_usd
+                elif "ZELLE" in acc_name or "PANAMÁ" in acc_name or "PANAMA" in acc_name:
+                    zelle_usd += cash_in_usd
+                elif "USDT" in acc_name or "BINANCE" in acc_name or t.currency == "USDT":
+                    usdt_usd += cash_in_usd
                 elif t.pos_terminal:
                     p = t.pos_terminal.upper()
                     if "BANESCO" in p:
@@ -248,7 +254,9 @@ def get_live_monitor(
             "pos_bnc": round(pos_bnc, 2),
             "pos_total": round(pos_banesco + pos_bancaribe + pos_bdv + pos_bnc, 2),
             "pago_movil_usd": round(pago_movil_usd, 2),
-            "cashea_usd": round(cashea_usd, 2)
+            "cashea_usd": round(cashea_usd, 2),
+            "zelle_usd": round(zelle_usd, 2),
+            "usdt_usd": round(usdt_usd, 2)
         },
         "recent_stream": recent_stream[:30]
     }

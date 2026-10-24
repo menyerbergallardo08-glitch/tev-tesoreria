@@ -62,7 +62,12 @@ window.TEVState = {
         isSubmittingMovement: false,
         loadingBcv: false,
 
-        
+        // Modal y Formulario de Corrección de Movimientos
+        showEditTransactionModal: false,
+        editingTx: null,
+        editingTxForm: { beneficiary: '', doc_number: '', reference_number: '', description: '' },
+        isSavingEditTx: false,
+
         setDocumentType(type) {
           if (type === 'CASHEA') {
             this.liveSaleForm.doc_type = 'FACTURA_FISCAL';
@@ -83,22 +88,47 @@ window.TEVState = {
           if (method === 'EFECTIVO_USD') {
             const acc = this.accounts.find(a => a.name.includes('Efectivo USD') && a.currency === 'USD') || this.accounts.find(a => a.currency === 'USD');
             if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.currency = 'USD';
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'EFECTIVO_VES') {
             const acc = this.accounts.find(a => a.name.includes('Efectivo VES') && a.currency === 'VES') || this.accounts.find(a => a.currency === 'VES');
             if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.currency = 'VES';
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'POS') {
+            this.liveSaleForm.currency = 'VES';
             if (!this.liveSaleForm.pos_terminal) this.liveSaleForm.pos_terminal = 'POS Banesco';
             this.onPosTerminalChange();
           } else if (method === 'PAGO_MOVIL') {
-            const acc = this.accounts.find(a => a.name.includes('Pago Móvil')) || this.accounts.find(a => a.currency === 'VES');
+            this.liveSaleForm.currency = 'VES';
+            const currentAcc = this.accounts.find(a => a.id === this.liveSaleForm.account_id);
+            if (!currentAcc || currentAcc.currency !== 'VES' || currentAcc.account_type !== 'BANCO') {
+              const acc = this.accounts.find(a => a.is_active && a.currency === 'VES' && a.account_type === 'BANCO') ||
+                          this.accounts.find(a => a.is_active && a.name.includes('Banesco')) ||
+                          this.accounts.find(a => a.currency === 'VES');
+              if (acc) this.liveSaleForm.account_id = acc.id;
+            }
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'ZELLE') {
+            this.liveSaleForm.currency = 'USD';
+            const acc = this.accounts.find(a => a.is_active && (a.name.toUpperCase().includes('ZELLE') || a.name.toUpperCase().includes('PANAM'))) ||
+                        this.accounts.find(a => a.is_active && a.currency === 'USD' && a.account_type === 'BANCO') ||
+                        this.accounts.find(a => a.currency === 'USD');
+            if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.pos_terminal = '';
+            this.liveSaleForm.pos_lot_number = '';
+          } else if (method === 'USDT') {
+            this.liveSaleForm.currency = 'USD';
+            const acc = this.accounts.find(a => a.is_active && (a.currency === 'USDT' || a.name.toUpperCase().includes('BINANCE') || a.name.toUpperCase().includes('USDT'))) ||
+                        this.accounts.find(a => a.currency === 'USD');
             if (acc) this.liveSaleForm.account_id = acc.id;
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'CASHEA') {
+            this.liveSaleForm.currency = 'USD';
             const acc = this.accounts.find(a => a.name.includes('Cashea')) || this.accounts.find(a => a.name.includes('BNC')) || (this.accounts.length > 0 ? this.accounts[0] : null);
             if (acc) this.liveSaleForm.account_id = acc.id;
             this.liveSaleForm.pos_terminal = '';

@@ -23,11 +23,15 @@ export const AccountsPage: React.FC = () => {
     .filter((a) => a.is_active && a.currency === 'USD')
     .reduce((acc, a) => acc + (a.current_balance || 0), 0);
 
+  const totalUsdtAccounts = accounts
+    .filter((a) => a.is_active && a.currency === 'USDT')
+    .reduce((acc, a) => acc + (a.current_balance || 0), 0);
+
   const totalVesAccounts = accounts
     .filter((a) => a.is_active && a.currency === 'VES')
     .reduce((acc, a) => acc + (a.current_balance || 0), 0);
 
-  const totalConsolidatedUsd = totalUsdAccounts + (totalVesAccounts / bcvRate);
+  const totalConsolidatedUsd = totalUsdAccounts + totalUsdtAccounts + (totalVesAccounts / bcvRate);
 
   const handleOpenEdit = (acc: TreasuryAccount) => {
     setSelectedAccountToEdit(acc);
@@ -57,7 +61,7 @@ export const AccountsPage: React.FC = () => {
               {formatUSD(totalConsolidatedUsd)}
             </h2>
             <p className="text-xs text-emerald-100 mt-1">
-              Disponible en Efectivo USD: <strong>{formatUSD(totalUsdAccounts)}</strong> • Cuentas VES: <strong>{formatVES(totalVesAccounts)}</strong>
+              Efectivo USD: <strong>{formatUSD(totalUsdAccounts)}</strong> • Cripto USDT: <strong>{formatUSD(totalUsdtAccounts)}</strong> • Cuentas VES: <strong>{formatVES(totalVesAccounts)}</strong>
             </p>
           </div>
 
@@ -114,6 +118,8 @@ export const AccountsPage: React.FC = () => {
                   className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                     acc.currency === 'USD'
                       ? 'bg-emerald-100 text-emerald-800'
+                      : acc.currency === 'USDT'
+                      ? 'bg-teal-100 text-teal-800'
                       : 'bg-blue-100 text-blue-800'
                   }`}
                 >
@@ -133,7 +139,7 @@ export const AccountsPage: React.FC = () => {
             <div className="mt-4 pt-3 border-t border-gray-100">
               <span className="text-[10px] text-gray-500 font-semibold block">Saldo Disponible:</span>
               <p className="text-2xl font-black text-gray-900 mt-0.5">
-                {acc.currency === 'USD' ? formatUSD(acc.current_balance) : formatVES(acc.current_balance)}
+                {acc.currency === 'VES' ? formatVES(acc.current_balance) : `${formatUSD(acc.current_balance)}${acc.currency === 'USDT' ? ' USDT' : ''}`}
               </p>
               {acc.currency === 'VES' && (
                 <p className="text-[10px] text-gray-400 mt-0.5">

@@ -37,7 +37,12 @@ export interface Transaction {
   doc_number?: string;
   beneficiary?: string;
   reference_number?: string;
+  description?: string;
   notes?: string;
+  client_name?: string;
+  client_rif?: string;
+  tax_retention_amount?: number;
+  tax_retention_proof?: string;
   status: 'REGISTRADO' | 'ANULADO';
   created_at: string;
   created_by_name?: string;

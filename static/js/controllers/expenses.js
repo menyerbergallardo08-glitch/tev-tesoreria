@@ -2,13 +2,11 @@
 window.TEVExpenses = {
         async submitMovement() {
           if (this.isSubmittingMovement) return;
-          this.isSubmittingMovement = true;
 
           const rawAmt = String(this.form.amount_original || '').replace(',', '.').trim();
           const amt = parseFloat(rawAmt);
           if (isNaN(amt) || amt <= 0) {
             this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a cero.');
-            this.isSubmittingMovement = false;
             return;
           }
           this.form.amount_original = amt;
@@ -38,7 +36,6 @@ window.TEVExpenses = {
 
           if (this.form.subtype === 'GASTO_OPERATIVO' && !this.form.category_id) {
             this.showToast('warning', 'Partida Requerida', 'Por favor seleccione la Partida Presupuestaria del gasto.');
-            this.isSubmittingMovement = false;
             return;
           }
           
@@ -177,6 +174,42 @@ window.TEVExpenses = {
             }
           } catch (err) {
             console.error(err);
+          }
+        },
+
+        openEditTransactionModal(item) {
+          this.editingTx = item;
+          this.editingTxForm = {
+            beneficiary: item.beneficiary || item.client_name || '',
+            doc_number: item.doc_number || '',
+            reference_number: item.reference_number || '',
+            description: item.description || ''
+          };
+          this.showEditTransactionModal = true;
+        },
+
+        async saveEditedTransaction() {
+          if (!this.editingTx) return;
+          this.isSavingEditTx = true;
+          try {
+            const token = this.getToken();
+            const res = await fetch('/api/transactions/' + this.editingTx.id, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify(this.editingTxForm)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al actualizar');
+            this.showToast('success', 'Movimiento Corregido', `Se actualizaron los datos del registro #${this.editingTx.id}`);
+            this.showEditTransactionModal = false;
+            await this.loadTransactions();
+          } catch (err) {
+            this.showToast('error', 'Error al Guardar', err.message);
+          } finally {
+            this.isSavingEditTx = false;
           }
         },
 
@@ -535,8 +568,14 @@ window.TEVExpenses = {
             this.showSupplierModal = false;
             this.showToast('success', 'Proveedor Registrado', `Proveedor '${created.name}' guardado exitosamente.`);
           } else {
-            const err = await res.json();
-            alert(err.detail || 'Error al registrar proveedor');
+            let errMsg = 'Error al registrar proveedor';
+            try {
+              const err = await res.json();
+              errMsg = err.detail || errMsg;
+            } catch (e) {
+              errMsg = `Error (${res.status}): ${res.statusText}`;
+            }
+            this.showToast('error', 'Error Proveedor', errMsg);
           }
         },
 

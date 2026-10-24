@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.3.6"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.3.6"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.3.6"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.3.6"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.3.6"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.3.6"></script>
-  <script src="/static/js/controllers/reports.js?v=2.3.6"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.3.6"></script>
+  <script src="/static/js/state.js?v=2.3.7"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.3.7"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.3.7"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.3.7"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.3.7"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.3.7"></script>
+  <script src="/static/js/controllers/reports.js?v=2.3.7"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.3.7"></script>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
@@ -492,8 +492,8 @@
                       x-text="'Destino: ' + getSelectedAccountNameForLive()"></span>
               </div>
 
-              <!-- 5 Grandes Tarjetas de Método de Cobro (Cashea Dedicado) -->
-              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              <!-- 7 Grandes Tarjetas de Método de Cobro -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
                 
                 <!-- 1. Efectivo USD -->
                 <button type="button" @click="setPaymentMethod('EFECTIVO_USD')"
@@ -531,7 +531,25 @@
                   <span class="text-[10px] opacity-80 font-semibold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Emisión / Transf' : 'Transferencia'"></span>
                 </button>
 
-                <!-- 5. CASHEA / SALDO A FAVOR (NOTA DE CRÉDITO) -->
+                <!-- 5. Zelle USD -->
+                <button type="button" @click="setPaymentMethod('ZELLE')"
+                        :class="paymentMethod === 'ZELLE' ? 'bg-teal-700 text-white font-black shadow-md ring-4 ring-teal-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">🇺🇸</span>
+                  <span class="text-xs font-bold">Zelle USD</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Custodia / Banco</span>
+                </button>
+
+                <!-- 6. USDT / Binance Pay -->
+                <button type="button" @click="setPaymentMethod('USDT')"
+                        :class="paymentMethod === 'USDT' ? 'bg-yellow-600 text-white font-black shadow-md ring-4 ring-yellow-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">🪙</span>
+                  <span class="text-xs font-bold">USDT Cripto</span>
+                  <span class="text-[10px] opacity-80 font-semibold">Binance Pay</span>
+                </button>
+
+                <!-- 7. CASHEA / SALDO A FAVOR (NOTA DE CRÉDITO) -->
                 <button type="button" @click="liveSaleForm.doc_type === 'DEVOLUCION' ? setPaymentMethod('NOTA_CREDITO') : setPaymentMethod('CASHEA')"
                         :class="(paymentMethod === 'CASHEA' || paymentMethod === 'NOTA_CREDITO') ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
@@ -567,10 +585,61 @@
 
               <!-- SI ES PAGO MÓVIL / TRANSFERENCIA -->
               <div x-show="paymentMethod === 'PAGO_MOVIL'" class="p-4 bg-purple-50/80 border border-purple-200 rounded-2xl space-y-3">
-                <div>
-                  <label class="block text-xs font-bold text-purple-950 mb-1">🔖 N° de Referencia Bancaria (Últimos 4 o 6 dígitos):</label>
-                  <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: 994201"
-                         class="w-full p-2.5 border border-purple-300 rounded-xl text-xs bg-white font-black text-purple-950 focus:ring-2 focus:ring-purple-500">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-purple-950 mb-1">🏦 Banco Receptor del Pago Móvil: *</label>
+                    <select x-model="liveSaleForm.account_id"
+                            class="w-full p-2.5 border border-purple-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-purple-500">
+                      <template x-for="acc in accounts.filter(a => a.is_active && a.currency === 'VES' && a.account_type === 'BANCO')" :key="acc.id">
+                        <option :value="acc.id" x-text="acc.name"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-purple-950 mb-1">🔖 N° de Referencia Bancaria (Últimos 4 o 6 dígitos): *</label>
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: 994201"
+                           class="w-full p-2.5 border border-purple-300 rounded-xl text-xs bg-white font-black text-purple-950 focus:ring-2 focus:ring-purple-500">
+                  </div>
+                </div>
+              </div>
+
+              <!-- SI ES ZELLE USD -->
+              <div x-show="paymentMethod === 'ZELLE'" class="p-4 bg-teal-50/80 border border-teal-200 rounded-2xl space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-teal-950 mb-1">🏦 Cuenta Receptora Zelle / Divisas: *</label>
+                    <select x-model="liveSaleForm.account_id"
+                            class="w-full p-2.5 border border-teal-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-teal-500">
+                      <template x-for="acc in accounts.filter(a => a.is_active && (a.currency === 'USD' || a.name.includes('Zelle')))" :key="acc.id">
+                        <option :value="acc.id" x-text="acc.name + ' ($)'"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-teal-950 mb-1">🔖 Titular / Referencia Zelle: *</label>
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: Correo emisor o N° de confirmación"
+                           class="w-full p-2.5 border border-teal-300 rounded-xl text-xs bg-white font-black text-teal-950 focus:ring-2 focus:ring-teal-500">
+                  </div>
+                </div>
+              </div>
+
+              <!-- SI ES USDT / BINANCE PAY -->
+              <div x-show="paymentMethod === 'USDT'" class="p-4 bg-yellow-50/80 border border-yellow-200 rounded-2xl space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-yellow-950 mb-1">🪙 Billetera Receptora Cripto: *</label>
+                    <select x-model="liveSaleForm.account_id"
+                            class="w-full p-2.5 border border-yellow-300 rounded-xl text-xs bg-white font-bold text-gray-800 focus:ring-2 focus:ring-yellow-500">
+                      <template x-for="acc in accounts.filter(a => a.is_active && (a.currency === 'USDT' || a.name.includes('Binance') || a.name.includes('USDT')))" :key="acc.id">
+                        <option :value="acc.id" x-text="acc.name + ' (USDT)'"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-yellow-950 mb-1">🔖 Pay ID / N° Transacción Binance: *</label>
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: Binance Order ID o Pay ID"
+                           class="w-full p-2.5 border border-yellow-300 rounded-xl text-xs bg-white font-black text-yellow-950 focus:ring-2 focus:ring-yellow-500">
+                  </div>
                 </div>
               </div>
 
@@ -1297,11 +1366,16 @@
                             x-text="item.status"></span>
                     </td>
                     <td class="p-3 text-center">
-                      <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
-                        <button @click="cancelTransaction(item.id)" class="text-rose-600 hover:text-rose-800 font-bold p-1 text-xs" title="Anular movimiento">
-                          ❌
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" @click="openEditTransactionModal(item)" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer" title="Editar datos descriptivos del movimiento">
+                          <span>✏️</span> Editar
                         </button>
-                      </template>
+                        <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                          <button type="button" @click="cancelTransaction(item.id)" class="p-1 text-rose-600 hover:text-rose-800 font-bold text-xs hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Anular movimiento">
+                            ❌
+                          </button>
+                        </template>
+                      </div>
                     </td>
                   </tr>
                 </template>
@@ -3087,6 +3161,63 @@
             </button>
             <button type="submit" class="w-1/2 p-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-sm shadow">
               💾 Guardar Proveedor
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL EDITAR MOVIMIENTO / CORRECCIÓN DE DEDO -->
+    <!-- ======================================================== -->
+    <div x-show="showEditTransactionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" x-cloak>
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full border border-indigo-200 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">✏️</span>
+            <div>
+              <h3 class="text-lg font-black text-gray-900">Editar / Corregir Movimiento</h3>
+              <p class="text-xs text-gray-500">Corrección de beneficiario, documento o referencia (<span x-text="'ID #' + (editingTx?.id || '')"></span>)</p>
+            </div>
+          </div>
+          <button @click="showEditTransactionModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-xl p-1 rounded-lg">✕</button>
+        </div>
+
+        <form @submit.prevent="saveEditedTransaction()" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Beneficiario / Proveedor / Cliente *</label>
+            <input type="text" x-model="editingTxForm.beneficiary" required placeholder="Nombre comercial o persona"
+                   class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-bold">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">N° de Factura / Nota</label>
+              <input type="text" x-model="editingTxForm.doc_number" placeholder="Ej: 004921"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">N° Referencia Bancaria</label>
+              <input type="text" x-model="editingTxForm.reference_number" placeholder="Ej: 994201"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-mono font-bold">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Descripción / Concepto del Movimiento</label>
+            <textarea x-model="editingTxForm.description" rows="2" placeholder="Detalle explicativo del pago o ingreso..."
+                      class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs"></textarea>
+          </div>
+
+          <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 font-medium">
+            ℹ️ <strong>Nota:</strong> Los montos monetarios y cuentas afectadas permanecen inmutables para resguardar la exactitud del arqueo de caja.
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button type="button" @click="showEditTransactionModal = false" class="w-1/2 p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs">
+              Cancelar
+            </button>
+            <button type="submit" :disabled="isSavingEditTx" class="w-1/2 p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow flex items-center justify-center gap-1.5 cursor-pointer">
+              <span x-show="!isSavingEditTx">💾 Guardar Cambios</span>
+              <span x-show="isSavingEditTx">⏳ Guardando...</span>
             </button>
           </div>
         </form>
