@@ -12,7 +12,7 @@ window.TEVState = {
         categories: [],
         transactions: [],
         usersList: [],
-        filterMonth: '2026-09',
+        filterMonth: new Date().toISOString().slice(0, 7),
         salesFilterMode: 'mes',
         salesFilterDate: new Date().toISOString().split('T')[0],
         filterType: '',

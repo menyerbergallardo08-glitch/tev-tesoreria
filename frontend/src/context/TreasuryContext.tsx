@@ -32,7 +32,9 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const loadAccounts = useCallback(async () => {
     try {
       const data = await api.get<TreasuryAccount[]>('/api/accounts');
-      setAccounts(data);
+      if (Array.isArray(data)) {
+        setAccounts(data);
+      }
     } catch (e) {
       console.error('Error al cargar cuentas:', e);
     }
@@ -41,7 +43,9 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const loadCategories = useCallback(async () => {
     try {
       const data = await api.get<Category[]>('/api/categories');
-      setCategories(data);
+      if (Array.isArray(data)) {
+        setCategories(data);
+      }
     } catch (e) {
       console.error('Error al cargar categorías:', e);
     }
@@ -50,7 +54,9 @@ export const TreasuryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const loadSuppliers = useCallback(async () => {
     try {
       const data = await api.get<Supplier[]>('/api/suppliers');
-      setSuppliers(data);
+      if (Array.isArray(data)) {
+        setSuppliers(data);
+      }
     } catch (e) {
       console.error('Error al cargar proveedores:', e);
     }

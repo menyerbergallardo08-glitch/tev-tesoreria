@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 
 export class ApiError extends Error {
   status: number;
@@ -14,15 +14,17 @@ export class ApiError extends Error {
 
 export const api = {
   getToken(): string | null {
-    return localStorage.getItem('tev_token');
+    return localStorage.getItem('tev_token') || sessionStorage.getItem('tev_token');
   },
 
   setToken(token: string) {
     localStorage.setItem('tev_token', token);
+    sessionStorage.setItem('tev_token', token);
   },
 
   clearToken() {
     localStorage.removeItem('tev_token');
+    sessionStorage.removeItem('tev_token');
   },
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -40,10 +42,16 @@ export const api = {
     }
 
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    // Support full /api/ prefix or relative to API_BASE
-    const url = cleanEndpoint.startsWith('/api') 
-      ? cleanEndpoint 
-      : `${API_BASE}${cleanEndpoint}`;
+    let url: string;
+    if (API_BASE) {
+      if (API_BASE.endsWith('/api') && cleanEndpoint.startsWith('/api')) {
+        url = `${API_BASE}${cleanEndpoint.slice(4)}`;
+      } else {
+        url = `${API_BASE}${cleanEndpoint}`;
+      }
+    } else {
+      url = cleanEndpoint;
+    }
 
     const response = await fetch(url, {
       ...options,
@@ -56,11 +64,19 @@ export const api = {
     }
 
     let data: any;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
       data = await response.json();
     } else {
-      data = await response.text();
+      const rawText = await response.text();
+      if (!response.ok) {
+        throw new ApiError(`Error ${response.status}: ${rawText.slice(0, 150)}`, response.status, rawText);
+      }
+      throw new ApiError(
+        `El servidor devolvió una respuesta inesperada (${contentType || 'texto/HTML'}).`,
+        response.status,
+        rawText
+      );
     }
 
     if (!response.ok) {

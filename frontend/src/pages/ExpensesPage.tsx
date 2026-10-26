@@ -12,10 +12,14 @@ export const ExpensesPage: React.FC = () => {
 
   const [date, setDate] = useState(getTodayDateString());
   const [subtype, setSubtype] = useState('GASTO_OPERATIVO');
+  const categoryList = Array.isArray(categories) ? categories : [];
+  const accountList = Array.isArray(accounts) ? accounts : [];
+  const supplierList = Array.isArray(suppliers) ? suppliers : [];
+
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [beneficiary, setBeneficiary] = useState('');
-  const [categoryId, setCategoryId] = useState<number>(categories[0]?.id || 1);
-  const [accountId, setAccountId] = useState<number>(accounts[0]?.id || 1);
+  const [categoryId, setCategoryId] = useState<number>(categoryList[0]?.id || 1);
+  const [accountId, setAccountId] = useState<number>(accountList[0]?.id || 1);
   const [amountUsd, setAmountUsd] = useState('');
   const [docNumber, setDocNumber] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
@@ -28,6 +32,7 @@ export const ExpensesPage: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [recentExpenses, setRecentExpenses] = useState<Transaction[]>([]);
+  const expenseList = Array.isArray(recentExpenses) ? recentExpenses : [];
   const [loadingExpenses, setLoadingExpenses] = useState(false);
 
   // Modal para nuevo proveedor rápido
@@ -45,20 +50,24 @@ export const ExpensesPage: React.FC = () => {
   const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
-    if (categories.length > 0 && !categoryId) {
-      setCategoryId(categories[0].id);
+    if (categoryList.length > 0 && !categoryId) {
+      setCategoryId(categoryList[0].id);
     }
-    if (accounts.length > 0 && !accountId) {
-      const active = accounts.find((a) => a.is_active && !a.only_income) || accounts[0];
-      setAccountId(active.id);
+    if (accountList.length > 0 && !accountId) {
+      const active = accountList.find((a) => a.is_active && !a.only_income) || accountList[0];
+      if (active) setAccountId(active.id);
     }
-  }, [categories, accounts, categoryId, accountId]);
+  }, [categories, accounts, categoryId, accountId, categoryList, accountList]);
 
   const loadRecentExpenses = async () => {
     setLoadingExpenses(true);
     try {
       const data = await api.get<Transaction[]>(`/api/expenses?date=${date}`);
-      setRecentExpenses(data);
+      if (Array.isArray(data)) {
+        setRecentExpenses(data);
+      } else {
+        setRecentExpenses([]);
+      }
     } catch (e) {
       console.error('Error al cargar egresos:', e);
     } finally {
@@ -73,7 +82,7 @@ export const ExpensesPage: React.FC = () => {
   const handleSupplierChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const idStr = e.target.value;
     setSelectedSupplierId(idStr);
-    const sup = suppliers.find((s) => s.id === parseInt(idStr));
+    const sup = supplierList.find((s) => s.id === parseInt(idStr));
     if (sup) {
       setBeneficiary(`${sup.rif ? sup.rif + ' - ' : ''}${sup.name}`);
     }
@@ -277,7 +286,7 @@ export const ExpensesPage: React.FC = () => {
                 onChange={(e) => setCategoryId(parseInt(e.target.value))}
                 className="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-tev-green focus:outline-none"
               >
-                {categories.map((cat) => (
+                {categoryList.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
@@ -306,7 +315,7 @@ export const ExpensesPage: React.FC = () => {
                 className="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-tev-green focus:outline-none"
               >
                 <option value="">-- Escribir beneficiario libre o elegir proveedor --</option>
-                {suppliers.map((sup) => (
+                {supplierList.map((sup) => (
                   <option key={sup.id} value={sup.id}>
                     {sup.name} {sup.rif ? `(${sup.rif})` : ''}
                   </option>
@@ -356,7 +365,7 @@ export const ExpensesPage: React.FC = () => {
                 onChange={(e) => setAccountId(parseInt(e.target.value))}
                 className="w-full p-3 border border-gray-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-tev-green focus:outline-none"
               >
-                {accounts.filter(a => a.is_active && !a.only_income).map((acc) => (
+                {accountList.filter(a => a.is_active && !a.only_income).map((acc) => (
                   <option key={acc.id} value={acc.id}>
                     {acc.name} ({acc.currency}) - Saldo Disponible: {formatUSD(acc.current_balance)}
                   </option>
@@ -492,7 +501,7 @@ export const ExpensesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {recentExpenses.map((tx) => (
+                {expenseList.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/50 transition">
                     <td className="p-3 font-bold text-gray-900">
                       <div>{tx.beneficiary}</div>

@@ -18,20 +18,23 @@ export const AccountsPage: React.FC = () => {
   const [showArqueoModal, setShowArqueoModal] = useState(false);
   const [arqueoCurrency, setArqueoCurrency] = useState<'USD' | 'VES'>('USD');
 
-  // Totales
-  const totalUsdAccounts = accounts
+  // Totales seguros
+  const accountList = Array.isArray(accounts) ? accounts : [];
+
+  const totalUsdAccounts = accountList
     .filter((a) => a.is_active && a.currency === 'USD')
     .reduce((acc, a) => acc + (a.current_balance || 0), 0);
 
-  const totalUsdtAccounts = accounts
+  const totalUsdtAccounts = accountList
     .filter((a) => a.is_active && a.currency === 'USDT')
     .reduce((acc, a) => acc + (a.current_balance || 0), 0);
 
-  const totalVesAccounts = accounts
+  const totalVesAccounts = accountList
     .filter((a) => a.is_active && a.currency === 'VES')
     .reduce((acc, a) => acc + (a.current_balance || 0), 0);
 
-  const totalConsolidatedUsd = totalUsdAccounts + totalUsdtAccounts + (totalVesAccounts / bcvRate);
+  const rateSafe = bcvRate && bcvRate > 0 ? bcvRate : 1;
+  const totalConsolidatedUsd = totalUsdAccounts + totalUsdtAccounts + (totalVesAccounts / rateSafe);
 
   const handleOpenEdit = (acc: TreasuryAccount) => {
     setSelectedAccountToEdit(acc);
@@ -98,7 +101,12 @@ export const AccountsPage: React.FC = () => {
 
       {/* Cuadrícula de Cuentas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {accounts.map((acc) => (
+        {accountList.length === 0 && (
+          <div className="col-span-full p-8 text-center bg-white rounded-3xl border border-gray-200 text-gray-400 font-bold text-sm">
+            Cargando cuentas o no hay cuentas registradas...
+          </div>
+        )}
+        {accountList.map((acc) => (
           <div
             key={acc.id}
             className={`p-5 rounded-3xl border transition shadow-sm bg-white ${

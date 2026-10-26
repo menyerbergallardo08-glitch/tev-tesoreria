@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.3.7"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.3.7"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.3.7"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.3.7"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.3.7"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.3.7"></script>
-  <script src="/static/js/controllers/reports.js?v=2.3.7"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.3.7"></script>
+  <script src="/static/js/state.js?v=2.3.8"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.3.8"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.3.8"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.3.8"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.3.8"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.3.8"></script>
+  <script src="/static/js/controllers/reports.js?v=2.3.8"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.3.8"></script>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
@@ -189,7 +189,7 @@
           </button>
 
           <!-- 5. LIBRO DE MOVIMIENTOS -->
-          <button @click="activeTab = 'movimientos'"
+          <button @click="activeTab = 'movimientos'; loadTransactions(); loadAccounts()"
                   :class="activeTab === 'movimientos' ? 'bg-slate-800 text-white shadow' : 'text-gray-700 hover:bg-gray-100'"
                   class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
             <span>💸 Pagos, Gastos & Egresos</span>
@@ -220,7 +220,7 @@
           </template>
 
           <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
-            <button @click="activeTab = 'cuentas'; loadAllAccounts()"
+            <button @click="activeTab = 'cuentas'; loadAllAccounts(); loadAccounts()"
                     :class="activeTab === 'cuentas' ? 'bg-teal-700 text-white shadow ring-2 ring-teal-300' : 'text-teal-800 bg-teal-50 hover:bg-teal-100'"
                     class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
               <span>🏦 Cajas y Bancos</span>
@@ -504,6 +504,7 @@
                     </button>
                   </template>
                 </div>
+              </div>
 
               <!-- 7 Grandes Tarjetas de Método de Cobro -->
               <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
@@ -2620,6 +2621,9 @@
                     </td>
                   </tr>
                 </template>
+                <tr x-show="!(allAccountsList && allAccountsList.length) && !(accounts && accounts.length)">
+                  <td colspan="7" class="p-6 text-center text-gray-400">Cargando cuentas o no hay cajas/cuentas registradas</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -2794,10 +2798,6 @@
           </div>
         </div>
       </div>
-
-    </main>
-
-    <!-- ======================================================== -->
 
     </main>
 
@@ -4041,8 +4041,6 @@
         </div>
       </div>
     </div>
-
-  </div>
 
     <!-- ======================================================== -->
     <!-- MODAL PROFESIONAL: REGISTRAR ABONO / LIQUIDACIÓN CXC -->
