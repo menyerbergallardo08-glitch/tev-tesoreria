@@ -1,9 +1,10 @@
 import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import TreasuryAccount, AccountMonthlyBalance, Transaction, BudgetCategory, User
+from models import TreasuryAccount, AccountMonthlyBalance, Transaction, BudgetCategory, User, DailyCashClose
 from core.security import require_roles
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard / Flujo de Caja"])
@@ -210,7 +211,9 @@ def get_cash_flow(
     fx_differential_usd = traspasos_in_usd - traspasos_out_usd
 
     net_operational_cash_flow = total_inflows_usd - total_outflows_usd
-    net_total_cash_flow = net_operational_cash_flow + fx_differential_usd
+    net_flow_without_fx = net_operational_cash_flow
+    net_total_cash_flow = net_operational_cash_flow + fx_differential_usd - retiros_acc_usd
+    net_flow_with_fx = net_total_cash_flow
 
     return {
         "month": month,
@@ -231,7 +234,10 @@ def get_cash_flow(
             "categories": categories_breakdown
         },
         "fx_differential_usd": round(fx_differential_usd, 2),
+        "financing_outflows_usd": round(retiros_acc_usd, 2),
         "net_operational_flow_usd": round(net_operational_cash_flow, 2),
+        "net_flow_without_fx": round(net_flow_without_fx, 2),
+        "net_flow_with_fx": round(net_flow_with_fx, 2),
         "net_cash_flow_usd": round(net_total_cash_flow, 2),
         "final_balance_usd": round(total_final_usd, 2),
         "currency_summary": {
@@ -433,3 +439,182 @@ def get_daily_cash_flow(
     }
 
     return {"month": month, "days": result, "totals": totals}
+
+
+# -------------------------------------------------------------
+# KPIS DE AUDITORÍA Y CONTROL INTERNO (EXCLUSIVO DIRECTIVO)
+# -------------------------------------------------------------
+@router.get("/director-kpis")
+def get_director_kpis(
+    month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(["directivo"]))
+):
+    today = datetime.date.today()
+    target_month = month or today.strftime("%Y-%m")
+    try:
+        year, m = map(int, target_month.split("-"))
+        start_date = datetime.date(year, m, 1)
+        if m == 12:
+            end_date = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end_date = datetime.date(year, m + 1, 1) - datetime.timedelta(days=1)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de mes inválido. Use YYYY-MM.")
+
+    # 1. Extemporaneidad de Carga de Egresos (Lag Time)
+    expenses = db.query(Transaction).filter(
+        Transaction.movement_type == "EGRESO",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).all()
+
+    total_expenses = len(expenses)
+    on_time_count = 0
+    minor_lag_count = 0
+    critical_lag_count = 0
+    total_lag_days = 0
+    extemporaneous_samples = []
+
+    for t in expenses:
+        if t.created_at:
+            created_d = t.created_at.date() if isinstance(t.created_at, datetime.datetime) else t.created_at
+            lag = (created_d - t.date).days
+        else:
+            lag = 0
+        
+        if lag < 0:
+            lag = 0
+            
+        total_lag_days += lag
+        if lag == 0:
+            on_time_count += 1
+        elif 1 <= lag <= 3:
+            minor_lag_count += 1
+        else:
+            critical_lag_count += 1
+
+        if lag > 0:
+            extemporaneous_samples.append({
+                "id": t.id,
+                "date": str(t.date),
+                "created_at": t.created_at.strftime("%Y-%m-%d %H:%M") if t.created_at else "",
+                "lag_days": lag,
+                "beneficiary": t.beneficiary or t.client_name or "Sin Beneficiario",
+                "subtype": (t.subtype or "").replace("_", " "),
+                "amount_usd": round(t.amount_usd, 2)
+            })
+
+    extemporaneous_samples.sort(key=lambda x: x["lag_days"], reverse=True)
+    avg_lag_days = round(total_lag_days / total_expenses, 1) if total_expenses > 0 else 0.0
+    on_time_rate = round((on_time_count / total_expenses) * 100, 1) if total_expenses > 0 else 100.0
+
+    # 2. Control y Exactitud de Cuadres de Caja (por Turno y Cajera)
+    closes = db.query(DailyCashClose).filter(
+        DailyCashClose.date >= start_date,
+        DailyCashClose.date <= end_date
+    ).order_by(DailyCashClose.date.desc()).all()
+
+    total_closes = len(closes)
+    clean_closes = 0
+    shortage_closes = 0
+    surplus_closes = 0
+    total_shortage_usd = 0.0
+    total_surplus_usd = 0.0
+    cashier_map = {}
+
+    for c in closes:
+        diff = round(float(c.difference_usd or 0.0), 2)
+        c_name = (c.cajero_name or "Cajero No Identificado").strip()
+        
+        if c_name not in cashier_map:
+            cashier_map[c_name] = {
+                "cashier_name": c_name,
+                "total_closes": 0,
+                "clean_closes": 0,
+                "discrepancy_closes": 0,
+                "net_shortage_usd": 0.0,
+                "net_surplus_usd": 0.0
+            }
+        
+        cashier_map[c_name]["total_closes"] += 1
+
+        if abs(diff) < 0.01:
+            clean_closes += 1
+            cashier_map[c_name]["clean_closes"] += 1
+        elif diff < 0:
+            shortage_closes += 1
+            abs_diff = abs(diff)
+            total_shortage_usd += abs_diff
+            cashier_map[c_name]["discrepancy_closes"] += 1
+            cashier_map[c_name]["net_shortage_usd"] += abs_diff
+        else:
+            surplus_closes += 1
+            total_surplus_usd += diff
+            cashier_map[c_name]["discrepancy_closes"] += 1
+            cashier_map[c_name]["net_surplus_usd"] += diff
+
+    cashier_performance = list(cashier_map.values())
+    for cp in cashier_performance:
+        cp["net_shortage_usd"] = round(cp["net_shortage_usd"], 2)
+        cp["net_surplus_usd"] = round(cp["net_surplus_usd"], 2)
+        cp["clean_rate"] = round((cp["clean_closes"] / cp["total_closes"]) * 100, 1) if cp["total_closes"] > 0 else 100.0
+
+    cashier_performance.sort(key=lambda x: x["discrepancy_closes"], reverse=True)
+    accuracy_rate = round((clean_closes / total_closes) * 100, 1) if total_closes > 0 else 100.0
+
+    # 3. Diferencial Cambiario y Retiros de Socios
+    traspasos_out_usd = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+        Transaction.subtype == "TRASPASO_SALIDA",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).scalar()
+
+    traspasos_in_usd = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+        Transaction.subtype == "TRASPASO_ENTRADA",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).scalar()
+    fx_diff_usd = round(traspasos_in_usd - traspasos_out_usd, 2)
+
+    retiros_acc = db.query(Transaction).filter(
+        Transaction.movement_type == "EGRESO",
+        Transaction.subtype == "RETIRO_ACCIONISTA",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).all()
+    total_retiros_usd = round(sum(t.amount_usd for t in retiros_acc), 2)
+    retiros_count = len(retiros_acc)
+
+    return {
+        "month": target_month,
+        "period_label": f"{start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}",
+        "lag_kpi": {
+            "total_expenses": total_expenses,
+            "on_time_count": on_time_count,
+            "minor_lag_count": minor_lag_count,
+            "critical_lag_count": critical_lag_count,
+            "on_time_rate": on_time_rate,
+            "avg_lag_days": avg_lag_days,
+            "extemporaneous_samples": extemporaneous_samples[:8]
+        },
+        "cash_close_kpi": {
+            "total_closes": total_closes,
+            "clean_closes": clean_closes,
+            "shortage_closes": shortage_closes,
+            "surplus_closes": surplus_closes,
+            "total_shortage_usd": round(total_shortage_usd, 2),
+            "total_surplus_usd": round(total_surplus_usd, 2),
+            "accuracy_rate": accuracy_rate,
+            "cashier_performance": cashier_performance
+        },
+        "financial_kpi": {
+            "fx_differential_usd": fx_diff_usd,
+            "total_shareholder_withdrawals_usd": total_retiros_usd,
+            "shareholder_withdrawals_count": retiros_count
+        }
+    }

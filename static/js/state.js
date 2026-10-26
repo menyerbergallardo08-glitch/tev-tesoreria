@@ -51,6 +51,9 @@ window.TEVState = {
         dailyCashFlow: [],
         dailyCashFlowTotals: {},
         dailyViewMode: 'matriz',
+        cashFlowViewMode: 'with_fx',
+        directorKpis: null,
+        loadingDirectorKpis: false,
 
         activeTab: 'pos_caliente',
         

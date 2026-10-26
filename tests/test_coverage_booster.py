@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 import datetime
 from fastapi.testclient import TestClient
 from main import app
@@ -338,3 +338,105 @@ def test_deep_edge_cases_and_95_percent_coverage():
     client.post('/api/system/bcv-rate', json={'rate': -10.0}, headers=h_m)
     client.get('/api/system/backups/invalid..name/content', headers=h_m)
     client.get('/api/system/backups/invalid..name', headers=h_m)
+
+    # 9. Director KPIs & Cash Flow FX / Shareholder Withdrawals Coverage
+    # Access control: Cashier should get 403 Forbidden
+    res_kpi_c = client.get('/api/dashboard/director-kpis', headers=h_c)
+    assert res_kpi_c.status_code == 403
+
+    # Master / Directivo should get 200 OK
+    res_kpi_m = client.get('/api/dashboard/director-kpis', headers=h_m)
+    assert res_kpi_m.status_code == 200
+    data_kpi = res_kpi_m.json()
+    assert 'lag_kpi' in data_kpi
+    assert 'cash_close_kpi' in data_kpi
+    assert 'financial_kpi' in data_kpi
+
+    # Test with custom month and invalid month
+    client.get('/api/dashboard/director-kpis?month=2026-10', headers=h_m)
+    client.get('/api/dashboard/director-kpis?month=invalid-date', headers=h_m)
+
+    # Insert test data: Extemporaneous expense, daily cash close discrepancy, and shareholder withdrawal
+    db_kpi = SessionLocal()
+    try:
+        acc_test = db_kpi.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
+        acc_id = acc_test.id if acc_test else 1
+
+        # Gasto con fecha pasada para probar lag time
+        past_date = datetime.date.today() - datetime.timedelta(days=5)
+        exp_tx = Transaction(
+            account_id=acc_id,
+            created_by_id=m_id,
+            movement_type='EGRESO',
+            subtype='GASTO_OPERATIVO',
+            amount_original=45.50,
+            currency='USD',
+            exchange_rate=1.0,
+            amount_usd=45.50,
+            date=past_date,
+            description='Gasto pasado de prueba lag time',
+            beneficiary='Proveedor Lag Test',
+            created_at=datetime.datetime.now()
+        )
+        # Retiro de accionista
+        ret_tx = Transaction(
+            account_id=acc_id,
+            created_by_id=m_id,
+            movement_type='EGRESO',
+            subtype='RETIRO_ACCIONISTA',
+            amount_original=100.0,
+            currency='USD',
+            exchange_rate=1.0,
+            amount_usd=100.0,
+            date=datetime.date.today(),
+            description='Retiro de accionista prueba',
+            beneficiary='Accionista Principal Test',
+            created_at=datetime.datetime.now()
+        )
+        # Daily Cash Close con descuadre y sin descuadre
+        d_close = db_kpi.query(DailyCashClose).filter(DailyCashClose.date == past_date).first()
+        if not d_close:
+            d_close = DailyCashClose(
+                date=past_date,
+                cajero_name='Cajera Turno Mañana',
+                total_expected_usd=200.0,
+                total_collected_real_usd=190.0,
+                difference_usd=-10.0,
+                status='DESCUADRADO',
+                notes='Prueba faltante kpi'
+            )
+            db_kpi.add(d_close)
+
+        past_date_ok = past_date - datetime.timedelta(days=1)
+        d_close_ok = db_kpi.query(DailyCashClose).filter(DailyCashClose.date == past_date_ok).first()
+        if not d_close_ok:
+            d_close_ok = DailyCashClose(
+                date=past_date_ok,
+                cajero_name='Cajera Turno Tarde',
+                total_expected_usd=150.0,
+                total_collected_real_usd=150.0,
+                difference_usd=0.0,
+                status='CUADRADO',
+                notes='Prueba exactitud kpi'
+            )
+            db_kpi.add(d_close_ok)
+
+        db_kpi.add(exp_tx)
+        db_kpi.add(ret_tx)
+        db_kpi.commit()
+    finally:
+        db_kpi.close()
+
+    # Re-consultar KPIs y Cash Flow para cubrir ramas completas
+    curr_m = past_date.strftime('%Y-%m')
+    res_kpi2 = client.get(f'/api/dashboard/director-kpis?month={curr_m}', headers=h_m)
+    assert res_kpi2.status_code == 200
+
+    res_cf = client.get(f'/api/dashboard/cash-flow?month={curr_m}', headers=h_m)
+    assert res_cf.status_code == 200
+    cf_data = res_cf.json()
+    assert 'net_flow_with_fx' in cf_data
+    assert 'net_flow_without_fx' in cf_data
+    assert 'financing_outflows_usd' in cf_data
+
+

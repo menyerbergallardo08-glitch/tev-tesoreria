@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.3.8"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.3.8"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.3.8"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.3.8"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.3.8"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.3.8"></script>
-  <script src="/static/js/controllers/reports.js?v=2.3.8"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.3.8"></script>
+  <script src="/static/js/state.js?v=2.3.9"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.3.9"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.3.9"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.3.9"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.3.9"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.3.9"></script>
+  <script src="/static/js/controllers/reports.js?v=2.3.9"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.3.9"></script>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
 
@@ -1139,7 +1139,7 @@
               </label>
 
               <!-- Tarjetas Grandes y Claras -->
-              <div :class="currentUser?.role === 'cajera' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 sm:grid-cols-4 gap-3'">
+              <div :class="currentUser?.role === 'cajera' ? 'grid grid-cols-1 sm:grid-cols-3 gap-3' : 'grid grid-cols-2 sm:grid-cols-4 gap-3'">
                 
                 <!-- Opción 1: Pago a Proveedor -->
                 <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'PAGO_PROVEEDOR'"
@@ -1163,14 +1163,14 @@
                   </div>
                 </button>
 
-                <!-- Opción 3: Retiro de Accionista (Exclusivo Administradora y Directivos) -->
-                <button x-show="currentUser?.role !== 'cajera'" type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
+                <!-- Opción 3: Retiro de Accionista (Socios / Utilidades) -->
+                <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
                         :class="(form.movement_type === 'EGRESO' && form.subtype === 'RETIRO_ACCIONISTA') ? 'bg-purple-700 text-white shadow-md ring-4 ring-purple-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-purple-50'"
                         class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">👤</span>
                   <div>
                     <p class="text-xs font-black">Retiro de Accionista</p>
-                    <p class="text-[10px] opacity-80">Retiro de socios / utilidades</p>
+                    <p class="text-[10px] opacity-80">Retiro de socios / accionistas</p>
                   </div>
                 </button>
 
@@ -2072,11 +2072,38 @@
             Detalle Día a Día
           </button>
         </div>
+ 
+        <!-- Selector Con / Sin Diferencial Cambiario -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-100 p-3 rounded-2xl border border-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-black text-slate-700 uppercase tracking-wider pl-1">Cálculo de Flujo:</span>
+            <div class="inline-flex p-1 bg-white rounded-xl shadow-xs border border-gray-200">
+              <button type="button" @click="cashFlowViewMode = 'with_fx'"
+                      :class="cashFlowViewMode === 'with_fx' ? 'bg-teal-700 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                <span>🌐</span> Con Diferencial Cambiario
+              </button>
+              <button type="button" @click="cashFlowViewMode = 'without_fx'"
+                      :class="cashFlowViewMode === 'without_fx' ? 'bg-teal-700 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'"
+                      class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer">
+                <span>📊</span> Sin Diferencial Cambiario (Operativo Puro)
+              </button>
+            </div>
+          </div>
+          <div class="text-xs font-medium text-slate-600 pr-2">
+            <template x-if="cashFlowViewMode === 'with_fx'">
+              <span>💡 Refleja saldos reales en billeteras/bancos considerando diferencial cambiario por traspasos y pagos.</span>
+            </template>
+            <template x-if="cashFlowViewMode === 'without_fx'">
+              <span>💡 Muestra flujo operativo directo (Ingresos Operativos - Gastos - Pagos - Retiros) sin efecto cambiario.</span>
+            </template>
+          </div>
+        </div>
 
         <!-- SUB-VISTA 1: RESUMEN DEL MES Y BILLETERAS -->
         <div x-show="cashFlowSubTab === 'resumen'" class="space-y-6">
 
-          <!-- Tarjetas del Flujo con Diferencial Cambiario -->
+          <!-- Tarjetas del Flujo con Selector de Diferencial Cambiario -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col justify-between">
               <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">(=) Saldo Inicial Total</p>
@@ -2097,10 +2124,17 @@
               <p class="text-2xl font-black text-rose-900 mt-2">$<span x-text="formatNumber(cashFlowData.total_outflows_usd)"></span></p>
               <div class="text-xs text-rose-700 mt-1">
                 Gastos: $<span x-text="formatNumber(cashFlowData.outflows_breakdown?.gastos_operativos_usd)"></span> | Prov: $<span x-text="formatNumber(cashFlowData.outflows_breakdown?.pagos_proveedores_usd)"></span>
+                <template x-if="cashFlowData.financing_outflows_usd > 0">
+                  <div class="mt-1 text-purple-800 font-bold">
+                    👤 Retiros Socios: -$<span x-text="formatNumber(cashFlowData.financing_outflows_usd)"></span>
+                  </div>
+                </template>
               </div>
             </div>
 
-            <div class="p-6 rounded-3xl shadow-sm border flex flex-col justify-between"
+            <!-- Card 4 Dinámica: Diferencial Cambiario (Con FX) O Flujo Neto Operativo (Sin FX) -->
+            <div x-show="cashFlowViewMode === 'with_fx'"
+                 class="p-6 rounded-3xl shadow-sm border flex flex-col justify-between"
                  :class="cashFlowData.fx_differential_usd >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'">
               <p class="text-xs font-bold uppercase tracking-wider"
                  :class="cashFlowData.fx_differential_usd >= 0 ? 'text-blue-700' : 'text-amber-700'">
@@ -2110,13 +2144,29 @@
                  :class="cashFlowData.fx_differential_usd >= 0 ? 'text-blue-900' : 'text-amber-900'">
                 $<span x-text="formatNumber(cashFlowData.fx_differential_usd)"></span>
               </p>
-              <p class="text-xs opacity-80 mt-1">Resultado de traspasos de divisas</p>
+              <p class="text-xs opacity-80 mt-1">Resultado por tipo de cambio</p>
+            </div>
+
+            <div x-show="cashFlowViewMode === 'without_fx'"
+                 class="p-6 rounded-3xl shadow-sm border border-indigo-200 bg-indigo-50 flex flex-col justify-between">
+              <p class="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                (=) Flujo Neto Operativo
+              </p>
+              <p class="text-2xl font-black mt-2"
+                 :class="(cashFlowData.net_flow_without_fx || 0) >= 0 ? 'text-indigo-900' : 'text-rose-900'">
+                $<span x-text="formatNumber(cashFlowData.net_flow_without_fx || 0)"></span>
+              </p>
+              <p class="text-xs text-indigo-600 mt-1">Ingresos menos Egresos (Puro)</p>
             </div>
 
             <div class="bg-teal-900 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
-              <p class="text-xs font-bold text-teal-200 uppercase tracking-wider">(=) Saldo Final Disponible</p>
-              <p class="text-2xl font-black mt-2 text-white">$<span x-text="formatNumber(cashFlowData.final_balance_usd)"></span></p>
-              <p class="text-xs text-teal-200 mt-1">En todas las cajas y bancos</p>
+              <p class="text-xs font-bold text-teal-200 uppercase tracking-wider">
+                <span x-text="cashFlowViewMode === 'with_fx' ? '(=) Saldo Final Disponible' : '(=) Saldo Final Sin FX'"></span>
+              </p>
+              <p class="text-2xl font-black mt-2 text-white">
+                $<span x-text="formatNumber(cashFlowViewMode === 'with_fx' ? cashFlowData.final_balance_usd : ((cashFlowData.initial_balance_usd || 0) + (cashFlowData.net_flow_without_fx || 0)))"></span>
+              </p>
+              <p class="text-xs text-teal-200 mt-1" x-text="cashFlowViewMode === 'with_fx' ? 'En todas las cajas y bancos' : 'Sin impacto por tasa de cambio'"></p>
             </div>
           </div>
 
@@ -2722,6 +2772,200 @@
 
       <!-- COMPONENTE: static/components/tab_auditoria.html -->
       <div x-show="activeTab === 'auditoria' && (currentUser?.role === 'directivo' || currentUser?.role === 'administradora')" class="space-y-6">
+        
+        <!-- SECCIÓN EXCLUSIVA DE DIRECCIÓN: KPIS Y CONTROL INTERNO -->
+        <template x-if="currentUser?.role === 'directivo'">
+          <div class="bg-white p-6 rounded-3xl shadow-sm border border-purple-200 space-y-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-purple-100 pb-4">
+              <div>
+                <h3 class="text-xl font-black text-purple-950 flex items-center gap-2">
+                  <span>📊</span> Tablero de Control y KPIs de Dirección General
+                  <span class="text-xs bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full font-bold">Exclusivo Director</span>
+                </h3>
+                <p class="text-xs text-purple-700 mt-0.5">Métricas de oportunidad en la carga, exactitud de cuadres de caja y diferencial cambiario</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span x-show="loadingDirectorKpis" class="text-xs text-purple-600 font-bold animate-pulse">Cargando métricas...</span>
+                <button type="button" @click="loadDirectorKpis()"
+                        class="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+                  <span>🔄</span> Actualizar KPIs
+                </button>
+              </div>
+            </div>
+
+            <!-- CARDS DE KPIS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- KPI 1: Lag Time / Oportunidad de Carga -->
+              <div class="bg-amber-50 p-5 rounded-2xl border border-amber-200 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-800 uppercase tracking-wider">⏱️ Oportunidad de Carga</span>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                          :class="(directorKpis?.lag_kpi?.on_time_rate || 0) >= 80 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
+                      <span x-text="(directorKpis?.lag_kpi?.on_time_rate ?? 0)"></span>% al día
+                    </span>
+                  </div>
+                  <p class="text-2xl font-black text-amber-950 mt-2">
+                    <span x-text="directorKpis?.lag_kpi?.avg_lag_days ?? 0"></span> <span class="text-xs font-normal text-amber-800">días prom. retraso</span>
+                  </p>
+                </div>
+                <div class="text-[11px] text-amber-900 mt-2 pt-2 border-t border-amber-200">
+                  <span class="font-bold" x-text="directorKpis?.lag_kpi?.extemporaneous_count ?? 0"></span> fuera de tiempo 
+                  (<span class="text-rose-700 font-bold" x-text="directorKpis?.lag_kpi?.critical_lag_count ?? 0"></span> críticos >3d)
+                </div>
+              </div>
+
+              <!-- KPI 2: Exactitud de Cuadres de Caja -->
+              <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-200 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider">🔒 Exactitud Cuadres</span>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                          :class="(directorKpis?.cash_close_kpi?.accuracy_rate || 0) >= 90 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                      <span x-text="(directorKpis?.cash_close_kpi?.accuracy_rate ?? 0)"></span>% exactos
+                    </span>
+                  </div>
+                  <p class="text-2xl font-black text-emerald-950 mt-2">
+                    <span x-text="directorKpis?.cash_close_kpi?.balanced_count ?? 0"></span> / <span x-text="directorKpis?.cash_close_kpi?.total_closes ?? 0"></span>
+                    <span class="text-xs font-normal text-emerald-800">cierres sin error</span>
+                  </p>
+                </div>
+                <div class="text-[11px] text-emerald-900 mt-2 pt-2 border-t border-emerald-200 flex justify-between">
+                  <span>Faltantes: <strong class="text-rose-700">-$<span x-text="formatNumber(directorKpis?.cash_close_kpi?.total_shortage_usd || 0)"></span></strong></span>
+                  <span>Sobrantes: <strong class="text-blue-700">+$<span x-text="formatNumber(directorKpis?.cash_close_kpi?.total_surplus_usd || 0)"></span></strong></span>
+                </div>
+              </div>
+
+              <!-- KPI 3: Diferencial Cambiario -->
+              <div class="p-5 rounded-2xl border flex flex-col justify-between"
+                   :class="(directorKpis?.financial_kpi?.fx_differential_usd || 0) >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-rose-50 border-rose-200'">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider"
+                          :class="(directorKpis?.financial_kpi?.fx_differential_usd || 0) >= 0 ? 'text-blue-800' : 'text-rose-800'">
+                      ⚖️ Diferencial Cambiario
+                    </span>
+                  </div>
+                  <p class="text-2xl font-black mt-2"
+                     :class="(directorKpis?.financial_kpi?.fx_differential_usd || 0) >= 0 ? 'text-blue-950' : 'text-rose-950'">
+                    $<span x-text="formatNumber(directorKpis?.financial_kpi?.fx_differential_usd || 0)"></span>
+                  </p>
+                </div>
+                <p class="text-[11px] mt-2 pt-2 border-t opacity-80"
+                   :class="(directorKpis?.financial_kpi?.fx_differential_usd || 0) >= 0 ? 'border-blue-200 text-blue-900' : 'border-rose-200 text-rose-900'">
+                  Ganancia/pérdida cambiaria neta del mes
+                </p>
+              </div>
+
+              <!-- KPI 4: Retiros de Accionistas -->
+              <div class="bg-purple-50 p-5 rounded-2xl border border-purple-200 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-purple-800 uppercase tracking-wider">👤 Retiros de Socios</span>
+                    <span class="text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">Financiamiento</span>
+                  </div>
+                  <p class="text-2xl font-black text-purple-950 mt-2">
+                    $<span x-text="formatNumber(directorKpis?.financial_kpi?.total_shareholder_withdrawals_usd || 0)"></span>
+                  </p>
+                </div>
+                <p class="text-[11px] text-purple-900 mt-2 pt-2 border-t border-purple-200">
+                  Disgregado de egresos operativos (EBITDA intacto)
+                </p>
+              </div>
+            </div>
+
+            <!-- TABLAS DE DETALLE: CUADRE POR CAJERA Y MUESTRA EXTEMPORÁNEA -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Desglose por Cajera -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <span>👩‍💼</span> Desempeño y Trazabilidad por Cajera
+                </h4>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead>
+                      <tr class="text-slate-500 uppercase border-b border-slate-200 pb-2">
+                        <th class="py-2">Cajera</th>
+                        <th class="py-2 text-center">Cierres</th>
+                        <th class="py-2 text-center">% Exactos</th>
+                        <th class="py-2 text-center">Faltantes</th>
+                        <th class="py-2 text-right">Neto ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                      <template x-if="!directorKpis?.cash_close_kpi?.cashier_performance?.length">
+                        <tr>
+                          <td colspan="5" class="py-4 text-center text-slate-400">Sin datos de cierres en el mes</td>
+                        </tr>
+                      </template>
+                      <template x-for="c in (directorKpis?.cash_close_kpi?.cashier_performance || [])" :key="c.cashier_id">
+                        <tr class="hover:bg-white/60 transition">
+                          <td class="py-2 font-bold text-slate-800" x-text="c.cashier_name"></td>
+                          <td class="py-2 text-center" x-text="c.total_closes"></td>
+                          <td class="py-2 text-center">
+                            <span class="px-2 py-0.5 rounded-full font-bold"
+                                  :class="c.accuracy_rate >= 90 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                                  x-text="c.accuracy_rate + '%'">
+                            </span>
+                          </td>
+                          <td class="py-2 text-center font-bold text-rose-700" x-text="c.shortages"></td>
+                          <td class="py-2 text-right font-black"
+                              :class="c.net_discrepancy_usd < 0 ? 'text-rose-700' : (c.net_discrepancy_usd > 0 ? 'text-blue-700' : 'text-slate-700')">
+                            $<span x-text="formatNumber(c.net_discrepancy_usd)"></span>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Muestra de Egresos Extemporáneos -->
+              <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <span>⚠️</span> Top Egresos Cargados Fuera de Tiempo
+                </h4>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs">
+                    <thead>
+                      <tr class="text-slate-500 uppercase border-b border-slate-200 pb-2">
+                        <th class="py-2">Fecha Gasto</th>
+                        <th class="py-2">Fecha Carga</th>
+                        <th class="py-2 text-center">Retraso</th>
+                        <th class="py-2 text-right">Monto</th>
+                        <th class="py-2">Beneficiario</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                      <template x-if="!directorKpis?.lag_kpi?.extemporaneous_samples?.length">
+                        <tr>
+                          <td colspan="5" class="py-4 text-center text-slate-400">Todos los egresos se cargaron al día</td>
+                        </tr>
+                      </template>
+                      <template x-for="s in (directorKpis?.lag_kpi?.extemporaneous_samples || [])" :key="s.id">
+                        <tr class="hover:bg-white/60 transition">
+                          <td class="py-2 font-mono text-slate-700" x-text="s.date"></td>
+                          <td class="py-2 font-mono text-slate-500 text-[10px]" x-text="s.created_at"></td>
+                          <td class="py-2 text-center">
+                            <span class="px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800"
+                                  :class="s.lag_days >= 3 ? 'bg-rose-100 text-rose-800 font-black' : ''"
+                                  x-text="'+' + s.lag_days + 'd'">
+                            </span>
+                          </td>
+                          <td class="py-2 text-right font-black text-slate-800">
+                            <span x-text="formatNumber(s.amount)"></span> <span class="text-[10px] text-slate-500" x-text="s.currency"></span>
+                          </td>
+                          <td class="py-2 text-slate-700 truncate max-w-[120px]" :title="s.beneficiary || s.description" x-text="s.beneficiary || s.description"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">

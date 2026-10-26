@@ -479,6 +479,28 @@ window.TEVAuthCore = {
           } catch (err) {
             console.error('Error al cargar pistas de auditoria:', err);
           }
+          if (this.currentUser?.role === 'directivo') {
+            await this.loadDirectorKpis();
+          }
+        },
+
+        async loadDirectorKpis() {
+          if (this.currentUser?.role !== 'directivo') return;
+          this.loadingDirectorKpis = true;
+          const token = this.getToken();
+          try {
+            const m = this.filterMonth || new Date().toISOString().slice(0, 7);
+            const res = await fetch('/api/dashboard/director-kpis?month=' + m, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.directorKpis = await res.json();
+            }
+          } catch (err) {
+            console.error('Error al cargar KPIs de direccion:', err);
+          } finally {
+            this.loadingDirectorKpis = false;
+          }
         },
 
         viewAuditDetail(log) {
