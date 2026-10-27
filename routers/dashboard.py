@@ -322,9 +322,33 @@ def get_annual_cash_flow(
             Transaction.date <= end_d
         ).scalar()
 
+        retiros_acc = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+            Transaction.movement_type == "EGRESO",
+            Transaction.subtype == "RETIRO_ACCIONISTA",
+            Transaction.status != "ANULADO",
+            Transaction.date >= start_d,
+            Transaction.date <= end_d
+        ).scalar()
+
+        traspasos_out = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+            Transaction.subtype == "TRASPASO_SALIDA",
+            Transaction.status != "ANULADO",
+            Transaction.date >= start_d,
+            Transaction.date <= end_d
+        ).scalar()
+
+        traspasos_in = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+            Transaction.subtype == "TRASPASO_ENTRADA",
+            Transaction.status != "ANULADO",
+            Transaction.date >= start_d,
+            Transaction.date <= end_d
+        ).scalar()
+
+        fx_diff = traspasos_in - traspasos_out
+
         otros_out = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
             Transaction.movement_type == "EGRESO",
-            Transaction.subtype.notin_(["GASTO_OPERATIVO", "PAGO_PROVEEDOR", "TRASPASO_SALIDA"]),
+            Transaction.subtype.notin_(["GASTO_OPERATIVO", "PAGO_PROVEEDOR", "RETIRO_ACCIONISTA", "TRASPASO_SALIDA"]),
             Transaction.status != "ANULADO",
             Transaction.date >= start_d,
             Transaction.date <= end_d
@@ -332,7 +356,8 @@ def get_annual_cash_flow(
 
         tot_in = ventas + cxc + otros_in
         tot_out = gastos + prov + otros_out
-        net = tot_in - tot_out
+        net_op = tot_in - tot_out
+        net = net_op + fx_diff - retiros_acc
 
         matrix_data.append({
             "month_index": idx,
@@ -343,8 +368,11 @@ def get_annual_cash_flow(
             "total_in": round(tot_in, 2),
             "gastos": round(gastos, 2),
             "prov": round(prov, 2),
+            "retiros_acc": round(retiros_acc, 2),
             "otros_out": round(otros_out, 2),
             "total_out": round(tot_out, 2),
+            "fx_diff": round(fx_diff, 2),
+            "net_operational": round(net_op, 2),
             "net": round(net, 2)
         })
 
@@ -383,8 +411,13 @@ def get_daily_cash_flow(
             "total_in": 0.0,
             "gastos": 0.0,
             "prov": 0.0,
+            "retiros_acc": 0.0,
             "otros_out": 0.0,
             "total_out": 0.0,
+            "traspasos_in": 0.0,
+            "traspasos_out": 0.0,
+            "fx_diff": 0.0,
+            "net_operational": 0.0,
             "net": 0.0,
             "count": 0
         }
@@ -395,7 +428,10 @@ def get_daily_cash_flow(
     tot_otros_in = 0.0
     tot_gastos = 0.0
     tot_prov = 0.0
+    tot_retiros_acc = 0.0
     tot_otros_out = 0.0
+    tot_traspasos_in = 0.0
+    tot_traspasos_out = 0.0
 
     for t in txs:
         d_str = t.date.isoformat()
@@ -408,7 +444,10 @@ def get_daily_cash_flow(
                 elif t.subtype == "COBRO_CXC":
                     days_map[d_str]["cxc"] += t.amount_usd
                     tot_cxc += t.amount_usd
-                elif t.subtype != "TRASPASO_ENTRADA":
+                elif t.subtype == "TRASPASO_ENTRADA":
+                    days_map[d_str]["traspasos_in"] += t.amount_usd
+                    tot_traspasos_in += t.amount_usd
+                else:
                     days_map[d_str]["otros_in"] += t.amount_usd
                     tot_otros_in += t.amount_usd
             elif t.movement_type == "EGRESO":
@@ -418,7 +457,13 @@ def get_daily_cash_flow(
                 elif t.subtype == "PAGO_PROVEEDOR":
                     days_map[d_str]["prov"] += t.amount_usd
                     tot_prov += t.amount_usd
-                elif t.subtype != "TRASPASO_SALIDA":
+                elif t.subtype == "RETIRO_ACCIONISTA":
+                    days_map[d_str]["retiros_acc"] += t.amount_usd
+                    tot_retiros_acc += t.amount_usd
+                elif t.subtype == "TRASPASO_SALIDA":
+                    days_map[d_str]["traspasos_out"] += t.amount_usd
+                    tot_traspasos_out += t.amount_usd
+                else:
                     days_map[d_str]["otros_out"] += t.amount_usd
                     tot_otros_out += t.amount_usd
 
@@ -431,12 +476,16 @@ def get_daily_cash_flow(
 
         val["gastos"] = round(val["gastos"], 2)
         val["prov"] = round(val["prov"], 2)
+        val["retiros_acc"] = round(val["retiros_acc"], 2)
         val["otros_out"] = round(val["otros_out"], 2)
         val["total_out"] = round(val["gastos"] + val["prov"] + val["otros_out"], 2)
-
-        val["net"] = round(val["total_in"] - val["total_out"], 2)
+        
+        val["fx_diff"] = round(val["traspasos_in"] - val["traspasos_out"], 2)
+        val["net_operational"] = round(val["total_in"] - val["total_out"], 2)
+        val["net"] = round(val["net_operational"] + val["fx_diff"] - val["retiros_acc"], 2)
         result.append(val)
 
+    tot_fx = tot_traspasos_in - tot_traspasos_out
     tot_in_final = tot_ventas + tot_cxc + tot_otros_in
     tot_out_final = tot_gastos + tot_prov + tot_otros_out
     totals = {
@@ -446,9 +495,12 @@ def get_daily_cash_flow(
         "total_in": round(tot_in_final, 2),
         "gastos": round(tot_gastos, 2),
         "prov": round(tot_prov, 2),
+        "retiros_acc": round(tot_retiros_acc, 2),
         "otros_out": round(tot_otros_out, 2),
         "total_out": round(tot_out_final, 2),
-        "net": round(tot_in_final - tot_out_final, 2)
+        "fx_diff": round(tot_fx, 2),
+        "net_operational": round(tot_in_final - tot_out_final, 2),
+        "net": round((tot_in_final - tot_out_final) + tot_fx - tot_retiros_acc, 2)
     }
 
     return {"month": month, "days": result, "totals": totals}

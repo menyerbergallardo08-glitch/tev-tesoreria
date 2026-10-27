@@ -142,6 +142,9 @@ window.TEVAuthCore = {
           await this.loadCashFlow();
           await this.loadAnnualCashFlow();
           await this.loadDailyCashFlow();
+          if (this.currentUser?.role === 'directivo') {
+            await this.loadDirectorKpis();
+          }
         },
 
         async loadCashFlow() {
