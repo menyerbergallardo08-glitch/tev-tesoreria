@@ -230,6 +230,7 @@ window.TEVState = {
         },
         commissionsData: null,
         commissionsMonth: new Date().toISOString().slice(0, 7),
+        commissionsSubTab: 'liquidacion',
         isLoadingCommissions: false,
         cuadreDate: new Date().toISOString().split('T')[0],
         cashCloseSummary: null,

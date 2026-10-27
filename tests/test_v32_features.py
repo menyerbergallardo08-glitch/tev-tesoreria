@@ -263,6 +263,13 @@ def test_suppliers_and_v32_features():
         assert "01" in sellers_by_code
         assert sellers_by_code["01"]["comision_total_usd"] == 0.0
 
+        # Bimoneda y Ranking de Ventas
+        assert "sales_ranking" in comm_data
+        assert "total_comisiones_a_pagar_bs" in comm_data["totals"]
+        assert "total_comisiones_a_pagar_usd" in comm_data["totals"]
+        assert "total_ventas_comerciales_usd" in comm_data["totals"]
+        assert comm_data["coordination_detail"]["title"] == "Coordinador de Ventas"
+
         # 13. Test Cash Close Summary Separation: Venta Real vs Total Cobrado
         res_summary = client.get("/api/cash-close/summary", headers=headers)
         assert res_summary.status_code == 200

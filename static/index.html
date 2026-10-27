@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.5.2"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.5.2"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.5.2"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.5.2"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.5.2"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.5.2"></script>
-  <script src="/static/js/controllers/reports.js?v=2.5.2"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.5.2"></script>
+  <script src="/static/js/state.js?v=2.5.3"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.5.3"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.5.3"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.5.3"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.5.3"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.5.3"></script>
+  <script src="/static/js/controllers/reports.js?v=2.5.3"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.5.3"></script>
   <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
@@ -2194,21 +2194,21 @@
 
       <!-- ======================================================== -->
       <!-- ======================================================== -->
-      <!-- PESTAÑA: LIQUIDACIÓN DE COMISIONES DE VENDEDORES -->
+      <!-- PESTAÑA: COMISIONES & DESEMPEÑO DE VENTAS (BIMONEDA BS Y $) -->
       <!-- ======================================================== -->
       <div x-show="activeTab === 'comisiones'" class="space-y-6">
 
-        <!-- Header con Selector de Mes y Control -->
+        <!-- Header Principal con Selector de Mes y Sub-Pestañas -->
         <div class="bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 class="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
-              <span>💼 Liquidación de Comisiones de Ventas</span>
-              <span class="text-xs px-2.5 py-0.5 bg-amber-100 text-amber-900 rounded-full font-bold">Base Cobrada (Cash-Basis)</span>
+              <span>💼 Comisiones y Rendimiento de Ventas</span>
+              <span class="text-xs px-2.5 py-0.5 bg-amber-100 text-amber-900 rounded-full font-bold">Bimoneda (Bs. y $ USD)</span>
             </h2>
-            <p class="text-xs text-gray-500">Comisiones calculadas sobre dinero efectivamente cobrado (Contado + CxC Viejas - Devoluciones)</p>
+            <p class="text-xs text-gray-500">Liquidación de comisiones sobre cobranza real y auditoría comercial de ventas</p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <div class="flex items-center gap-1.5 bg-slate-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm">
               <span>📅 Mes:</span>
               <input type="month" x-model="commissionsMonth" @change="loadCommissions()" class="bg-transparent border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none">
@@ -2222,127 +2222,305 @@
           </div>
         </div>
 
-        <!-- 4 Tarjetas Métricas Globales de Comisiones -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
-            <p class="text-xs font-bold text-gray-500">💵 Ventas Contado Cobradas:</p>
-            <p class="text-2xl font-black text-emerald-700 mt-1" x-text="'$' + formatNumber(commissionsData?.totals?.total_ventas_contado_usd || 0)"></p>
-            <p class="text-[10px] text-gray-400 mt-0.5">Cobro al momento en tienda</p>
-          </div>
-
-          <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
-            <p class="text-xs font-bold text-gray-500">📥 Cobros de CxC Viejas:</p>
-            <p class="text-2xl font-black text-blue-700 mt-1" x-text="'$' + formatNumber(commissionsData?.totals?.total_cxc_cobradas_usd || 0)"></p>
-            <p class="text-[10px] text-gray-400 mt-0.5">Abonos recibidos en el período</p>
-          </div>
-
-          <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
-            <p class="text-xs font-bold text-gray-500">↩️ Devoluciones / NC Descontadas:</p>
-            <p class="text-2xl font-black text-rose-700 mt-1" x-text="'-$' + formatNumber(commissionsData?.totals?.total_devoluciones_usd || 0)"></p>
-            <p class="text-[10px] text-gray-400 mt-0.5">Deducción de base para no duplicar</p>
-          </div>
-
-          <div class="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-5 rounded-3xl shadow-md">
-            <p class="text-xs font-bold text-amber-100">💰 Total Comisiones a Liquidar:</p>
-            <p class="text-2xl font-black text-white mt-1" x-text="'$' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_usd || 0)"></p>
-            <p class="text-[10px] text-amber-200 mt-0.5">Directas + Bono Coordinación</p>
-          </div>
+        <!-- Selector de Sub-Pestañas: 1. Liquidación Bimoneda | 2. Total Ventas ($) -->
+        <div class="flex border-b border-gray-200 gap-2">
+          <button type="button" @click="commissionsSubTab = 'liquidacion'"
+                  :class="commissionsSubTab === 'liquidacion' ? 'border-amber-600 text-amber-900 bg-amber-50/60 font-black' : 'border-transparent text-gray-500 hover:text-gray-700 font-bold'"
+                  class="py-2.5 px-4 text-xs sm:text-sm border-b-2 rounded-t-xl transition flex items-center gap-2 cursor-pointer">
+            <span>💰 Liquidación de Comisiones (Bs. y $ USD)</span>
+          </button>
+          <button type="button" @click="commissionsSubTab = 'ranking'"
+                  :class="commissionsSubTab === 'ranking' ? 'border-indigo-600 text-indigo-900 bg-indigo-50/60 font-black' : 'border-transparent text-gray-500 hover:text-gray-700 font-bold'"
+                  class="py-2.5 px-4 text-xs sm:text-sm border-b-2 rounded-t-xl transition flex items-center gap-2 cursor-pointer">
+            <span>📊 Total de Ventas por Vendedor ($ USD)</span>
+          </button>
         </div>
 
-        <!-- Tabla Detallada por Vendedor -->
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
-          <div class="p-5 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h3 class="text-base font-black text-gray-900">👥 Liquidación Individual por Vendedor</h3>
-              <p class="text-xs text-gray-500">Reglas: Daniel Zabala 5%, Orianna Montilla 1%+1% Coord, Vendedores 1%, Oficina 0%</p>
+        <!-- ======================================================== -->
+        <!-- SUB-VISTA 1: LIQUIDACIÓN DE COMISIONES BIMONEDA (BS Y $) -->
+        <!-- ======================================================== -->
+        <div x-show="commissionsSubTab === 'liquidacion'" class="space-y-6">
+
+          <!-- 4 Tarjetas Métricas Bimoneda -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Comisiones a Pagar en Bolívares -->
+            <div class="bg-gradient-to-br from-blue-700 to-indigo-800 text-white p-5 rounded-3xl shadow-md">
+              <p class="text-xs font-bold text-blue-200">🇻🇪 Total Comisiones a Liquidar (Bs.):</p>
+              <p class="text-2xl font-black text-white mt-1" x-text="'Bs. ' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_bs || 0)"></p>
+              <p class="text-[10px] text-blue-300 mt-0.5">Calculadas sobre cobranzas en Bolívares</p>
             </div>
-            <span class="text-xs font-bold px-3 py-1 bg-gray-100 rounded-xl" x-text="commissionsData?.period?.label || ''"></span>
+
+            <!-- Comisiones a Pagar en Dólares -->
+            <div class="bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-5 rounded-3xl shadow-md">
+              <p class="text-xs font-bold text-emerald-100">💵 Total Comisiones a Liquidar ($ USD):</p>
+              <p class="text-2xl font-black text-white mt-1" x-text="'$' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_usd || 0)"></p>
+              <p class="text-[10px] text-emerald-200 mt-0.5">Calculadas sobre cobranzas en Dólares</p>
+            </div>
+
+            <!-- Base Cobrada en Bolívares -->
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
+              <p class="text-xs font-bold text-gray-500">📥 Cobranza Neta en Bolívares:</p>
+              <p class="text-2xl font-black text-blue-900 mt-1" x-text="'Bs. ' + formatNumber(commissionsData?.totals?.total_base_neta_bs || 0)"></p>
+              <p class="text-[10px] text-gray-400 mt-0.5">Ventas Contado Bs + CxC Bs - Dev Bs</p>
+            </div>
+
+            <!-- Base Cobrada en Dólares -->
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
+              <p class="text-xs font-bold text-gray-500">📥 Cobranza Neta en Dólares ($):</p>
+              <p class="text-2xl font-black text-emerald-800 mt-1" x-text="'$' + formatNumber(commissionsData?.totals?.total_base_neta_usd || 0)"></p>
+              <p class="text-[10px] text-gray-400 mt-0.5">Ventas Contado $ + CxC $ - Dev $</p>
+            </div>
           </div>
 
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr class="bg-slate-50 text-gray-600 font-black border-b border-gray-200">
-                  <th class="p-3.5">Cód.</th>
-                  <th class="p-3.5">Vendedor</th>
-                  <th class="p-3.5 text-center">Tasa Directa</th>
-                  <th class="p-3.5 text-right">Contado ($)</th>
-                  <th class="p-3.5 text-right">Cobro CxC ($)</th>
-                  <th class="p-3.5 text-right">Devoluciones ($)</th>
-                  <th class="p-3.5 text-right font-black">Base Neta ($)</th>
-                  <th class="p-3.5 text-right">Comisión Directa</th>
-                  <th class="p-3.5 text-right">Bono Coord. (1%)</th>
-                  <th class="p-3.5 text-right bg-amber-50 text-amber-950 font-black">Total a Pagar ($)</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <template x-for="s in (commissionsData?.sellers || [])" :key="s.code">
-                  <tr class="hover:bg-slate-50 transition" :class="s.code === '23' ? 'bg-amber-50/30' : ''">
-                    <td class="p-3.5 font-bold font-mono text-gray-700" x-text="s.code"></td>
+          <!-- Tabla Detallada Bimoneda por Vendedor (Disgregado Bs. y USD) -->
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-base font-black text-gray-900">👥 Tabla de Liquidación Individual (Cobranza Bs. y USD)</h3>
+                <p class="text-xs text-gray-500">Reglas: Daniel Zabala 5%, Vendedores 1%, Oficina 0%, Coordinador 1% sobre equipo</p>
+              </div>
+              <span class="text-xs font-bold px-3 py-1 bg-gray-100 rounded-xl" x-text="commissionsData?.period?.label || ''"></span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-100 text-gray-700 font-black border-b border-gray-200">
+                    <th class="p-3.5">Cód.</th>
+                    <th class="p-3.5">Vendedor / Rol</th>
+                    <th class="p-3.5 text-center">Tasa</th>
+                    <!-- Bloque Bolívares -->
+                    <th class="p-3.5 text-right bg-blue-50/70 text-blue-950 font-black">Base Cobrada (Bs.)</th>
+                    <th class="p-3.5 text-right bg-blue-100/70 text-blue-950 font-black">Comisión Directa (Bs.)</th>
+                    <!-- Bloque Dólares -->
+                    <th class="p-3.5 text-right bg-emerald-50/70 text-emerald-950 font-black">Base Cobrada ($ USD)</th>
+                    <th class="p-3.5 text-right bg-emerald-100/70 text-emerald-950 font-black">Comisión Directa ($ USD)</th>
+                    <!-- Totales Individuales -->
+                    <th class="p-3.5 text-right bg-amber-50 text-amber-950 font-black">Total a Pagar (Bs.)</th>
+                    <th class="p-3.5 text-right bg-amber-100 text-amber-950 font-black">Total a Pagar ($ USD)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="s in (commissionsData?.sellers || [])" :key="s.code">
+                    <tr class="hover:bg-slate-50 transition" :class="s.code === '23' ? 'bg-amber-50/20' : ''">
+                      <td class="p-3.5 font-bold font-mono text-gray-700" x-text="s.code"></td>
+                      <td class="p-3.5">
+                        <div class="flex items-center gap-2">
+                          <span class="font-black text-gray-900" x-text="s.name"></span>
+                          <span x-show="s.code === '23'" class="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-black rounded-md">Vendedor</span>
+                          <span x-show="s.is_office" class="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md">Oficina (0%)</span>
+                        </div>
+                      </td>
+                      <td class="p-3.5 text-center font-bold" x-text="s.rate_pct"></td>
+                      
+                      <!-- Bloque Bs -->
+                      <td class="p-3.5 text-right font-bold text-blue-900 bg-blue-50/30" x-text="'Bs. ' + formatNumber(s.base_neta_bs || 0)"></td>
+                      <td class="p-3.5 text-right font-black text-blue-950 bg-blue-100/30" x-text="'Bs. ' + formatNumber(s.comision_directa_bs || 0)"></td>
+
+                      <!-- Bloque USD -->
+                      <td class="p-3.5 text-right font-bold text-emerald-900 bg-emerald-50/30" x-text="'$' + formatNumber(s.base_neta_usd || 0)"></td>
+                      <td class="p-3.5 text-right font-black text-emerald-950 bg-emerald-100/30" x-text="'$' + formatNumber(s.comision_directa_usd || 0)"></td>
+
+                      <!-- Totales Liquidación por Vendedor -->
+                      <td class="p-3.5 text-right font-black text-blue-950 bg-amber-50/40" x-text="'Bs. ' + formatNumber(s.comision_directa_bs || 0)"></td>
+                      <td class="p-3.5 text-right font-black text-emerald-950 bg-amber-100/40" x-text="'$' + formatNumber(s.comision_directa_usd || 0)"></td>
+                    </tr>
+                  </template>
+
+                  <!-- FILA DESTACADA: COORDINADOR DE VENTAS (1% SOBRE EQUIPO) -->
+                  <tr class="bg-amber-100/60 font-black border-t-2 border-b-2 border-amber-300">
+                    <td class="p-3.5 font-mono text-amber-950 font-bold">COORD</td>
                     <td class="p-3.5">
                       <div class="flex items-center gap-2">
-                        <span class="font-black text-gray-900" x-text="s.name"></span>
-                        <span x-show="s.code === '23'" class="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-black rounded-md">Coordinadora</span>
-                        <span x-show="s.is_office" class="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md">Oficina</span>
+                        <span class="font-black text-amber-950 text-sm">👑 Coordinador de Ventas</span>
+                        <span class="px-2 py-0.5 bg-amber-200 text-amber-900 text-[10px] font-black rounded-md">Bono 1% Equipo</span>
                       </div>
+                      <p class="text-[10px] text-amber-800 font-semibold mt-0.5">Comisión sobre cobranza de Daniel Zabala (#25), Henry (#33), Yurima (#39) y Jenny (#44)</p>
                     </td>
-                    <td class="p-3.5 text-center font-bold" x-text="s.rate_pct"></td>
-                    <td class="p-3.5 text-right font-bold text-gray-700" x-text="'$' + formatNumber(s.ventas_contado_usd)"></td>
-                    <td class="p-3.5 text-right font-bold text-blue-700" x-text="'$' + formatNumber(s.cxc_cobradas_usd)"></td>
-                    <td class="p-3.5 text-right font-bold text-rose-700" x-text="'-$' + formatNumber(s.devoluciones_usd)"></td>
-                    <td class="p-3.5 text-right font-black text-gray-900 bg-slate-50/50" x-text="'$' + formatNumber(s.base_neta_cobrada_usd)"></td>
-                    <td class="p-3.5 text-right font-bold text-gray-800" x-text="'$' + formatNumber(s.comision_directa_usd)"></td>
-                    <td class="p-3.5 text-right font-bold" :class="s.comision_coordinacion_usd > 0 ? 'text-amber-800 font-black' : 'text-gray-400'" x-text="s.comision_coordinacion_usd > 0 ? '+$' + formatNumber(s.comision_coordinacion_usd) : '-'"></td>
-                    <td class="p-3.5 text-right font-black text-sm bg-amber-50 text-amber-950" x-text="'$' + formatNumber(s.comision_total_usd)"></td>
+                    <td class="p-3.5 text-center font-bold text-amber-900">1%</td>
+
+                    <!-- Base Equipo Bs y Bono Coord Bs -->
+                    <td class="p-3.5 text-right font-bold text-blue-950" x-text="'Bs. ' + formatNumber(commissionsData?.coordination_detail?.team_base_bs || 0)"></td>
+                    <td class="p-3.5 text-right font-black text-blue-950" x-text="'Bs. ' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_bs || 0)"></td>
+
+                    <!-- Base Equipo USD y Bono Coord USD -->
+                    <td class="p-3.5 text-right font-bold text-emerald-950" x-text="'$' + formatNumber(commissionsData?.coordination_detail?.team_base_usd || 0)"></td>
+                    <td class="p-3.5 text-right font-black text-emerald-950" x-text="'$' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_usd || 0)"></td>
+
+                    <!-- Total Liquidación Coordinador -->
+                    <td class="p-3.5 text-right font-black text-base text-blue-950 bg-amber-200/50" x-text="'Bs. ' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_bs || 0)"></td>
+                    <td class="p-3.5 text-right font-black text-base text-emerald-950 bg-amber-200/80" x-text="'$' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_usd || 0)"></td>
                   </tr>
-                </template>
-                <tr x-show="!commissionsData?.sellers || commissionsData.sellers.length === 0">
-                  <td colspan="10" class="p-6 text-center text-gray-400">Haga clic en Actualizar para calcular las comisiones del período</td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="bg-slate-100 font-black text-gray-900 border-t-2 border-gray-300">
-                  <td colspan="3" class="p-3.5 text-right uppercase text-[11px]">Totales Generales:</td>
-                  <td class="p-3.5 text-right" x-text="'$' + formatNumber(commissionsData?.totals?.total_ventas_contado_usd || 0)"></td>
-                  <td class="p-3.5 text-right" x-text="'$' + formatNumber(commissionsData?.totals?.total_cxc_cobradas_usd || 0)"></td>
-                  <td class="p-3.5 text-right text-rose-800" x-text="'-$' + formatNumber(commissionsData?.totals?.total_devoluciones_usd || 0)"></td>
-                  <td class="p-3.5 text-right" x-text="'$' + formatNumber(commissionsData?.totals?.total_base_neta_usd || 0)"></td>
-                  <td colspan="2" class="p-3.5 text-right text-[11px] uppercase text-gray-600">Total Liquidación:</td>
-                  <td class="p-3.5 text-right text-base text-amber-950 bg-amber-100" x-text="'$' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_usd || 0)"></td>
-                </tr>
-              </tfoot>
-            </table>
+
+                  <tr x-show="!commissionsData?.sellers || commissionsData.sellers.length === 0">
+                    <td colspan="9" class="p-6 text-center text-gray-400">Haga clic en Actualizar para calcular las comisiones del período</td>
+                  </tr>
+                </tbody>
+
+                <!-- FILA TOTALES GENERALES -->
+                <tfoot>
+                  <tr class="bg-slate-900 text-white font-black border-t-2 border-slate-700 text-xs">
+                    <td colspan="3" class="p-4 text-right uppercase tracking-wider text-[11px] text-slate-300">TOTALES GENERALES A LIQUIDAR:</td>
+                    <td class="p-4 text-right text-blue-200" x-text="'Bs. ' + formatNumber(commissionsData?.totals?.total_base_neta_bs || 0)"></td>
+                    <td class="p-4 text-right text-blue-200" x-text="'Bs. ' + formatNumber((commissionsData?.totals?.total_comisiones_a_pagar_bs || 0) - (commissionsData?.coordination_detail?.coordination_bonus_bs || 0))"></td>
+                    <td class="p-4 text-right text-emerald-200" x-text="'$' + formatNumber(commissionsData?.totals?.total_base_neta_usd || 0)"></td>
+                    <td class="p-4 text-right text-emerald-200" x-text="'$' + formatNumber((commissionsData?.totals?.total_comisiones_a_pagar_usd || 0) - (commissionsData?.coordination_detail?.coordination_bonus_usd || 0))"></td>
+                    <td class="p-4 text-right text-sm text-yellow-300 bg-slate-800" x-text="'Bs. ' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_bs || 0)"></td>
+                    <td class="p-4 text-right text-sm text-emerald-300 bg-slate-800" x-text="'$' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_usd || 0)"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
+
+          <!-- Tarjeta de Auditoría: Coordinador de Ventas (Detalle de Integrantes del Equipo) -->
+          <div class="bg-amber-50/80 border border-amber-200 rounded-3xl p-5 sm:p-6 space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-amber-200">
+              <h4 class="text-sm font-black text-amber-950 flex items-center gap-2">
+                <span>👑 Desglose de Cobranza del Equipo (Coordinador de Ventas)</span>
+              </h4>
+              <span class="text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-300">1% sobre cobranzas del equipo</span>
+            </div>
+
+            <p class="text-xs text-amber-900">
+              El <strong>Coordinador de Ventas</strong> genera el 1% de coordinación sobre la cobranza neta de su equipo comercial (Daniel Zabala #25, Henry #33, Yurima #39 y Jenny #44), tanto en Bolívares (Bs.) como en Dólares ($ USD).
+              <span class="font-bold">No genera comisión sobre los vendedores oficina (01 y 20).</span>
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+              <template x-for="m in (commissionsData?.coordination_detail?.team_members || [])" :key="m.code">
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-200 space-y-1">
+                  <div class="flex justify-between items-center">
+                    <p class="text-xs font-black text-gray-900" x-text="'Vendedor ' + m.code + ' - ' + m.name"></p>
+                  </div>
+                  <div class="pt-1 text-[11px] text-gray-600">
+                    <div class="flex justify-between">
+                      <span>Cobrado Bs:</span>
+                      <strong class="text-blue-900" x-text="'Bs. ' + formatNumber(m.base_neta_bs || 0)"></strong>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Cobrado USD:</span>
+                      <strong class="text-emerald-900" x-text="'$' + formatNumber(m.base_neta_usd || 0)"></strong>
+                    </div>
+                  </div>
+                  <div class="pt-1.5 border-t border-amber-100 text-[10px] font-bold text-amber-900 flex justify-between">
+                    <span>1% Coord:</span>
+                    <span x-text="'Bs. ' + formatNumber(m.comision_coord_bs || 0) + ' | $' + formatNumber(m.comision_coord_usd || 0)"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="p-4 bg-amber-200/60 rounded-2xl border border-amber-300 flex flex-wrap items-center justify-between gap-3">
+              <div class="text-xs font-bold text-amber-950 space-y-0.5">
+                <p>Base Equipo en Bolívares: <strong class="text-blue-950" x-text="'Bs. ' + formatNumber(commissionsData?.coordination_detail?.team_base_bs || 0)"></strong></p>
+                <p>Base Equipo en Dólares: <strong class="text-emerald-950" x-text="'$' + formatNumber(commissionsData?.coordination_detail?.team_base_usd || 0)"></strong></p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-bold text-amber-900 uppercase block">Total Bono Coordinador de Ventas:</span>
+                <span class="text-base font-black text-amber-950"
+                      x-text="'Bs. ' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_bs || 0) + '  +  $' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_usd || 0)"></span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <!-- Tarjeta Informativa de Coordinación (Orianna Montilla - Vendedor 23) -->
-        <div class="bg-amber-50/70 border border-amber-200 rounded-3xl p-5 sm:p-6 space-y-3">
-          <div class="flex items-center justify-between pb-2 border-b border-amber-200">
-            <h4 class="text-sm font-black text-amber-950 flex items-center gap-2">
-              <span>👑 Detalle de Coordinación de Ventas (Orianna Montilla - Cód. 23)</span>
-            </h4>
-            <span class="text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-300">1% sobre ventas de su equipo</span>
+        <!-- ======================================================== -->
+        <!-- SUB-VISTA 2: TOTAL DE VENTAS POR VENDEDOR EN DÓLARES ($) -->
+        <!-- (EQUIVALENTE A HOJA "GRAFICO DE VENTAS" DEL EXCEL)       -->
+        <!-- ======================================================== -->
+        <div x-show="commissionsSubTab === 'ranking'" class="space-y-6">
+
+          <!-- 3 Tarjetas de Resumen Comercial -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-gradient-to-br from-indigo-700 to-purple-800 text-white p-5 rounded-3xl shadow-md">
+              <p class="text-xs font-bold text-indigo-200">📈 Total Ventas Comerciales ($ USD):</p>
+              <p class="text-3xl font-black text-white mt-1" x-text="'$' + formatNumber(commissionsData?.totals?.total_ventas_comerciales_usd || 0)"></p>
+              <p class="text-[10px] text-indigo-300 mt-0.5">Facturado Contado + Crédito - Devoluciones</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
+              <p class="text-xs font-bold text-gray-500">🏆 Vendedor Líder del Mes:</p>
+              <p class="text-2xl font-black text-gray-900 mt-1" x-text="(commissionsData?.sales_ranking && commissionsData.sales_ranking.length > 0) ? commissionsData.sales_ranking[0].name : 'N/A'"></p>
+              <p class="text-[10px] text-emerald-700 font-bold mt-0.5" x-text="(commissionsData?.sales_ranking && commissionsData.sales_ranking.length > 0) ? ('$' + formatNumber(commissionsData.sales_ranking[0].ventas_totales_usd) + ' (' + commissionsData.sales_ranking[0].participacion_pct + '% de la empresa)') : ''"></p>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-200">
+              <p class="text-xs font-bold text-gray-500">👥 Vendedores Activos en el Período:</p>
+              <p class="text-2xl font-black text-indigo-900 mt-1" x-text="(commissionsData?.sales_ranking || []).length"></p>
+              <p class="text-[10px] text-gray-400 mt-0.5">Equipo comercial registrado con actividad</p>
+            </div>
           </div>
 
-          <p class="text-xs text-amber-900">
-            Orianna comisiona su <strong>1% individual</strong> sobre sus ventas directas + un <strong>1% de coordinación</strong> sobre la cobranza neta de su equipo comercial (Daniel Zabala #25, Henry #33, Yurima #39 y Jenny #44).
-            <span class="font-bold">No genera comisión sobre los vendedores oficina (01 y 20) ni sobre sí misma dos veces.</span>
-          </p>
-
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <template x-for="m in (commissionsData?.coordination_detail?.team_members || [])" :key="m.code">
-              <div class="p-3 bg-white rounded-2xl border border-amber-200">
-                <p class="text-[11px] font-bold text-gray-600" x-text="'Vendedor ' + m.code + ' - ' + m.name"></p>
-                <p class="text-sm font-black text-gray-900 mt-0.5" x-text="'$' + formatNumber(m.base_neta_usd)"></p>
-                <p class="text-[10px] text-amber-700 mt-0.5 font-bold" x-text="'1% Coord: $' + formatNumber(m.base_neta_usd * 0.01)"></p>
+          <!-- Tabla y Barras de Desempeño Comercial por Vendedor -->
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-black text-gray-900">📊 Desempeño y Total de Ventas por Vendedor ($ USD)</h3>
+                <p class="text-xs text-gray-500">Total facturado y despachado en dólares durante el período (Ordenado por mayor venta)</p>
               </div>
-            </template>
+              <span class="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-900 border border-indigo-200 rounded-xl">Hoja Gráfico de Ventas</span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-100 text-gray-700 font-black border-b border-gray-200">
+                    <th class="p-3.5 text-center">Puesto</th>
+                    <th class="p-3.5">Cód.</th>
+                    <th class="p-3.5">Vendedor</th>
+                    <th class="p-3.5 text-right">Ventas Contado ($)</th>
+                    <th class="p-3.5 text-right">Ventas a Crédito ($)</th>
+                    <th class="p-3.5 text-right">Devoluciones ($)</th>
+                    <th class="p-3.5 text-right font-black bg-indigo-50 text-indigo-950">Total Ventas ($ USD)</th>
+                    <th class="p-3.5 text-left w-1/4">Participación en Ventas</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="r in (commissionsData?.sales_ranking || [])" :key="r.code">
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="p-3.5 text-center font-black">
+                        <span class="w-6 h-6 rounded-full inline-flex items-center justify-center text-xs"
+                              :class="r.rank === 1 ? 'bg-amber-100 text-amber-900 font-black' : (r.rank === 2 ? 'bg-slate-200 text-slate-800' : (r.rank === 3 ? 'bg-orange-100 text-orange-900' : 'text-gray-500'))"
+                              x-text="'#' + r.rank"></span>
+                      </td>
+                      <td class="p-3.5 font-bold font-mono text-gray-700" x-text="r.code"></td>
+                      <td class="p-3.5">
+                        <span class="font-black text-gray-900" x-text="r.name"></span>
+                        <span x-show="r.is_office" class="ml-1 text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-bold">Oficina</span>
+                      </td>
+                      <td class="p-3.5 text-right font-bold text-gray-700" x-text="'$' + formatNumber(r.ventas_contado_usd)"></td>
+                      <td class="p-3.5 text-right font-bold text-blue-700" x-text="'$' + formatNumber(r.ventas_credito_usd)"></td>
+                      <td class="p-3.5 text-right font-bold text-rose-700" x-text="'-$' + formatNumber(r.devoluciones_usd)"></td>
+                      <td class="p-3.5 text-right font-black text-sm bg-indigo-50/50 text-indigo-950" x-text="'$' + formatNumber(r.ventas_totales_usd)"></td>
+                      <td class="p-3.5">
+                        <div class="flex items-center gap-2">
+                          <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                            <div class="h-2.5 rounded-full transition-all duration-500"
+                                 :class="r.rank === 1 ? 'bg-amber-500' : (r.rank === 2 ? 'bg-indigo-600' : 'bg-teal-500')"
+                                 :style="'width: ' + Math.min(100, Math.max(0, r.participacion_pct)) + '%'"></div>
+                          </div>
+                          <span class="text-xs font-bold text-gray-700 shrink-0 w-12 text-right" x-text="r.participacion_pct + '%'"></span>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="!commissionsData?.sales_ranking || commissionsData.sales_ranking.length === 0">
+                    <td colspan="8" class="p-6 text-center text-gray-400">Sin datos de ventas para el período seleccionado</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="bg-slate-900 text-white font-black border-t-2 border-slate-700 text-xs">
+                    <td colspan="6" class="p-4 text-right uppercase tracking-wider text-[11px] text-slate-300">TOTAL GENERAL VENTAS COMERCIALES:</td>
+                    <td class="p-4 text-right text-base text-emerald-300 bg-slate-800" x-text="'$' + formatNumber(commissionsData?.totals?.total_ventas_comerciales_usd || 0)"></td>
+                    <td class="p-4 text-left text-xs text-slate-400 font-bold">100.00% Comercial</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
-          <div class="p-3 bg-amber-100 rounded-2xl border border-amber-300 flex items-center justify-between">
-            <span class="text-xs font-bold text-amber-950">Base Neta del Equipo Coordinado: <strong x-text="'$' + formatNumber(commissionsData?.coordination_detail?.team_base_usd || 0)"></strong></span>
-            <span class="text-sm font-black text-amber-950">Bono Coordinación (1%): <strong class="text-base text-amber-900" x-text="'$' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_usd || 0)"></strong></span>
-          </div>
         </div>
 
       </div>
