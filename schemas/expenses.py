@@ -13,6 +13,7 @@ class ExpenseCreate(BaseModel):
     beneficiary: str
     reference_number: Optional[str] = None
     doc_number: Optional[str] = None
+    invoice_date: Optional[str] = None
     description: Optional[str] = ''
     tax_retention_amount: Optional[float] = 0.0
     tax_retention_proof: Optional[str] = None

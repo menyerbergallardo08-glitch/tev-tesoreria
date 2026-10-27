@@ -31,6 +31,7 @@ window.TEVState = {
           exchange_rate: 756.71,
           amount_usd: 0,
           reference_number: '',
+          invoice_date: '',
           beneficiary: '',
           description: '',
           tax_retention_amount: 0,

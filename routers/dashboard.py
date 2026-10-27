@@ -655,6 +655,81 @@ def get_director_kpis(
     total_retiros_usd = round(sum(t.amount_usd for t in retiros_acc), 2)
     retiros_count = len(retiros_acc)
 
+    # 4. KPI de Cobranzas CxC y Mix de Moneda (Cobranza Cartera Antigua vs Mes & Días DSO)
+    cxc_payments = db.query(Transaction).filter(
+        Transaction.movement_type == "INGRESO",
+        Transaction.subtype.in_(["COBRO_CXC", "ABONO_CXC"]),
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).all()
+
+    total_cxc_usd = 0.0
+    prior_months_cxc_usd = 0.0
+    current_month_cxc_usd = 0.0
+    total_cxc_days_weighted = 0.0
+    total_cxc_days_count = 0
+
+    cxc_ves_orig = 0.0
+    cxc_ves_usd = 0.0
+    cxc_usd_direct = 0.0
+
+    for p in cxc_payments:
+        amt = float(p.amount_usd or 0.0)
+        total_cxc_usd += amt
+        
+        # Mix de moneda de cobro
+        if p.currency == "VES":
+            cxc_ves_orig += float(p.amount_original or 0.0)
+            cxc_ves_usd += amt
+        else:
+            cxc_usd_direct += amt
+
+        # Análisis de Cartera Antigua vs Mes Corriente
+        if p.parent_transaction_id:
+            parent = db.query(Transaction).filter(Transaction.id == p.parent_transaction_id).first()
+            if parent and parent.date:
+                if parent.date < start_date:
+                    prior_months_cxc_usd += amt
+                else:
+                    current_month_cxc_usd += amt
+
+                diff_days = max(0, (p.date - parent.date).days)
+                total_cxc_days_weighted += (diff_days * amt)
+                total_cxc_days_count += 1
+            else:
+                current_month_cxc_usd += amt
+        else:
+            current_month_cxc_usd += amt
+
+    avg_dso_days = round(total_cxc_days_weighted / total_cxc_usd, 1) if total_cxc_usd > 0 else 0.0
+    prior_months_pct = round((prior_months_cxc_usd / total_cxc_usd) * 100, 1) if total_cxc_usd > 0 else 0.0
+    cxc_ves_pct = round((cxc_ves_usd / total_cxc_usd) * 100, 1) if total_cxc_usd > 0 else 0.0
+    cxc_usd_pct = round((cxc_usd_direct / total_cxc_usd) * 100, 1) if total_cxc_usd > 0 else 0.0
+
+    # 5. KPI de Pagos a Proveedores y Tiempo de Pago (DPO)
+    supplier_payments = db.query(Transaction).filter(
+        Transaction.movement_type == "EGRESO",
+        Transaction.subtype == "PAGO_PROVEEDOR",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).all()
+
+    total_supp_paid_usd = 0.0
+    total_dpo_days_weighted = 0.0
+    supp_invoiced_count = 0
+
+    for sp in supplier_payments:
+        amt = float(sp.amount_usd or 0.0)
+        total_supp_paid_usd += amt
+        if sp.invoice_date:
+            days_credit = max(0, (sp.date - sp.invoice_date).days)
+            total_dpo_days_weighted += (days_credit * amt)
+            supp_invoiced_count += 1
+
+    avg_dpo_days = round(total_dpo_days_weighted / total_supp_paid_usd, 1) if (total_supp_paid_usd > 0 and supp_invoiced_count > 0) else 0.0
+
     return {
         "month": target_month,
         "period_label": f"{start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}",
@@ -681,5 +756,25 @@ def get_director_kpis(
             "fx_differential_usd": fx_diff_usd,
             "total_shareholder_withdrawals_usd": total_retiros_usd,
             "shareholder_withdrawals_count": retiros_count
+        },
+        "cxc_kpi": {
+            "total_collected_usd": round(total_cxc_usd, 2),
+            "prior_months_usd": round(prior_months_cxc_usd, 2),
+            "current_month_usd": round(current_month_cxc_usd, 2),
+            "prior_months_pct": prior_months_pct,
+            "avg_dso_days": avg_dso_days,
+            "currency_mix": {
+                "ves_orig": round(cxc_ves_orig, 2),
+                "ves_usd": round(cxc_ves_usd, 2),
+                "ves_pct": cxc_ves_pct,
+                "usd_direct": round(cxc_usd_direct, 2),
+                "usd_pct": cxc_usd_pct
+            }
+        },
+        "supplier_dpo_kpi": {
+            "total_paid_usd": round(total_supp_paid_usd, 2),
+            "payments_count": len(supplier_payments),
+            "avg_dpo_days": avg_dpo_days,
+            "invoiced_count": supp_invoiced_count
         }
     }

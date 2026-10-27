@@ -142,6 +142,7 @@ window.TEVExpenses = {
               currency: curr,
               exchange_rate: parseFloat(this.form.exchange_rate) || 1.0,
               reference_number: this.form.reference_number || '',
+              invoice_date: this.form.invoice_date || null,
               beneficiary: this.form.beneficiary || '',
               description: (this.form.description || '') + extraDesc,
               tax_retention_amount: retAmt,

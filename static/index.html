@@ -1209,6 +1209,19 @@
               <div x-show="selectedSupplierObj?.bank_details" class="text-xs text-orange-900 bg-white p-2.5 rounded-xl border border-orange-200">
                 <strong>Datos de Pago / Pago Móvil:</strong> <span class="font-mono" x-text="selectedSupplierObj?.bank_details"></span>
               </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label class="block text-xs font-bold text-orange-950 mb-1">📅 Fecha Emisión Factura Proveedor (Opcional):</label>
+                  <input type="date" x-model="form.invoice_date"
+                         class="w-full p-2 border border-orange-300 rounded-xl font-bold text-xs bg-white text-orange-950">
+                  <p class="text-[10px] text-orange-700 mt-0.5">Para auditoría de tiempo de crédito con el proveedor (DPO).</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-orange-950 mb-1">🧾 N° Factura Proveedor / Nota Entrega:</label>
+                  <input type="text" x-model="form.doc_number" placeholder="Ej: Fact-9821 / NE-402"
+                         class="w-full p-2 border border-orange-300 rounded-xl font-bold text-xs bg-white text-orange-950">
+                </div>
+              </div>
             </div>
 
             <!-- CASO B: SI ES GASTO OPERATIVO -->
@@ -2186,8 +2199,8 @@
               </div>
             </div>
 
-            <!-- 4 CARDS RESUMIDAS -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-gray-900">
+            <!-- 6 CARDS RESUMIDAS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 text-gray-900">
               <!-- KPI 1: Lag Time -->
               <div class="bg-white/95 backdrop-blur p-3.5 rounded-2xl border border-white/20 flex flex-col justify-between shadow-xs">
                 <div class="flex items-center justify-between">
@@ -2256,6 +2269,48 @@
                     $<span x-text="formatNumber(directorKpis?.financial_kpi?.total_shareholder_withdrawals_usd || 0)"></span>
                   </span>
                   <span class="text-[10px] text-purple-700 font-semibold">Fuera de EBITDA</span>
+                </div>
+              </div>
+
+              <!-- KPI 5: Mix Cobranza & Cartera CxC -->
+              <div class="bg-white/95 backdrop-blur p-3.5 rounded-2xl border border-white/20 flex flex-col justify-between shadow-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-teal-800 uppercase">💵 Mix Cobro & CxC</span>
+                  <span class="text-[10px] font-black bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
+                    <span x-text="directorKpis?.cxc_kpi?.currency_mix?.usd_pct ?? 0"></span>% $ | <span x-text="directorKpis?.cxc_kpi?.currency_mix?.ves_pct ?? 0"></span>% Bs
+                  </span>
+                </div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                  <span class="text-xl font-black text-teal-950">
+                    $<span x-text="formatNumber(directorKpis?.cxc_kpi?.total_collected_usd || 0)"></span>
+                  </span>
+                  <span class="text-[10px] text-teal-700 font-bold">
+                    DSO: <span x-text="directorKpis?.cxc_kpi?.avg_dso_days ?? 0"></span>d prom.
+                  </span>
+                </div>
+                <div class="text-[10px] text-slate-600 mt-1 border-t border-slate-100 pt-1 flex justify-between">
+                  <span>Cartera previa: <strong>$<span x-text="formatNumber(directorKpis?.cxc_kpi?.prior_months_usd || 0)"></span></strong> (<span x-text="directorKpis?.cxc_kpi?.prior_months_pct ?? 0"></span>%)</span>
+                </div>
+              </div>
+
+              <!-- KPI 6: Plazo de Pago a Proveedores (DPO) -->
+              <div class="bg-white/95 backdrop-blur p-3.5 rounded-2xl border border-white/20 flex flex-col justify-between shadow-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-orange-800 uppercase">📦 Plazo Prov. (DPO)</span>
+                  <span class="text-[10px] font-black bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                    <span x-text="directorKpis?.supplier_dpo_kpi?.avg_dpo_days ?? 0"></span> días plazo
+                  </span>
+                </div>
+                <div class="mt-1.5 flex items-baseline justify-between">
+                  <span class="text-xl font-black text-orange-950">
+                    $<span x-text="formatNumber(directorKpis?.supplier_dpo_kpi?.total_paid_usd || 0)"></span>
+                  </span>
+                  <span class="text-[10px] text-orange-700 font-bold">
+                    <span x-text="directorKpis?.supplier_dpo_kpi?.payments_count ?? 0"></span> pagos
+                  </span>
+                </div>
+                <div class="text-[10px] text-slate-600 mt-1 border-t border-slate-100 pt-1 flex justify-between">
+                  <span>Facturas auditadas: <strong x-text="directorKpis?.supplier_dpo_kpi?.invoiced_count ?? 0"></strong></span>
                 </div>
               </div>
             </div>
@@ -3064,7 +3119,7 @@
             </div>
 
             <!-- CARDS DE KPIS -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <!-- KPI 1: Lag Time / Oportunidad de Carga -->
               <div class="bg-amber-50 p-5 rounded-2xl border border-amber-200 flex flex-col justify-between">
                 <div>
@@ -3141,6 +3196,44 @@
                 <p class="text-[11px] text-purple-900 mt-2 pt-2 border-t border-purple-200">
                   Disgregado de egresos operativos (EBITDA intacto)
                 </p>
+              </div>
+
+              <!-- KPI 5: Mix Cobranza & Cartera CxC -->
+              <div class="bg-teal-50 p-5 rounded-2xl border border-teal-200 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-teal-800 uppercase tracking-wider">💵 Mix Cobranza & CxC</span>
+                    <span class="text-xs font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
+                      <span x-text="directorKpis?.cxc_kpi?.currency_mix?.usd_pct ?? 0"></span>% $ | <span x-text="directorKpis?.cxc_kpi?.currency_mix?.ves_pct ?? 0"></span>% Bs
+                    </span>
+                  </div>
+                  <p class="text-2xl font-black text-teal-950 mt-2">
+                    $<span x-text="formatNumber(directorKpis?.cxc_kpi?.total_collected_usd || 0)"></span>
+                  </p>
+                </div>
+                <div class="text-[11px] text-teal-900 mt-2 pt-2 border-t border-teal-200 flex justify-between">
+                  <span>Cartera vieja: <strong>$<span x-text="formatNumber(directorKpis?.cxc_kpi?.prior_months_usd || 0)"></span></strong> (<span x-text="directorKpis?.cxc_kpi?.prior_months_pct ?? 0"></span>%)</span>
+                  <span>DSO: <strong x-text="directorKpis?.cxc_kpi?.avg_dso_days ?? 0"></strong> días</span>
+                </div>
+              </div>
+
+              <!-- KPI 6: Plazo Proveedores (DPO) -->
+              <div class="bg-orange-50 p-5 rounded-2xl border border-orange-200 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-orange-800 uppercase tracking-wider">📦 Crédito Proveedores</span>
+                    <span class="text-xs font-bold bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                      <span x-text="directorKpis?.supplier_dpo_kpi?.avg_dpo_days ?? 0"></span> días plazo
+                    </span>
+                  </div>
+                  <p class="text-2xl font-black text-orange-950 mt-2">
+                    $<span x-text="formatNumber(directorKpis?.supplier_dpo_kpi?.total_paid_usd || 0)"></span>
+                  </p>
+                </div>
+                <div class="text-[11px] text-orange-900 mt-2 pt-2 border-t border-orange-200 flex justify-between">
+                  <span><strong x-text="directorKpis?.supplier_dpo_kpi?.payments_count ?? 0"></strong> pagos</span>
+                  <span>Auditadas: <strong x-text="directorKpis?.supplier_dpo_kpi?.invoiced_count ?? 0"></strong></span>
+                </div>
               </div>
             </div>
 

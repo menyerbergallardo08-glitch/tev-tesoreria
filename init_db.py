@@ -34,7 +34,8 @@ def run_migrations():
             ('transactions', 'pos_terminal', 'VARCHAR(50)'),
             ('transactions', 'pos_lot_number', 'VARCHAR(50)'),
             ('transactions', 'tax_retention_amount', 'FLOAT'),
-            ('transactions', 'tax_retention_proof', 'VARCHAR(100)')
+            ('transactions', 'tax_retention_proof', 'VARCHAR(100)'),
+            ('transactions', 'invoice_date', 'DATE')
         ]
 
         for table, col, coltype in columns_to_add:

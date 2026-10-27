@@ -94,6 +94,19 @@
               <div x-show="selectedSupplierObj?.bank_details" class="text-xs text-orange-900 bg-white p-2.5 rounded-xl border border-orange-200">
                 <strong>Datos de Pago / Pago Móvil:</strong> <span class="font-mono" x-text="selectedSupplierObj?.bank_details"></span>
               </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label class="block text-xs font-bold text-orange-950 mb-1">📅 Fecha Emisión Factura Proveedor (Opcional):</label>
+                  <input type="date" x-model="form.invoice_date"
+                         class="w-full p-2 border border-orange-300 rounded-xl font-bold text-xs bg-white text-orange-950">
+                  <p class="text-[10px] text-orange-700 mt-0.5">Para auditoría de tiempo de crédito con el proveedor (DPO).</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-orange-950 mb-1">🧾 N° Factura Proveedor / Nota Entrega:</label>
+                  <input type="text" x-model="form.doc_number" placeholder="Ej: Fact-9821 / NE-402"
+                         class="w-full p-2 border border-orange-300 rounded-xl font-bold text-xs bg-white text-orange-950">
+                </div>
+              </div>
             </div>
 
             <!-- CASO B: SI ES GASTO OPERATIVO -->

@@ -18,6 +18,7 @@ class TransactionCreate(BaseModel):
     description: Optional[str] = ""
     doc_type: Optional[str] = "FACTURA_FISCAL"
     doc_number: Optional[str] = ""
+    invoice_date: Optional[datetime.date] = None
     is_credit: Optional[bool] = False
     credit_status: Optional[str] = "PAGADO"
     tax_retention_amount: Optional[float] = 0.0

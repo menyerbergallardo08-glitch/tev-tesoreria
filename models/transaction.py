@@ -54,6 +54,7 @@ class Transaction(Base):
     # Dualidad Fiscal y CxC
     doc_type = Column(String(30), default='FACTURA_FISCAL')
     doc_number = Column(String(50), nullable=True, index=True)
+    invoice_date = Column(Date, nullable=True)
     client_name = Column(String(150), nullable=True)
     client_rif = Column(String(30), nullable=True)
     

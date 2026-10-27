@@ -194,6 +194,7 @@ def create_transaction(
         description=desc,
         doc_type=tx_in.doc_type or "FACTURA_FISCAL",
         doc_number=tx_in.doc_number.strip() if tx_in.doc_number else "",
+        invoice_date=tx_in.invoice_date,
         is_credit=tx_in.is_credit or False,
         credit_status="PENDIENTE" if tx_in.is_credit else "PAGADO",
         tax_retention_amount=tx_in.tax_retention_amount or 0.0,

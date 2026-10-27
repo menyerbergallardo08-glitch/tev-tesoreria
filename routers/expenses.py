@@ -44,6 +44,7 @@ def list_expenses(
         "currency": e.currency,
         "reference_number": e.reference_number,
         "doc_number": e.doc_number,
+        "invoice_date": str(e.invoice_date) if e.invoice_date else None,
         "description": e.description,
         "status": e.status,
         "tax_retention_amount": e.tax_retention_amount,

@@ -58,6 +58,7 @@ def create_expense_transaction(db: Session, user: User, data, ip_address: str = 
         beneficiary=data.beneficiary.strip(),
         reference_number=data.reference_number.strip() if data.reference_number else None,
         doc_number=data.doc_number.strip() if data.doc_number else None,
+        invoice_date=datetime.datetime.strptime(data.invoice_date, "%Y-%m-%d").date() if getattr(data, 'invoice_date', None) else None,
         description=data.description or f"Egreso: {data.beneficiary}",
         tax_retention_amount=data.tax_retention_amount or 0.0,
         tax_retention_proof=formatted_proof,

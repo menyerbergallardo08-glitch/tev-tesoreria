@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import time
 from fastapi.testclient import TestClient
@@ -104,6 +104,35 @@ def test_suppliers_and_v32_features():
             "is_credit": False
         }, headers=headers)
         assert res_sale_nc.status_code == 200
+
+        # 6. Test Director KPIs with CxC mix, DSO, and Supplier DPO
+        # Create an expense with invoice_date
+        from models.budget import BudgetCategory
+        acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
+        cat = db.query(BudgetCategory).first()
+        res_exp = client.post("/api/expenses", json={
+            "date": "2026-10-20",
+            "invoice_date": "2026-10-10",
+            "category_id": cat.id if cat else 1,
+            "account_id": acc.id if acc else 1,
+            "amount_usd": 150.0,
+            "currency": "USD",
+            "subtype": "PAGO_PROVEEDOR",
+            "beneficiary": f"Proveedor Test DPO {ts}",
+            "description": "Pago factura a 10 dias"
+        }, headers=headers)
+        assert res_exp.status_code == 200
+
+        res_dir = client.get("/api/dashboard/director-kpis?month=2026-10", headers=headers)
+        assert res_dir.status_code == 200
+        data_dir = res_dir.json()
+        assert "cxc_kpi" in data_dir
+        assert "currency_mix" in data_dir["cxc_kpi"]
+        assert "avg_dso_days" in data_dir["cxc_kpi"]
+        assert "prior_months_usd" in data_dir["cxc_kpi"]
+        assert "supplier_dpo_kpi" in data_dir
+        assert "avg_dpo_days" in data_dir["supplier_dpo_kpi"]
+        assert data_dir["supplier_dpo_kpi"]["avg_dpo_days"] >= 0.0
 
     finally:
         db.close()
