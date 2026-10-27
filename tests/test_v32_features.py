@@ -134,5 +134,14 @@ def test_suppliers_and_v32_features():
         assert "avg_dpo_days" in data_dir["supplier_dpo_kpi"]
         assert data_dir["supplier_dpo_kpi"]["avg_dpo_days"] >= 0.0
 
+        # 7. Test Cajera Role Allowed to Update BCV Rate
+        cajera_user = db.query(User).filter(User.role == 'cajera').first()
+        if cajera_user:
+            cajera_token = create_access_token({"sub": cajera_user.username, "role": "cajera"})
+            cajera_headers = {"Authorization": f"Bearer {cajera_token}"}
+            res_bcv = client.post("/api/system/bcv-rate", json={"rate": 885.50}, headers=cajera_headers)
+            assert res_bcv.status_code == 200
+            assert res_bcv.json()["rate"] == 885.50
+
     finally:
         db.close()

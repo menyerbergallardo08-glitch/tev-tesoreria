@@ -50,7 +50,7 @@ def get_bcv_rate(db: Session = Depends(get_db)):
 @router.post("/bcv-rate")
 def update_bcv_rate(
     data: BcvRateUpdateRequest,
-    current_user: User = Depends(require_roles(["directivo", "administradora"])),
+    current_user: User = Depends(require_roles(["directivo", "administradora", "cajera"])),
     db: Session = Depends(get_db)
 ):
     if data.rate <= 0:
