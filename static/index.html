@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.5.3"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.5.3"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.5.3"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.5.3"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.5.3"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.5.3"></script>
-  <script src="/static/js/controllers/reports.js?v=2.5.3"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.5.3"></script>
+  <script src="/static/js/state.js?v=2.5.4"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.5.4"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.5.4"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.5.4"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.5.4"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.5.4"></script>
+  <script src="/static/js/controllers/reports.js?v=2.5.4"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.5.4"></script>
   <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
@@ -449,19 +449,18 @@
             <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (VENDEDOR, CLIENTE, N° DOCUMENTO Y MONEDA) -->
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <label class="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
+                <label class="block text-xs font-black text-gray-700 mb-1">
                   <span>👤 Vendedor: *</span>
-                  <span class="text-[9px] text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">Comisión</span>
                 </label>
                 <select x-model="liveSaleForm.seller_code" class="w-full input-large border border-emerald-300 bg-white font-black text-gray-800 focus:ring-2 focus:ring-emerald-500">
                   <option value="">-- Seleccionar --</option>
-                  <option value="01">01 - Oficina (0%)</option>
-                  <option value="20">20 - Oficina (0%)</option>
-                  <option value="23">23 - Orianna Montilla (1%+1%)</option>
-                  <option value="25">25 - Daniel Zabala (5%)</option>
-                  <option value="33">33 - Henry (1%)</option>
-                  <option value="39">39 - Yurima (1%)</option>
-                  <option value="44">44 - Jenny (1%)</option>
+                  <option value="01">01 - Oficina</option>
+                  <option value="20">20 - Oficina</option>
+                  <option value="23">23 - Orianna Montilla</option>
+                  <option value="25">25 - Daniel Zabala</option>
+                  <option value="33">33 - Henry</option>
+                  <option value="39">39 - Yurima</option>
+                  <option value="44">44 - Jenny</option>
                 </select>
               </div>
 
