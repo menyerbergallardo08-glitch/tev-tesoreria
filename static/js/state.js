@@ -95,9 +95,9 @@ window.TEVState = {
           if (type === 'CASHEA') {
             this.liveSaleForm.doc_type = 'FACTURA_FISCAL';
             this.setPaymentMethod('CASHEA');
-          } else if (type === 'DEVOLUCION') {
-            this.liveSaleForm.doc_type = 'DEVOLUCION';
-            this.paymentMethod = 'EFECTIVO_USD';
+          } else if (type === 'DEVOLUCION' || type === 'NOTA_CREDITO') {
+            this.liveSaleForm.doc_type = 'NOTA_CREDITO';
+            this.paymentMethod = 'NOTA_CREDITO';
           } else {
             this.liveSaleForm.doc_type = type;
             if (this.paymentMethod === 'CASHEA') {
@@ -157,8 +157,9 @@ window.TEVState = {
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'NOTA_CREDITO') {
-            this.liveSaleForm.account_id = null;
-            this.liveSaleForm.is_credit = true;
+            const acc = this.accounts.find(a => a.name.includes('Nota') || a.name.includes('Saldo')) || (this.accounts.length > 0 ? this.accounts[0] : null);
+            if (acc) this.liveSaleForm.account_id = acc.id;
+            this.liveSaleForm.is_credit = false;
             this.liveSaleForm.pos_terminal = '';
             this.liveSaleForm.pos_lot_number = '';
           } else if (method === 'DIGITAL') {

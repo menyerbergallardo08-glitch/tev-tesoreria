@@ -217,7 +217,7 @@ def get_live_monitor(
             })
 
         elif t.movement_type == "EGRESO":
-            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
                 returns_today_usd += t.amount_usd
             elif t.subtype == "GASTO_OPERATIVO":
                 expenses_today_usd += t.amount_usd
@@ -330,10 +330,10 @@ def get_accumulated_sales(
             if t.tax_retention_amount and t.tax_retention_amount > 0:
                 total_retentions_iva_usd += t.tax_retention_amount
         elif t.movement_type == "EGRESO":
-            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
                 total_returns_usd += t.amount_usd
 
-        if t.movement_type == "INGRESO" or t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+        if t.movement_type == "INGRESO" or t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
             recent_records.append({
                 "id": t.id,
                 "date": t.date.isoformat() if t.date else "",

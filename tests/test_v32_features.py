@@ -143,5 +143,36 @@ def test_suppliers_and_v32_features():
             assert res_bcv.status_code == 200
             assert res_bcv.json()["rate"] == 885.50
 
+        # 8. Test Live Sale with doc_type = NOTA_CREDITO and historical original_sale_date
+        res_live_nc = client.post("/api/sales/live", json={
+            "account_id": acc.id if acc else 1,
+            "amount_original": 45.0,
+            "currency": "USD",
+            "doc_type": "NOTA_CREDITO",
+            "doc_number": f"NC-HIST-{ts}",
+            "client_name": "Cliente Devolucion Hist",
+            "payment_method": "NOTA_CREDITO",
+            "original_sale_date": "2026-08-15",
+            "description": "Devolucion de venta previa al sistema",
+            "is_credit": False
+        }, headers=headers)
+        assert res_live_nc.status_code == 200
+
+        # 9. Test Live Sale of Contado Paid with prior NOTA_CREDITO ($0 cash drawer impact)
+        res_live_paid_nc = client.post("/api/sales/live", json={
+            "account_id": acc.id if acc else 1,
+            "amount_original": 120.0,
+            "currency": "USD",
+            "doc_type": "NOTA_ENTREGA",
+            "doc_number": f"NE-PAGADA-NC-{ts}",
+            "client_name": "Cliente Usando Saldo a Favor",
+            "payment_method": "NOTA_CREDITO",
+            "reference_number": f"NC-PREVIA-{ts}",
+            "original_sale_date": "2026-07-10",
+            "description": "Pagado con NC previa",
+            "is_credit": False
+        }, headers=headers)
+        assert res_live_paid_nc.status_code == 200
+
     finally:
         db.close()

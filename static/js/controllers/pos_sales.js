@@ -159,6 +159,15 @@ window.TEVPosSales = {
             return;
           }
 
+          // Validación de Nota de Crédito previa aplicada
+          if (this.paymentMethod === 'NOTA_CREDITO' && this.liveSaleForm.doc_type !== 'DEVOLUCION' && this.liveSaleForm.doc_type !== 'NOTA_CREDITO') {
+            if (!this.liveSaleForm.reference_number || !this.liveSaleForm.reference_number.trim()) {
+              this.showToast('warning', 'N° Nota de Crédito Requerido', 'Por favor ingrese el número de la Nota de Crédito o Saldo a Favor previa aplicada.');
+              this.isSubmittingSale = false;
+              return;
+            }
+          }
+
           // Asegurar cuenta de destino para la forma de pago seleccionada
           if (!this.liveSaleForm.is_credit && !this.liveSaleForm.account_id) {
             this.setPaymentMethod(this.paymentMethod || 'EFECTIVO_USD');
@@ -214,7 +223,7 @@ window.TEVPosSales = {
           }
 
           // Confirmación previa de seguridad (evita guardado accidental por presionar Enter)
-          const docTypeLabel = this.liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'Factura Fiscal' : (this.liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'Nota de Entrega' : this.liveSaleForm.doc_type);
+          const docTypeLabel = this.liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'Factura Fiscal' : (this.liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'Nota de Entrega' : ((this.liveSaleForm.doc_type === 'NOTA_CREDITO' || this.liveSaleForm.doc_type === 'DEVOLUCION') ? 'Nota de Crédito' : this.liveSaleForm.doc_type));
           const confirmMsg = `¿Confirma registrar esta ${docTypeLabel}?\n\n• Documento: ${this.liveSaleForm.doc_number}\n• Cliente: ${this.liveSaleForm.client_name}\n• Monto: $${parseFloat(this.liveSaleForm.amount_usd || amt).toFixed(2)} (${this.liveSaleForm.currency === 'VES' ? 'Bs. ' + amt.toFixed(2) : '$' + amt.toFixed(2)})\n• Método: ${this.liveSaleForm.payment_method}`;
           if (!confirm(confirmMsg)) {
             this.isSubmittingSale = false;
@@ -249,6 +258,8 @@ window.TEVPosSales = {
               this.liveSaleForm.amount_original = '';
               this.liveSaleForm.reference_number = '';
               this.liveSaleForm.pos_lot_number = '';
+              this.liveSaleForm.original_sale_date = '';
+              this.liveSaleForm.description = '';
               this.liveSaleForm.initial_downpayment_amount = 0;
               this.liveSaleForm.tax_retention_amount = 0;
               this.liveSaleForm.tax_retention_proof = '';

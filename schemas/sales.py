@@ -1,8 +1,9 @@
+import datetime
 from pydantic import BaseModel, Field
 from typing import Optional
 
 class SaleCreate(BaseModel):
-    date: str
+    date: Optional[str] = Field(default_factory=lambda: datetime.date.today().isoformat())
     doc_type: str = 'NOTA_ENTREGA' # 'FACTURA_FISCAL', 'NOTA_ENTREGA'
     doc_number: str
     client_name: Optional[str] = ''
@@ -26,6 +27,8 @@ class SaleCreate(BaseModel):
     tax_retention_proof: Optional[str] = ''
     initial_downpayment_amount: Optional[float] = 0.0
     initial_downpayment_account_id: Optional[int] = None
+    original_sale_date: Optional[str] = None
+    invoice_date: Optional[str] = None
 
 class SaleVoidRequest(BaseModel):
     transaction_id: int

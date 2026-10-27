@@ -51,21 +51,21 @@
                   </div>
                 </button>
 
-                <!-- 4. DEVOLUCIÓN (REEMBOLSO) -->
-                <button type="button" @click="setDocumentType('DEVOLUCION')"
-                        :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                <!-- 4. NOTA DE CRÉDITO / DEVOLUCIÓN -->
+                <button type="button" @click="setDocumentType('NOTA_CREDITO')"
+                        :class="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
-                  <span class="text-2xl">↩️</span>
+                  <span class="text-2xl">📑</span>
                   <div>
-                    <p class="text-xs font-black">Devolución</p>
-                    <p class="text-[10px] opacity-80">Reembolso / Anulación</p>
+                    <p class="text-xs font-black">Nota de Crédito</p>
+                    <p class="text-[10px] opacity-80">Devolución / Saldo a Favor</p>
                   </div>
                 </button>
               </div>
             </div>
 
             <!-- 2. CONDICIÓN DE COBRO (CONTADO VS CRÉDITO / PAGO PARCIAL) -->
-            <div x-show="liveSaleForm.doc_type !== 'DEVOLUCION'">
+            <div x-show="liveSaleForm.doc_type !== 'DEVOLUCION' && liveSaleForm.doc_type !== 'NOTA_CREDITO'">
               <label class="block text-xs font-black text-gray-700 uppercase tracking-wider mb-2">2. Condición de Cobro:</label>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button type="button" @click="liveSaleForm.is_credit = false; liveSaleForm.initial_downpayment_amount = 0"
@@ -91,7 +91,7 @@
             </div>
 
             <!-- PANEL INTELIGENTE: VENTA A CRÉDITO CON ABONO PARCIAL EN CAJA -->
-            <div x-show="liveSaleForm.is_credit && liveSaleForm.doc_type !== 'DEVOLUCION'" class="p-4 sm:p-5 bg-indigo-50/80 border border-indigo-200 rounded-3xl space-y-3">
+            <div x-show="liveSaleForm.is_credit && liveSaleForm.doc_type !== 'DEVOLUCION' && liveSaleForm.doc_type !== 'NOTA_CREDITO'" class="p-4 sm:p-5 bg-indigo-50/80 border border-indigo-200 rounded-3xl space-y-3">
               <div class="flex items-center justify-between border-b border-indigo-200 pb-2">
                 <h4 class="text-xs font-black text-indigo-950 flex items-center gap-1.5">
                   <span>📥</span>
@@ -131,31 +131,31 @@
               </div>
             </div>
 
-            <!-- BANNER INFORMATIVO PARA DEVOLUCIONES DE FECHAS ACTUALES O ANTERIORES -->
-            <div x-show="liveSaleForm.doc_type === 'DEVOLUCION'" class="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-xs">
+            <!-- BANNER INFORMATIVO PARA NOTAS DE CRÉDITO / DEVOLUCIONES DE FECHAS ACTUALES O ANTERIORES -->
+            <div x-show="liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO'" class="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-xs">
               <span class="text-2xl">ℹ️</span>
               <div class="text-xs text-rose-950 space-y-1">
-                <p class="font-black text-rose-900">↩️ Registro de Reembolso / Devolución de Mercancía</p>
+                <p class="font-black text-rose-900">📑 Registro de Nota de Crédito / Devolución</p>
                 <p class="text-rose-800">
-                  Este registro restará el dinero de la caja física <strong>hoy</strong> para cuadrar el arqueo del cajero, y rebajará la venta neta del período haciendo referencia a la venta original (incluso si fue emitida en días o semanas anteriores).
+                  Puedes registrar una Nota de Crédito actual o <strong>emitida antes del sistema</strong>. Puedes seleccionar si genera un <strong>Saldo a Favor</strong> virtual del cliente (sin mover efectivo) o un <strong>Reembolso</strong> de dinero físico/bancario.
                 </p>
               </div>
             </div>
 
-            <!-- 3. DATOS DE LA VENTA / DEVOLUCIÓN (CLIENTE, N° DOCUMENTO Y MONTO) -->
+            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (CLIENTE, N° DOCUMENTO Y MONTO) -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1"
-                       x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? '👤 Cliente a quien se reembolsa:' : '👤 Cliente (Nombre / Empresa):'"></label>
+                       x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? '👤 Cliente de la NC:' : '👤 Cliente (Nombre / Empresa):'"></label>
                 <input type="text" x-model="liveSaleForm.client_name" @input="saveSaleDraft()" placeholder="Ej: Inversiones Eléctricas C.A."
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
               </div>
 
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1"
-                       x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? '🔖 N° Factura / Nota Original que se devuelve:' : '🔖 N° de Factura o Nota:'"></label>
+                       x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? '🔖 N° Nota de Crédito:' : '🔖 N° de Factura o Nota:'"></label>
                 <input type="text" x-model="liveSaleForm.doc_number" @input="saveSaleDraft()"
-                       :placeholder="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Ej: FAC-004821 / NE-1052' : 'Ej: 004821 / NE-1052'"
+                       :placeholder="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Ej: NC-000124' : 'Ej: 004821 / NE-1052'"
                        class="w-full input-large border border-gray-300 focus:ring-2 focus:ring-tev-green focus:outline-none font-bold">
               </div>
 
@@ -168,16 +168,16 @@
               </div>
             </div>
 
-            <!-- CAMPO ADICIONAL: FECHA DE LA VENTA ORIGINAL (EXCLUSIVO PARA DEVOLUCIONES HISTÓRICAS) -->
-            <div x-show="liveSaleForm.doc_type === 'DEVOLUCION'" class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-rose-50/50 p-4 rounded-2xl border border-rose-200">
+            <!-- CAMPO ADICIONAL: FECHA DE LA NC / VENTA ORIGINAL (EXCLUSIVO PARA NOTAS DE CRÉDITO HISTÓRICAS O DEVOLUCIONES) -->
+            <div x-show="liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO'" class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-rose-50/50 p-4 rounded-2xl border border-rose-200">
               <div>
-                <label class="block text-xs font-bold text-rose-950 mb-1">📅 Fecha de la Venta Original (Si fue otro día):</label>
+                <label class="block text-xs font-bold text-rose-950 mb-1">📅 Fecha Emisión de la NC Original (Permite fecha antes del sistema):</label>
                 <input type="date" x-model="liveSaleForm.original_sale_date"
                        class="w-full p-2.5 border border-rose-300 rounded-xl text-xs font-bold bg-white text-gray-800">
               </div>
               <div>
-                <label class="block text-xs font-bold text-rose-950 mb-1">📝 Motivo del Reembolso:</label>
-                <input type="text" x-model="liveSaleForm.description" placeholder="Ej: Mercancía defectuosa / Cambio de material"
+                <label class="block text-xs font-bold text-rose-950 mb-1">📝 Motivo / Factura Afectada:</label>
+                <input type="text" x-model="liveSaleForm.description" placeholder="Ej: Afecta a FAC-003410 / Devolución de cable"
                        class="w-full p-2.5 border border-rose-300 rounded-xl text-xs font-bold bg-white text-gray-800">
               </div>
             </div>
@@ -203,59 +203,69 @@
             <div x-show="!liveSaleForm.is_credit" class="p-5 bg-slate-50/90 border border-slate-200 rounded-3xl space-y-4">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-gray-200 pb-2">
                 <label class="block text-xs font-black uppercase tracking-wider"
-                       :class="liveSaleForm.doc_type === 'DEVOLUCION' ? 'text-rose-900' : 'text-gray-800'"
-                       x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? '💸 3. Medio de Reembolso / Modalidad de Devolución:' : '💵 3. Forma de Pago / Canal de Cobro:'">
+                       :class="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'text-rose-900' : 'text-gray-800'"
+                       x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? '💸 3. Medio de Reembolso / Modalidad de Devolución:' : '💵 3. Forma de Pago / Canal de Cobro:'">
                 </label>
                 <span class="text-xs font-bold text-teal-900 bg-teal-100/70 px-2.5 py-1 rounded-lg border border-teal-200"
                       x-text="'Destino: ' + getSelectedAccountNameForLive()"></span>
               </div>
 
-              <!-- 5 Grandes Tarjetas de Método de Cobro (Cashea Dedicado) -->
-              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              <!-- 6 Tarjetas de Método de Cobro -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 
                 <!-- 1. Efectivo USD -->
                 <button type="button" @click="setPaymentMethod('EFECTIVO_USD')"
-                        :class="paymentMethod === 'EFECTIVO_USD' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'EFECTIVO_USD' ? ((liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">💵</span>
-                  <span class="text-xs font-bold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Reembolso USD' : 'Efectivo USD'"></span>
+                  <span class="text-xs font-bold" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Reembolso USD' : 'Efectivo USD'"></span>
                   <span class="text-[10px] opacity-80 font-semibold">Gaveta $</span>
                 </button>
 
                 <!-- 2. Efectivo VES -->
                 <button type="button" @click="setPaymentMethod('EFECTIVO_VES')"
-                        :class="paymentMethod === 'EFECTIVO_VES' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'EFECTIVO_VES' ? ((liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'bg-rose-700 text-white font-black shadow-md ring-4 ring-rose-200' : 'bg-emerald-700 text-white font-black shadow-md ring-4 ring-emerald-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">🇻🇪</span>
-                  <span class="text-xs font-bold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Reembolso VES' : 'Efectivo VES'"></span>
+                  <span class="text-xs font-bold" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Reembolso VES' : 'Efectivo VES'"></span>
                   <span class="text-[10px] opacity-80 font-semibold">Gaveta Bs.</span>
                 </button>
 
                 <!-- 3. Punto de Venta POS / Reverso -->
                 <button type="button" @click="setPaymentMethod('POS')"
-                        :class="paymentMethod === 'POS' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-blue-800 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'POS' ? ((liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'bg-blue-800 text-white font-black shadow-md ring-4 ring-blue-200' : 'bg-blue-700 text-white font-black shadow-md ring-4 ring-blue-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">💳</span>
-                  <span class="text-xs font-bold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Reverso POS' : 'Punto POS'"></span>
-                  <span class="text-[10px] opacity-80 font-semibold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Anulación Punto' : 'Tarjeta Déb/Créd'"></span>
+                  <span class="text-xs font-bold" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Reverso POS' : 'Punto POS'"></span>
+                  <span class="text-[10px] opacity-80 font-semibold" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Anulación Punto' : 'Tarjeta Déb/Créd'"></span>
                 </button>
 
                 <!-- 4. Pago Móvil / Transf -->
                 <button type="button" @click="setPaymentMethod('PAGO_MOVIL')"
-                        :class="paymentMethod === 'PAGO_MOVIL' ? (liveSaleForm.doc_type === 'DEVOLUCION' ? 'bg-purple-800 text-white font-black shadow-md ring-4 ring-purple-200' : 'bg-purple-700 text-white font-black shadow-md ring-4 ring-purple-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
+                        :class="paymentMethod === 'PAGO_MOVIL' ? ((liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'bg-purple-800 text-white font-black shadow-md ring-4 ring-purple-200' : 'bg-purple-700 text-white font-black shadow-md ring-4 ring-purple-200') : 'bg-white text-gray-700 border border-gray-200 hover:bg-slate-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
                   <span class="text-2xl">📲</span>
                   <span class="text-xs font-bold">Pago Móvil</span>
-                  <span class="text-[10px] opacity-80 font-semibold" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Emisión / Transf' : 'Transferencia'"></span>
+                  <span class="text-[10px] opacity-80 font-semibold" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Emisión / Transf' : 'Transferencia'"></span>
                 </button>
 
-                <!-- 5. CASHEA / SALDO A FAVOR (NOTA DE CRÉDITO) -->
-                <button type="button" @click="liveSaleForm.doc_type === 'DEVOLUCION' ? setPaymentMethod('NOTA_CREDITO') : setPaymentMethod('CASHEA')"
-                        :class="(paymentMethod === 'CASHEA' || paymentMethod === 'NOTA_CREDITO') ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
+                <!-- 5. CASHEA (App BNC) -->
+                <button type="button" x-show="liveSaleForm.doc_type !== 'DEVOLUCION' && liveSaleForm.doc_type !== 'NOTA_CREDITO'"
+                        @click="setPaymentMethod('CASHEA')"
+                        :class="paymentMethod === 'CASHEA' ? 'bg-amber-500 text-black font-black shadow-md ring-4 ring-amber-200' : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100'"
                         class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
-                  <span class="text-2xl" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? '📑' : '🟡'"></span>
-                  <span class="text-xs font-black" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Saldo a Favor' : 'Cashea'"></span>
-                  <span class="text-[10px] font-bold text-amber-900" x-text="liveSaleForm.doc_type === 'DEVOLUCION' ? 'Nota de Crédito' : 'Cuotas / App BNC'"></span>
+                  <span class="text-2xl">🟡</span>
+                  <span class="text-xs font-black">Cashea</span>
+                  <span class="text-[10px] font-bold text-amber-900">Cuotas / App BNC</span>
+                </button>
+
+                <!-- 6. NOTA DE CRÉDITO / SALDO A FAVOR PREVIO -->
+                <button type="button" @click="setPaymentMethod('NOTA_CREDITO')"
+                        :class="paymentMethod === 'NOTA_CREDITO' ? 'bg-indigo-700 text-white font-black shadow-md ring-4 ring-indigo-200' : 'bg-indigo-50 text-indigo-950 border border-indigo-200 hover:bg-indigo-100'"
+                        class="p-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-center transition cursor-pointer">
+                  <span class="text-2xl">📑</span>
+                  <span class="text-xs font-black" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Saldo a Favor' : 'Nota de Crédito'"></span>
+                  <span class="text-[10px] font-bold" :class="paymentMethod === 'NOTA_CREDITO' ? 'text-indigo-200' : 'text-indigo-800'" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Sin salida de caja' : 'Saldo a Favor Previo'"></span>
                 </button>
 
               </div>
@@ -292,16 +302,33 @@
                 </div>
               </div>
 
-              
-              <!-- SI ES SALDO A FAVOR / NOTA DE CRÉDITO APLICABLE (SIN SALIDA DE DINERO FÍSICO) -->
-              <div x-show="paymentMethod === 'NOTA_CREDITO'" class="p-4 bg-amber-50/90 border border-amber-300 rounded-2xl space-y-2">
+              <!-- SI ES SALDO A FAVOR / NOTA DE CRÉDITO APLICABLE (SIN MOVIMIENTO DE DINERO FÍSICO) -->
+              <div x-show="paymentMethod === 'NOTA_CREDITO'" class="p-4 bg-indigo-50/90 border border-indigo-300 rounded-2xl space-y-3">
                 <div class="flex items-start gap-2.5">
-                  <span class="text-xl">ℹ️</span>
-                  <div class="text-xs text-amber-950">
-                    <strong class="font-black text-amber-900">Nota de Crédito / Saldo a Favor del Cliente:</strong>
-                    <p class="mt-0.5 text-amber-800">
-                      Esta opción rebaja la venta neta pero <strong>NO descuenta dinero físico de la gaveta ni del banco</strong>, ya que el cliente conserva el saldo a favor para aplicarlo en compras futuras o cruzarse contra otra factura en CxC.
+                  <span class="text-xl">📑</span>
+                  <div class="text-xs text-indigo-950 space-y-1">
+                    <strong class="font-black text-indigo-900" x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? 'Nota de Crédito emitida como Saldo a Favor:' : 'Pago con Nota de Crédito / Saldo a Favor Previo:'"></strong>
+                    <p class="text-indigo-800">
+                      <span x-show="liveSaleForm.doc_type !== 'DEVOLUCION' && liveSaleForm.doc_type !== 'NOTA_CREDITO'">
+                        El cliente cancela esta compra utilizando una Nota de Crédito o Saldo a Favor previo (emitida antes del sistema o en Profit Plus). <strong>Impacto en gaveta física: $0</strong> (el ingreso ya ocurrió en el pasado).
+                      </span>
+                      <span x-show="liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO'">
+                        Se registra la Nota de Crédito generando saldo a favor del cliente. <strong>NO descuenta dinero físico de la caja</strong>.
+                      </span>
                     </p>
+                  </div>
+                </div>
+
+                <div x-show="liveSaleForm.doc_type !== 'DEVOLUCION' && liveSaleForm.doc_type !== 'NOTA_CREDITO'" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-indigo-200">
+                  <div>
+                    <label class="block text-xs font-bold text-indigo-950 mb-1">🔖 N° Nota de Crédito Previa Aplicada: *</label>
+                    <input type="text" x-model="liveSaleForm.reference_number" placeholder="Ej: NC-000452 o Profit #812"
+                           class="w-full p-2.5 border border-indigo-300 rounded-xl text-xs bg-white font-black text-indigo-950 focus:ring-2 focus:ring-indigo-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-indigo-950 mb-1">📅 Fecha de Emisión de la NC Original: (Opcional)</label>
+                    <input type="date" x-model="liveSaleForm.original_sale_date"
+                           class="w-full p-2.5 border border-indigo-300 rounded-xl text-xs bg-white font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-500">
                   </div>
                 </div>
               </div>

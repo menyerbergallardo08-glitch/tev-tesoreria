@@ -103,7 +103,11 @@ def process_sale(db: Any, payload: Dict[str, Any]) -> SaleResult:
 
 def create_sale_transaction(db: Session, user: User, data, ip_address: str = "") -> Transaction:
 
-    sale_date = datetime.datetime.strptime(data.date, "%Y-%m-%d").date()
+    raw_date = getattr(data, 'date', None)
+    if raw_date:
+        sale_date = datetime.datetime.strptime(raw_date, "%Y-%m-%d").date()
+    else:
+        sale_date = datetime.date.today()
     
     # 1. Validación de Idempotencia y No Duplicidad (Pilar 3)
     clean_doc = data.doc_number.strip() if data.doc_number else ""
@@ -206,7 +210,43 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
     ret_amount = float(getattr(data, 'tax_retention_amount', 0.0) or 0.0)
     ret_proof = getattr(data, 'tax_retention_proof', '') or ''
 
-    if data.is_credit:
+    is_dev = data.doc_type in ['DEVOLUCION', 'NOTA_CREDITO']
+    if is_dev:
+        is_nc = (getattr(data, 'payment_method', '') == 'NOTA_CREDITO')
+        cash_impact = 0.0 if is_nc else amount_total
+        orig_date_str = getattr(data, 'original_sale_date', None) or getattr(data, 'invoice_date', None)
+        orig_date_val = None
+        if orig_date_str:
+            try:
+                orig_date_val = datetime.date.fromisoformat(str(orig_date_str))
+            except Exception:
+                orig_date_val = None
+
+        tx = Transaction(
+            branch_id=user.branch_id,
+            date=sale_date,
+            movement_type='EGRESO',
+            subtype='DEVOLUCION_VENTA',
+            account_id=target_acc_id,
+            amount_original=0.0 if is_nc else amount_original_val,
+            currency=currency,
+            exchange_rate=rate,
+            amount_usd=cash_impact,
+            doc_type=data.doc_type,
+            doc_number=data.doc_number.strip() if data.doc_number else None,
+            invoice_date=orig_date_val,
+            client_name=data.client_name.strip() if data.client_name else 'Cliente Mostrador',
+            client_rif=data.client_rif.strip() if data.client_rif else None,
+            is_credit=False,
+            credit_status='PAGADO',
+            credit_original_amount_usd=amount_total,
+            credit_balance_pending_usd=0.0,
+            reference_number=data.reference_number,
+            description=f"Nota de Crédito / Saldo a Favor #{data.doc_number or ''}. {data.description or ''}".strip() if is_nc else (data.description or f"Reembolso de Devolución {data.doc_type} #{data.doc_number or ''}".strip()),
+            status='REGISTRADO',
+            created_by_id=user.id
+        )
+    elif data.is_credit:
         if abono_val < 0 or abono_val > amount_total:
             raise HTTPException(status_code=400, detail="El abono inicial no puede ser negativo ni mayor al total de la venta.")
         
