@@ -1292,6 +1292,113 @@
                      class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
             </div>
 
+            <!-- 4.1 ASISTENTE QUIRÚRGICO DE RETENCIONES SENIAT (SUJETO PASIVO ESPECIAL) -->
+            <div x-show="form.movement_type === 'EGRESO' && (form.subtype === 'PAGO_PROVEEDOR' || form.subtype === 'GASTO_OPERATIVO')" 
+                 class="p-4 rounded-2xl border transition-all"
+                 :class="retentionAssistant?.active ? 'bg-amber-50/90 border-amber-300 ring-2 ring-amber-200' : 'bg-slate-50/80 border-slate-200'">
+              <div class="flex items-center justify-between cursor-pointer" @click="toggleRetentionAssistant()">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-xl">⚖️</span>
+                  <div>
+                    <p class="text-xs font-black text-gray-900">Retenciones SENIAT (Contribuyente Especial)</p>
+                    <p class="text-[11px] text-gray-500">Calcular y descontar automáticamente retención de IVA e ISLR al proveedor</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold" :class="retentionAssistant?.active ? 'text-amber-800' : 'text-gray-400'" 
+                        x-text="retentionAssistant?.active ? 'ACTIVADO' : 'NO APLICA'"></span>
+                  <div class="w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out relative cursor-pointer"
+                       :class="retentionAssistant?.active ? 'bg-amber-600' : 'bg-gray-300'">
+                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out"
+                         :class="retentionAssistant?.active ? 'translate-x-4' : 'translate-x-0'"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PANEL ASISTIDO CUANDO ESTÁ ACTIVO -->
+              <div x-show="retentionAssistant?.active" class="mt-4 pt-4 border-t border-amber-200 space-y-4">
+                <!-- Fila 1: Montos base de la factura -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1">Total Factura Proveedor (con IVA):</label>
+                    <input type="text" inputmode="decimal" x-model="retentionAssistant.total_invoice" 
+                           @input="recalculateRetentions()"
+                           placeholder="0.00"
+                           class="w-full input-large border border-amber-300 bg-white font-bold text-xs sm:text-sm">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1">Base Imponible (sin IVA):</label>
+                    <input type="text" inputmode="decimal" x-model="retentionAssistant.tax_base" 
+                           @input="recalculateRetentions()"
+                           placeholder="0.00"
+                           class="w-full input-large border border-amber-300 bg-white font-bold text-xs sm:text-sm">
+                  </div>
+                </div>
+
+                <!-- Fila 2: Selectores de Retención -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1.5">
+                      Retención IVA (IVA Facturado: <span x-text="formatNumber(retentionAssistant.calc_iva || 0)"></span>):
+                    </label>
+                    <div class="grid grid-cols-3 gap-1.5">
+                      <button type="button" @click="retentionAssistant.iva_rate = 0.75; recalculateRetentions()"
+                              :class="retentionAssistant.iva_rate === 0.75 ? 'bg-amber-600 text-white font-black' : 'bg-white text-gray-700 border border-amber-300'"
+                              class="py-1.5 px-2 rounded-lg text-xs transition">75% (General)</button>
+                      <button type="button" @click="retentionAssistant.iva_rate = 1.0; recalculateRetentions()"
+                              :class="retentionAssistant.iva_rate === 1.0 ? 'bg-amber-600 text-white font-black' : 'bg-white text-gray-700 border border-amber-300'"
+                              class="py-1.5 px-2 rounded-lg text-xs transition">100%</button>
+                      <button type="button" @click="retentionAssistant.iva_rate = 0.0; recalculateRetentions()"
+                              :class="retentionAssistant.iva_rate === 0.0 ? 'bg-amber-600 text-white font-black' : 'bg-white text-gray-700 border border-amber-300'"
+                              class="py-1.5 px-2 rounded-lg text-xs transition">0%</button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1.5">Retención ISLR:</label>
+                    <select x-model.number="retentionAssistant.islr_rate" @change="recalculateRetentions()"
+                            class="w-full input-large border border-amber-300 bg-white font-bold text-xs text-amber-950">
+                      <option :value="0.0">0% - Bienes / Material Eléctrico Ordinario</option>
+                      <option :value="0.02">2% - Servicios Generales (P. Jurídica)</option>
+                      <option :value="0.03">3% - Fletes y Transporte</option>
+                      <option :value="0.05">5% - Honorarios Profesionales / Asesoría</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Fila 3: Tarjetas de Resumen en Vivo -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+                  <div class="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl text-center">
+                    <span class="block text-[11px] font-bold text-emerald-800">NETO A TRANSFERIR HOY</span>
+                    <span class="text-base font-black text-emerald-700" x-text="formatNumber(retentionAssistant.net_to_pay || 0)"></span>
+                    <span class="block text-[10px] text-emerald-600">Salida real de banco</span>
+                  </div>
+                  <div class="p-2.5 bg-amber-100/70 border border-amber-300 rounded-xl text-center">
+                    <span class="block text-[11px] font-bold text-amber-900">RET. IVA (<span x-text="((retentionAssistant.iva_rate || 0) * 100) + '%'"></span>)</span>
+                    <span class="text-base font-black text-amber-800" x-text="formatNumber(retentionAssistant.ret_iva_amt || 0)"></span>
+                    <span class="block text-[10px] text-amber-700">Comprobante IVA</span>
+                  </div>
+                  <div class="p-2.5 bg-orange-100/70 border border-orange-300 rounded-xl text-center">
+                    <span class="block text-[11px] font-bold text-orange-900">RET. ISLR (<span x-text="((retentionAssistant.islr_rate || 0) * 100) + '%'"></span>)</span>
+                    <span class="text-base font-black text-orange-800" x-text="formatNumber(retentionAssistant.ret_islr_amt || 0)"></span>
+                    <span class="block text-[10px] text-orange-700">Comprobante ISLR</span>
+                  </div>
+                </div>
+
+                <!-- Fila 4: N° Comprobante -->
+                <div class="flex flex-col sm:flex-row gap-3 items-center">
+                  <div class="w-full sm:w-1/2">
+                    <label class="block text-xs font-bold text-amber-950 mb-1">N° Comprobante de Retención (14 dígitos):</label>
+                    <input type="text" x-model="retentionAssistant.proof_number" placeholder="Ej: 20261000000045"
+                           class="w-full p-2 border border-amber-300 rounded-xl font-mono text-xs bg-white">
+                  </div>
+                  <div class="w-full sm:w-1/2 text-xs text-amber-900 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200">
+                    💡 <strong>Cálculo Automático:</strong> El monto a transferir se fijó en la orden de pago y las retenciones se acreditarán a la reserva fiscal.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- 5. MONTO Y CONVERSIÓN EN VIVO -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
               <div>
@@ -2167,6 +2274,34 @@
                 $<span x-text="formatNumber(cashFlowViewMode === 'with_fx' ? cashFlowData.final_balance_usd : ((cashFlowData.initial_balance_usd || 0) + (cashFlowData.net_flow_without_fx || 0)))"></span>
               </p>
               <p class="text-xs text-teal-200 mt-1" x-text="cashFlowViewMode === 'with_fx' ? 'En todas las cajas y bancos' : 'Sin impacto por tasa de cambio'"></p>
+            </div>
+          </div>
+
+          <!-- BANNER DE RESERVA FISCAL SENIAT (CONTRIBUYENTE ESPECIAL) -->
+          <div x-show="cashFlowData.tax_retentions_accumulated_usd > 0" class="p-4 sm:p-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 rounded-3xl flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-900 flex items-center justify-center text-2xl font-black shadow-sm">
+                🏛️
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black uppercase tracking-wider text-amber-900">Reserva Fiscal en Custodia (SENIAT)</span>
+                  <span class="px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full text-[10px] font-black">Contribuyente Especial</span>
+                </div>
+                <p class="text-xs text-amber-800 mt-0.5">Retenciones de IVA e ISLR practicadas a proveedores en el mes, comprometidas para enterar al fisco.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+              <div class="text-right">
+                <span class="block text-[11px] font-bold text-gray-500 uppercase">Retenciones Acumuladas:</span>
+                <span class="text-xl font-black text-amber-900">$<span x-text="formatNumber(cashFlowData.tax_retentions_accumulated_usd || 0)"></span></span>
+              </div>
+              <div class="h-10 w-px bg-amber-300 hidden sm:block"></div>
+              <div class="text-right">
+                <span class="block text-[11px] font-bold text-emerald-700 uppercase">Caja Operativa Libre Real:</span>
+                <span class="text-xl font-black text-emerald-800">$<span x-text="formatNumber(cashFlowData.free_operational_cash_usd || (cashFlowData.final_balance_usd - (cashFlowData.tax_retentions_accumulated_usd || 0)))"></span></span>
+              </div>
             </div>
           </div>
 

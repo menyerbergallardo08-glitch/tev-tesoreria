@@ -92,6 +92,34 @@
             </div>
           </div>
 
+          <!-- BANNER DE RESERVA FISCAL SENIAT (CONTRIBUYENTE ESPECIAL) -->
+          <div x-show="cashFlowData.tax_retentions_accumulated_usd > 0" class="p-4 sm:p-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 rounded-3xl flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-900 flex items-center justify-center text-2xl font-black shadow-sm">
+                🏛️
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-black uppercase tracking-wider text-amber-900">Reserva Fiscal en Custodia (SENIAT)</span>
+                  <span class="px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full text-[10px] font-black">Contribuyente Especial</span>
+                </div>
+                <p class="text-xs text-amber-800 mt-0.5">Retenciones de IVA e ISLR practicadas a proveedores en el mes, comprometidas para enterar al fisco.</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+              <div class="text-right">
+                <span class="block text-[11px] font-bold text-gray-500 uppercase">Retenciones Acumuladas:</span>
+                <span class="text-xl font-black text-amber-900">$<span x-text="formatNumber(cashFlowData.tax_retentions_accumulated_usd || 0)"></span></span>
+              </div>
+              <div class="h-10 w-px bg-amber-300 hidden sm:block"></div>
+              <div class="text-right">
+                <span class="block text-[11px] font-bold text-emerald-700 uppercase">Caja Operativa Libre Real:</span>
+                <span class="text-xl font-black text-emerald-800">$<span x-text="formatNumber(cashFlowData.free_operational_cash_usd || (cashFlowData.final_balance_usd - (cashFlowData.tax_retentions_accumulated_usd || 0)))"></span></span>
+              </div>
+            </div>
+          </div>
+
           <!-- Desglose por Caja / Billetera -->
           <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center">

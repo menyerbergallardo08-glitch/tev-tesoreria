@@ -32,7 +32,23 @@ window.TEVState = {
           amount_usd: 0,
           reference_number: '',
           beneficiary: '',
-          description: ''
+          description: '',
+          tax_retention_amount: 0,
+          tax_retention_proof: ''
+        },
+
+        retentionAssistant: {
+          active: false,
+          total_invoice: '',
+          tax_base: '',
+          calc_iva: 0,
+          iva_rate: 0.75,
+          islr_rate: 0.0,
+          ret_iva_amt: 0,
+          ret_islr_amt: 0,
+          total_retention: 0,
+          net_to_pay: 0,
+          proof_number: ''
         },
 
         cashFlowData: {
@@ -41,6 +57,9 @@ window.TEVState = {
           total_outflows_usd: 0,
           fx_differential_usd: 0,
           net_cash_flow_usd: 0,
+          tax_retentions_accumulated_usd: 0,
+          fiscal_reserve_seniat_usd: 0,
+          free_operational_cash_usd: 0,
           final_balance_usd: 0,
           accounts_detail: [],
           inflows_breakdown: {},

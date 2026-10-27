@@ -1,5 +1,62 @@
 // Modulo TEV: TEVExpenses
 window.TEVExpenses = {
+        toggleRetentionAssistant() {
+          if (!this.retentionAssistant) {
+            this.retentionAssistant = {
+              active: false,
+              total_invoice: '',
+              tax_base: '',
+              calc_iva: 0,
+              iva_rate: 0.75,
+              islr_rate: 0.0,
+              ret_iva_amt: 0,
+              ret_islr_amt: 0,
+              total_retention: 0,
+              net_to_pay: 0,
+              proof_number: ''
+            };
+          }
+          this.retentionAssistant.active = !this.retentionAssistant.active;
+          if (this.retentionAssistant.active) {
+            this.recalculateRetentions();
+          } else {
+            this.form.tax_retention_amount = 0;
+            this.form.tax_retention_proof = '';
+          }
+        },
+
+        recalculateRetentions() {
+          if (!this.retentionAssistant || !this.retentionAssistant.active) return;
+          
+          let totalInv = parseFloat(String(this.retentionAssistant.total_invoice || '0').replace(',', '.')) || 0;
+          let base = parseFloat(String(this.retentionAssistant.tax_base || '0').replace(',', '.')) || 0;
+          
+          if (totalInv > 0 && base <= 0) {
+            base = Math.round((totalInv / 1.16) * 100) / 100;
+            this.retentionAssistant.tax_base = base;
+          } else if (base > 0 && totalInv <= 0) {
+            totalInv = Math.round((base * 1.16) * 100) / 100;
+            this.retentionAssistant.total_invoice = totalInv;
+          }
+          
+          const iva = Math.max(0, Math.round((totalInv - base) * 100) / 100);
+          this.retentionAssistant.calc_iva = iva;
+          
+          const retIva = Math.round((iva * (this.retentionAssistant.iva_rate || 0)) * 100) / 100;
+          const retIslr = Math.round((base * (this.retentionAssistant.islr_rate || 0)) * 100) / 100;
+          const totalRet = Math.round((retIva + retIslr) * 100) / 100;
+          const netToPay = Math.max(0, Math.round((totalInv - totalRet) * 100) / 100);
+          
+          this.retentionAssistant.ret_iva_amt = retIva;
+          this.retentionAssistant.ret_islr_amt = retIslr;
+          this.retentionAssistant.total_retention = totalRet;
+          this.retentionAssistant.net_to_pay = netToPay;
+          
+          if (netToPay > 0) {
+            this.form.amount_original = netToPay;
+          }
+        },
+
         async submitMovement() {
           if (this.isSubmittingMovement) return;
 
@@ -60,6 +117,15 @@ window.TEVExpenses = {
             const currentAcc = (this.accounts || []).find(a => a.id == this.form.account_id);
             const curr = (currentAcc && currentAcc.currency) || this.selectedAccountCurrency || 'USD';
 
+            const isRetActive = this.retentionAssistant && this.retentionAssistant.active;
+            const retAmt = isRetActive ? (this.retentionAssistant.total_retention || 0) : 0;
+            const retProof = isRetActive ? (this.retentionAssistant.proof_number || '') : '';
+            
+            let extraDesc = '';
+            if (isRetActive && retAmt > 0) {
+              extraDesc = ` [Retención SENIAT: Factura: ${this.retentionAssistant.total_invoice} | Ret. IVA: ${this.retentionAssistant.ret_iva_amt} | Ret. ISLR: ${this.retentionAssistant.ret_islr_amt} | Neto Pagado: ${this.form.amount_original}]`;
+            }
+
             const payload = {
               date: this.form.date,
               movement_type: this.form.movement_type,
@@ -71,7 +137,9 @@ window.TEVExpenses = {
               exchange_rate: parseFloat(this.form.exchange_rate) || 1.0,
               reference_number: this.form.reference_number || '',
               beneficiary: this.form.beneficiary || '',
-              description: this.form.description || ''
+              description: (this.form.description || '') + extraDesc,
+              tax_retention_amount: retAmt,
+              tax_retention_proof: retProof
             };
 
             const res = await fetch('/api/transactions', {
@@ -91,6 +159,18 @@ window.TEVExpenses = {
             this.form.reference_number = '';
             this.form.beneficiary = '';
             this.form.description = '';
+            
+            if (this.retentionAssistant) {
+              this.retentionAssistant.active = false;
+              this.retentionAssistant.total_invoice = '';
+              this.retentionAssistant.tax_base = '';
+              this.retentionAssistant.calc_iva = 0;
+              this.retentionAssistant.ret_iva_amt = 0;
+              this.retentionAssistant.ret_islr_amt = 0;
+              this.retentionAssistant.total_retention = 0;
+              this.retentionAssistant.net_to_pay = 0;
+              this.retentionAssistant.proof_number = '';
+            }
 
             await this.loadAccounts();
             await this.loadCategories();

@@ -215,6 +215,16 @@ def get_cash_flow(
     net_total_cash_flow = net_operational_cash_flow + fx_differential_usd - retiros_acc_usd
     net_flow_with_fx = net_total_cash_flow
 
+    # Retenciones Fiscales SENIAT en Custodia (IVA e ISLR retenidos en el periodo)
+    tax_retentions_accumulated_usd = db.query(func.coalesce(func.sum(Transaction.tax_retention_amount), 0.0)).filter(
+        Transaction.movement_type == "EGRESO",
+        Transaction.status != "ANULADO",
+        Transaction.date >= start_date,
+        Transaction.date <= end_date
+    ).scalar()
+    fiscal_reserve_seniat_usd = float(tax_retentions_accumulated_usd)
+    free_operational_cash_usd = round(total_final_usd - fiscal_reserve_seniat_usd, 2)
+
     return {
         "month": month,
         "period_label": f"{start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}",
@@ -239,6 +249,9 @@ def get_cash_flow(
         "net_flow_without_fx": round(net_flow_without_fx, 2),
         "net_flow_with_fx": round(net_flow_with_fx, 2),
         "net_cash_flow_usd": round(net_total_cash_flow, 2),
+        "tax_retentions_accumulated_usd": round(tax_retentions_accumulated_usd, 2),
+        "fiscal_reserve_seniat_usd": round(fiscal_reserve_seniat_usd, 2),
+        "free_operational_cash_usd": free_operational_cash_usd,
         "final_balance_usd": round(total_final_usd, 2),
         "currency_summary": {
             "usd_cash": round(total_usd_cash, 2),
