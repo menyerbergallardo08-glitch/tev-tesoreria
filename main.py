@@ -21,6 +21,7 @@ from routers.dashboard import router as dashboard_router
 from routers.transactions import router as transactions_router
 from routers.suppliers import router as suppliers_router
 from routers.commissions import router as commissions_router
+from routers.manuals import router as manuals_router
 
 # Inicializar Base de Datos
 Base.metadata.create_all(bind=engine)
@@ -73,6 +74,7 @@ app.include_router(dashboard_router)
 app.include_router(transactions_router)
 app.include_router(suppliers_router)
 app.include_router(commissions_router)
+app.include_router(manuals_router)
 
 @app.get("/health")
 def root_health():

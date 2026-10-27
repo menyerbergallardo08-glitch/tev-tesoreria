@@ -277,5 +277,23 @@ def test_suppliers_and_v32_features():
         ss = summary_data["sales_summary"]
         assert ss["venta_real_del_dia_usd"] == round(ss["ventas_contado_usd"] + ss["ventas_credito_usd"] - ss["devoluciones_usd"], 2)
 
+        # 14. Test Manuals Endpoints
+        res_man_cajera = client.get("/api/manuals/cajera", headers=headers)
+        assert res_man_cajera.status_code == 200
+        man_data = res_man_cajera.json()
+        assert man_data["role"] == "cajera"
+        assert "Manual Operativo" in man_data["title"]
+        assert len(man_data["content"]) > 100
+
+        res_man_admin = client.get("/api/manuals/administradora", headers=headers)
+        assert res_man_admin.status_code == 200
+        assert "content" in res_man_admin.json()
+
+        res_man_dl = client.get("/api/manuals/cajera/download", headers=headers)
+        assert res_man_dl.status_code == 200
+
+        res_man_404 = client.get("/api/manuals/desconocido", headers=headers)
+        assert res_man_404.status_code == 404
+
     finally:
         db.close()
