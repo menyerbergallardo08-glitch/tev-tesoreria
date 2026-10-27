@@ -40,6 +40,8 @@ def list_pending_debts(
         "credit_original_amount_usd": d.credit_original_amount_usd,
         "credit_balance_pending_usd": d.credit_balance_pending_usd,
         "credit_status": d.credit_status,
+        "seller_code": d.seller_code,
+        "seller_name": d.seller_name,
         "description": d.description
     } for d in debts]
 

@@ -94,12 +94,21 @@ def get_cash_close_summary(
 
     existing_close = db.query(DailyCashClose).filter(DailyCashClose.date == target_date).first()
 
-    sales_fiscal_iva_usd = 0.0
-    sales_notes_credit_usd = 0.0
-    sales_notes_collected_usd = 0.0
-    returns_total_usd = 0.0
+    from core.bcv import resolve_effective_bcv_rate
+    bcv_dict = resolve_effective_bcv_rate(db)
+    active_bcv = float(bcv_dict.get('rate') or 881.0664)
+
+    # Concepto 1: Venta Real del Día (Comercial / Despacho)
+    ventas_contado_usd = 0.0
+    ventas_credito_usd = 0.0
+    devoluciones_usd = 0.0
+
+    # Concepto 2: Total Cobrado del Día (Flujo Real de Caja)
+    ventas_cobradas_hoy_usd = 0.0  # Contado cobrado hoy + abonos iniciales de ventas a crédito
+    cxc_recibidas_hoy_usd = 0.0    # Cobro de facturas/notas viejas en CxC
     expenses_caja_usd = 0.0
 
+    # Medios de cobro físicos y bancarios
     cash_usd_in = 0.0
     cash_usd_out = 0.0
     cash_ves_in = 0.0
@@ -107,7 +116,6 @@ def get_cash_close_summary(
 
     pos_breakdown = {"Banesco": 0.0, "Bancaribe": 0.0, "BDV": 0.0, "BNC": 0.0, "Otros": 0.0}
     pos_total_usd = 0.0
-
     bank_transfers_usd = 0.0
     cashea_usd = 0.0
     retentions_iva_usd = 0.0
@@ -118,19 +126,25 @@ def get_cash_close_summary(
         acc_name = acc.name.upper() if acc else ""
 
         if t.movement_type == "INGRESO":
-            if t.doc_type == "FACTURA_FISCAL" or t.subtype == "VENTA_DIARIA":
-                sales_fiscal_iva_usd += t.amount_usd
-            elif t.doc_type == "NOTA_ENTREGA":
+            if t.subtype == "VENTA_DIARIA" or t.doc_type in ["FACTURA_FISCAL", "NOTA_ENTREGA", "FACTURA"]:
                 if t.is_credit:
-                    sales_notes_credit_usd += t.amount_usd
+                    # Venta a crédito: valor total vendido
+                    sale_val = t.credit_original_amount_usd if (t.credit_original_amount_usd and t.credit_original_amount_usd > 0) else (t.amount_usd + (t.credit_balance_pending_usd or 0.0))
+                    ventas_credito_usd += sale_val
+                    # A cobranza solo entra el abono inicial cobrado hoy
+                    if t.amount_usd and t.amount_usd > 0:
+                        ventas_cobradas_hoy_usd += t.amount_usd
                 else:
-                    sales_notes_collected_usd += t.amount_usd
+                    # Venta de contado
+                    ventas_contado_usd += t.amount_usd
+                    ventas_cobradas_hoy_usd += t.amount_usd
             elif t.subtype in ["COBRO_CXC", "ABONO_CXC"]:
-                sales_notes_collected_usd += t.amount_usd
+                cxc_recibidas_hoy_usd += t.amount_usd
 
             if t.tax_retention_amount and t.tax_retention_amount > 0:
                 retentions_iva_usd += t.tax_retention_amount
 
+            # Ingresos por cuenta/gaveta
             if "EFECTIVO USD" in acc_name:
                 cash_usd_in += t.amount_original
             elif "EFECTIVO VES" in acc_name:
@@ -153,12 +167,13 @@ def get_cash_close_summary(
                     pos_total_usd += t.amount_usd
                 else:
                     bank_transfers_usd += t.amount_usd
-            else:
+            elif acc_name and "CXC" not in acc_name:
                 bank_transfers_usd += t.amount_usd
 
         elif t.movement_type == "EGRESO":
-            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
-                returns_total_usd += t.amount_usd
+            if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
+                amt = t.amount_usd if (t.amount_usd and t.amount_usd > 0) else (t.credit_original_amount_usd or 0.0)
+                devoluciones_usd += amt
             elif t.subtype == "GASTO_OPERATIVO":
                 expenses_caja_usd += t.amount_usd
 
@@ -167,8 +182,15 @@ def get_cash_close_summary(
             elif "EFECTIVO VES" in acc_name:
                 cash_ves_out += t.amount_original
 
-    net_sales_usd = round(sales_fiscal_iva_usd + sales_notes_credit_usd - returns_total_usd, 2)
-    total_collected_real_usd = round(cash_usd_in + (cash_ves_in / 36.80) + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
+    # Venta Real Comercial del Día (Contado + Crédito - Devoluciones)
+    venta_real_del_dia_usd = round(ventas_contado_usd + ventas_credito_usd - devoluciones_usd, 2)
+
+    # Total Cobrado del Día (Ventas Cobradas + CxC Recibidas - Gastos de Caja)
+    total_cobrado_dia_usd = round(ventas_cobradas_hoy_usd + cxc_recibidas_hoy_usd - expenses_caja_usd, 2)
+
+    # Conversión precisa de efectivo en bolívares a USD con tasa BCV real
+    ves_converted_usd = round(cash_ves_in / active_bcv, 2) if active_bcv > 0 else 0.0
+    total_collected_real_usd = round(cash_usd_in + ves_converted_usd + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
 
     return {
         "date": target_date.isoformat(),
@@ -185,13 +207,21 @@ def get_cash_close_summary(
             "notes": existing_close.notes
         } if existing_close else None,
         "sales_summary": {
-            "fiscal_iva_usd": round(sales_fiscal_iva_usd, 2),
-            "notes_credit_usd": round(sales_notes_credit_usd, 2),
-            "notes_collected_usd": round(sales_notes_collected_usd, 2),
-            "returns_total_usd": round(returns_total_usd, 2),
-            "net_sales_usd": net_sales_usd
+            "venta_real_del_dia_usd": venta_real_del_dia_usd,
+            "ventas_contado_usd": round(ventas_contado_usd, 2),
+            "ventas_credito_usd": round(ventas_credito_usd, 2),
+            "devoluciones_usd": round(devoluciones_usd, 2),
+            "net_sales_usd": venta_real_del_dia_usd,
+            "fiscal_iva_usd": round(ventas_contado_usd, 2),
+            "notes_credit_usd": round(ventas_credito_usd, 2),
+            "notes_collected_usd": round(ventas_cobradas_hoy_usd, 2),
+            "returns_total_usd": round(devoluciones_usd, 2)
         },
         "collections_summary": {
+            "total_cobrado_dia_usd": total_cobrado_dia_usd,
+            "ventas_cobradas_hoy_usd": round(ventas_cobradas_hoy_usd, 2),
+            "cxc_recibidas_hoy_usd": round(cxc_recibidas_hoy_usd, 2),
+            "bcv_rate": active_bcv,
             "cash_usd_in": round(cash_usd_in, 2),
             "cash_usd_out": round(cash_usd_out, 2),
             "cash_usd_net": round(cash_usd_in - cash_usd_out, 2),

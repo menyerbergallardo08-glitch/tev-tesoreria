@@ -21,7 +21,15 @@ def create_historical_debt(db: Session, user: User, data, ip_address: str = "") 
     if not default_acc:
         raise HTTPException(status_code=400, detail="No hay cuentas de tesorería activas.")
 
+    from services.sales_service import SELLERS_MAP
+
     amount_val = float(data.amount_usd)
+    seller_code = getattr(data, 'seller_code', None)
+    seller_name = getattr(data, 'seller_name', None)
+    if seller_code:
+        seller_code = str(seller_code).strip()
+        seller_name = SELLERS_MAP.get(seller_code, seller_name or f"Vendedor {seller_code}")
+
     tx = Transaction(
         branch_id=user.branch_id,
         date=emission_date,
@@ -36,6 +44,8 @@ def create_historical_debt(db: Session, user: User, data, ip_address: str = "") 
         doc_number=data.doc_number.strip(),
         client_name=data.client_name.strip(),
         client_rif=data.client_rif.strip() if data.client_rif else None,
+        seller_code=seller_code,
+        seller_name=seller_name,
         is_credit=True,
         credit_status='PENDIENTE',
         credit_original_amount_usd=amount_val,
@@ -76,6 +86,13 @@ def process_cxc_payment(db: Session, user: User, data, ip_address: str = "") -> 
     if not default_acc:
         raise HTTPException(status_code=400, detail="No hay cuentas de tesorería activas.")
 
+    from services.sales_service import SELLERS_MAP
+    effective_seller_code = getattr(data, 'seller_code', None) or parent_tx.seller_code
+    effective_seller_name = getattr(data, 'seller_name', None) or parent_tx.seller_name
+    if effective_seller_code:
+        effective_seller_code = str(effective_seller_code).strip()
+        effective_seller_name = SELLERS_MAP.get(effective_seller_code, effective_seller_name or f"Vendedor {effective_seller_code}")
+
     if pay_type == 'RETENCION':
         # Validación comprobante SENIAT (14 dígitos)
         formatted_proof = validate_and_format_retention_proof(data.retention_proof, payment_amount)
@@ -95,6 +112,8 @@ def process_cxc_payment(db: Session, user: User, data, ip_address: str = "") -> 
             doc_number=f"RET-{formatted_proof}",
             client_name=parent_tx.client_name,
             client_rif=parent_tx.client_rif,
+            seller_code=effective_seller_code,
+            seller_name=effective_seller_name,
             parent_transaction_id=parent_tx.id,
             reference_number=formatted_proof,
             tax_retention_amount=payment_amount,
@@ -119,6 +138,8 @@ def process_cxc_payment(db: Session, user: User, data, ip_address: str = "") -> 
             doc_number=f"CRUCE-NC-{nc_ref}",
             client_name=parent_tx.client_name,
             client_rif=parent_tx.client_rif,
+            seller_code=effective_seller_code,
+            seller_name=effective_seller_name,
             parent_transaction_id=parent_tx.id,
             reference_number=nc_ref,
             description=f"Cruce con Nota de Crédito #{nc_ref} aplicado a {parent_tx.doc_type} #{parent_tx.doc_number}. Saldo restante: ${new_balance:.2f}. {data.description or ''}".strip(),
@@ -147,6 +168,8 @@ def process_cxc_payment(db: Session, user: User, data, ip_address: str = "") -> 
             doc_number=f"ABONO-{parent_tx.doc_number or parent_tx.id}",
             client_name=parent_tx.client_name,
             client_rif=parent_tx.client_rif,
+            seller_code=effective_seller_code,
+            seller_name=effective_seller_name,
             parent_transaction_id=parent_tx.id,
             reference_number=data.reference_number,
             description=f"Cobro / Abono a {parent_tx.doc_type} #{parent_tx.doc_number}. Saldo restante: ${new_balance:.2f}. {data.description or ''}".strip(),

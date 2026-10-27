@@ -215,6 +215,23 @@ window.TEVPosSales = {
             this.liveSaleForm.tax_retention_proof = '';
           }
 
+          if (!this.liveSaleForm.seller_code) {
+            this.showToast('warning', 'Vendedor Requerido', 'Debe seleccionar el vendedor responsable de la operación.');
+            this.isSubmittingSale = false;
+            return;
+          }
+
+          const sellersNames = {
+            '01': 'Oficina',
+            '20': 'Oficina',
+            '23': 'Orianna Montilla',
+            '25': 'Daniel Zabala',
+            '33': 'Henry',
+            '39': 'Yurima',
+            '44': 'Jenny'
+          };
+          this.liveSaleForm.seller_name = sellersNames[this.liveSaleForm.seller_code] || this.liveSaleForm.seller_name || '';
+
           const token = this.getToken();
           if (!token) {
             this.showToast('error', 'Sesión Expirada', 'Su sesión ha expirado. Por favor cierre sesión e ingrese nuevamente.');
@@ -224,7 +241,7 @@ window.TEVPosSales = {
 
           // Confirmación previa de seguridad (evita guardado accidental por presionar Enter)
           const docTypeLabel = this.liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'Factura Fiscal' : (this.liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'Nota de Entrega' : ((this.liveSaleForm.doc_type === 'NOTA_CREDITO' || this.liveSaleForm.doc_type === 'DEVOLUCION') ? 'Nota de Crédito' : this.liveSaleForm.doc_type));
-          const confirmMsg = `¿Confirma registrar esta ${docTypeLabel}?\n\n• Documento: ${this.liveSaleForm.doc_number}\n• Cliente: ${this.liveSaleForm.client_name}\n• Monto: $${parseFloat(this.liveSaleForm.amount_usd || amt).toFixed(2)} (${this.liveSaleForm.currency === 'VES' ? 'Bs. ' + amt.toFixed(2) : '$' + amt.toFixed(2)})\n• Método: ${this.liveSaleForm.payment_method}`;
+          const confirmMsg = `¿Confirma registrar esta ${docTypeLabel}?\n\n• Documento: ${this.liveSaleForm.doc_number}\n• Cliente: ${this.liveSaleForm.client_name}\n• Vendedor: ${this.liveSaleForm.seller_name} (${this.liveSaleForm.seller_code})\n• Monto: $${parseFloat(this.liveSaleForm.amount_usd || amt).toFixed(2)} (${this.liveSaleForm.currency === 'VES' ? 'Bs. ' + amt.toFixed(2) : '$' + amt.toFixed(2)})\n• Método: ${this.liveSaleForm.payment_method}`;
           if (!confirm(confirmMsg)) {
             this.isSubmittingSale = false;
             return;
@@ -256,6 +273,8 @@ window.TEVPosSales = {
               this.liveSaleForm.doc_number = '';
               this.liveSaleForm.client_name = '';
               this.liveSaleForm.amount_original = '';
+              this.liveSaleForm.seller_code = '';
+              this.liveSaleForm.seller_name = '';
               this.liveSaleForm.reference_number = '';
               this.liveSaleForm.pos_lot_number = '';
               this.liveSaleForm.original_sale_date = '';

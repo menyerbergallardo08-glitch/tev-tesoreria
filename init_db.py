@@ -35,7 +35,9 @@ def run_migrations():
             ('transactions', 'pos_lot_number', 'VARCHAR(50)'),
             ('transactions', 'tax_retention_amount', 'FLOAT'),
             ('transactions', 'tax_retention_proof', 'VARCHAR(100)'),
-            ('transactions', 'invoice_date', 'DATE')
+            ('transactions', 'invoice_date', 'DATE'),
+            ('transactions', 'seller_code', 'VARCHAR(10)'),
+            ('transactions', 'seller_name', 'VARCHAR(100)')
         ]
 
         for table, col, coltype in columns_to_add:
@@ -119,7 +121,8 @@ def init_all():
             ('Banesco Panamá (USD)', 'USD', 'BANCO', 0.0),
             ('Zelle / Custodia USD', 'USD', 'BANCO', 0.0),
             ('Billetera Binance USDT', 'USDT', 'BILLETERA', 0.0),
-            ('Saldo a Favor Clientes (Notas de Crédito)', 'USD', 'OTRO', 0.0)
+            ('Saldo a Favor Clientes (Notas de Crédito)', 'USD', 'OTRO', 0.0),
+            ('Cartera CxC (Ventas a Crédito)', 'USD', 'CXC', 0.0)
         ]
         for name, curr, atype, init_bal in default_accounts:
             acc = db.query(TreasuryAccount).filter(TreasuryAccount.name == name).first()

@@ -126,8 +126,13 @@
                   <p class="text-base font-black text-indigo-900" 
                      x-text="'$ ' + formatNumber(Math.max(0, (liveSaleForm.currency === 'USD' ? liveSaleForm.amount_original : (liveSaleForm.amount_original / bcvRate)) - (parseFloat(liveSaleForm.initial_downpayment_amount) || 0)))"></p>
                 </div>
-                <span class="text-xs px-3 py-1 bg-amber-100 text-amber-900 rounded-xl font-black"
-                      x-text="(parseFloat(liveSaleForm.initial_downpayment_amount) > 0) ? 'Crédito Mixto (Abono + Saldo Pendiente)' : '100% Crédito Pendiente'"></span>
+                <div class="text-right">
+                  <span class="text-xs px-3 py-1 bg-amber-100 text-amber-900 rounded-xl font-black block"
+                        x-text="(parseFloat(liveSaleForm.initial_downpayment_amount) > 0) ? 'Crédito Mixto (Abono + Saldo Pendiente)' : '100% Crédito Pendiente'"></span>
+                  <span x-show="!parseFloat(liveSaleForm.initial_downpayment_amount)" class="text-[10px] text-indigo-700 font-bold mt-1 block">
+                    📑 Cartera CxC (Sin movimiento de caja ni banco)
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -142,8 +147,25 @@
               </div>
             </div>
 
-            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (CLIENTE, N° DOCUMENTO Y MONTO) -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (VENDEDOR, CLIENTE, N° DOCUMENTO Y MONEDA) -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
+                  <span>👤 Vendedor: *</span>
+                  <span class="text-[9px] text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">Comisión</span>
+                </label>
+                <select x-model="liveSaleForm.seller_code" class="w-full input-large border border-emerald-300 bg-white font-black text-gray-800 focus:ring-2 focus:ring-emerald-500">
+                  <option value="">-- Seleccionar --</option>
+                  <option value="01">01 - Oficina (0%)</option>
+                  <option value="20">20 - Oficina (0%)</option>
+                  <option value="23">23 - Orianna Montilla (1%+1%)</option>
+                  <option value="25">25 - Daniel Zabala (5%)</option>
+                  <option value="33">33 - Henry (1%)</option>
+                  <option value="39">39 - Yurima (1%)</option>
+                  <option value="44">44 - Jenny (1%)</option>
+                </select>
+              </div>
+
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1"
                        x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? '👤 Cliente de la NC:' : '👤 Cliente (Nombre / Empresa):'"></label>

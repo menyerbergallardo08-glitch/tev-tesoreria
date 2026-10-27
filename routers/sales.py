@@ -31,6 +31,8 @@ def create_sale(
         "is_credit": tx.is_credit,
         "credit_status": tx.credit_status,
         "credit_balance_pending_usd": tx.credit_balance_pending_usd,
+        "seller_code": tx.seller_code,
+        "seller_name": tx.seller_name,
         "status": tx.status
     }
 
@@ -104,6 +106,8 @@ def create_live_sale(
         "is_credit": tx.is_credit,
         "credit_status": tx.credit_status,
         "credit_balance_pending_usd": tx.credit_balance_pending_usd,
+        "seller_code": tx.seller_code,
+        "seller_name": tx.seller_name,
         "status": tx.status
     }
 

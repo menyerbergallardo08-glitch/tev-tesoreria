@@ -29,6 +29,8 @@ class SaleCreate(BaseModel):
     initial_downpayment_account_id: Optional[int] = None
     original_sale_date: Optional[str] = None
     invoice_date: Optional[str] = None
+    seller_code: Optional[str] = None
+    seller_name: Optional[str] = None
 
 class SaleVoidRequest(BaseModel):
     transaction_id: int

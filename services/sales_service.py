@@ -10,6 +10,16 @@ from core.audit import record_audit
 
 CENT = Decimal("0.01")
 
+SELLERS_MAP = {
+    "01": "Oficina",
+    "20": "Oficina",
+    "23": "Orianna Montilla",
+    "25": "Daniel Zabala",
+    "33": "Henry",
+    "39": "Yurima",
+    "44": "Jenny",
+}
+
 def round_curr(value: Decimal) -> Decimal:
     """Redondeo financiero estándar a 2 decimales."""
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
@@ -185,11 +195,23 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
         raw_abono = getattr(data, 'initial_downpayment_amount', 0.0)
     abono_val = float(raw_abono or 0.0)
     
+    # Determinar vendedor responsable
+    seller_code = getattr(data, 'seller_code', None)
+    seller_name = getattr(data, 'seller_name', None)
+    if seller_code:
+        seller_code = str(seller_code).strip()
+        seller_name = SELLERS_MAP.get(seller_code, seller_name or f"Vendedor {seller_code}")
+
     # Determinar cuenta destino
     target_acc_id = getattr(data, 'account_id', None)
     abono_acc_id = getattr(data, 'abono_account_id', None) or getattr(data, 'initial_downpayment_account_id', None)
     if data.is_credit and abono_val > 0 and abono_acc_id:
         target_acc_id = abono_acc_id
+    elif data.is_credit and abono_val == 0:
+        cxc_acc = db.query(TreasuryAccount).filter(
+            or_(TreasuryAccount.account_type == 'CXC', TreasuryAccount.name.ilike('%Cartera CxC%'))
+        ).first()
+        target_acc_id = cxc_acc.id if cxc_acc else None
     elif getattr(data, 'payment_method', '') == 'NOTA_CREDITO':
         # Saldo a Favor / Nota de Crédito: canal virtual
         nc_acc = db.query(TreasuryAccount).filter(TreasuryAccount.name.ilike('%Nota%Crédito%')).first()
@@ -201,10 +223,11 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
         first_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
         target_acc_id = first_acc.id if first_acc else 1
 
-    # 2. Bloqueo Pesimista en Cuenta Receptora
-    primary_acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == target_acc_id).with_for_update().first()
-    if not primary_acc or not primary_acc.is_active:
-        raise HTTPException(status_code=400, detail="La cuenta seleccionada no existe o está inactiva.")
+    # 2. Bloqueo Pesimista en Cuenta Receptora (si aplica)
+    if target_acc_id:
+        primary_acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == target_acc_id).with_for_update().first()
+        if not primary_acc or not primary_acc.is_active:
+            raise HTTPException(status_code=400, detail="La cuenta seleccionada no existe o está inactiva.")
 
     # 3. Lógica Contable de Venta a Crédito vs Contado
     ret_amount = float(getattr(data, 'tax_retention_amount', 0.0) or 0.0)
@@ -237,6 +260,8 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             invoice_date=orig_date_val,
             client_name=data.client_name.strip() if data.client_name else 'Cliente Mostrador',
             client_rif=data.client_rif.strip() if data.client_rif else None,
+            seller_code=seller_code,
+            seller_name=seller_name,
             is_credit=False,
             credit_status='PAGADO',
             credit_original_amount_usd=amount_total,
@@ -259,7 +284,7 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             movement_type='INGRESO',
             subtype='VENTA_DIARIA',
             account_id=target_acc_id,
-            amount_original=amount_original_val,
+            amount_original=abono_val if abono_val > 0 else 0.0,
             currency=currency,
             exchange_rate=rate,
             amount_usd=abono_val if abono_val > 0 else 0.0, # Impacto de caja real de hoy
@@ -267,6 +292,8 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             doc_number=data.doc_number.strip() if data.doc_number else None,
             client_name=data.client_name.strip() if data.client_name else 'Cliente Mostrador',
             client_rif=data.client_rif.strip() if data.client_rif else None,
+            seller_code=seller_code,
+            seller_name=seller_name,
             is_credit=True,
             credit_status=credit_status,
             credit_original_amount_usd=amount_total,
@@ -298,6 +325,8 @@ def create_sale_transaction(db: Session, user: User, data, ip_address: str = "")
             doc_number=data.doc_number.strip() if data.doc_number else None,
             client_name=data.client_name.strip() if data.client_name else 'Cliente Mostrador',
             client_rif=data.client_rif.strip() if data.client_rif else None,
+            seller_code=seller_code,
+            seller_name=seller_name,
             is_credit=False,
             credit_status='PAGADO',
             credit_original_amount_usd=amount_total,

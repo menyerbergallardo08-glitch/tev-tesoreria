@@ -227,6 +227,14 @@
             </button>
           </template>
 
+          <template x-if="currentUser?.role === 'administradora' || currentUser?.role === 'directivo'">
+            <button @click="activeTab = 'comisiones'; loadCommissions()"
+                    :class="activeTab === 'comisiones' ? 'bg-amber-600 text-white shadow ring-2 ring-amber-300' : 'text-amber-800 bg-amber-50 hover:bg-amber-100'"
+                    class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl font-bold text-xs sm:text-xs flex items-center gap-1 whitespace-nowrap transition cursor-pointer">
+              <span>💼 Comisiones Equipo</span>
+            </button>
+          </template>
+
 
 
           <template x-if="currentUser?.role === 'directivo'">
@@ -416,8 +424,13 @@
                   <p class="text-base font-black text-indigo-900" 
                      x-text="'$ ' + formatNumber(Math.max(0, (liveSaleForm.currency === 'USD' ? liveSaleForm.amount_original : (liveSaleForm.amount_original / bcvRate)) - (parseFloat(liveSaleForm.initial_downpayment_amount) || 0)))"></p>
                 </div>
-                <span class="text-xs px-3 py-1 bg-amber-100 text-amber-900 rounded-xl font-black"
-                      x-text="(parseFloat(liveSaleForm.initial_downpayment_amount) > 0) ? 'Crédito Mixto (Abono + Saldo Pendiente)' : '100% Crédito Pendiente'"></span>
+                <div class="text-right">
+                  <span class="text-xs px-3 py-1 bg-amber-100 text-amber-900 rounded-xl font-black block"
+                        x-text="(parseFloat(liveSaleForm.initial_downpayment_amount) > 0) ? 'Crédito Mixto (Abono + Saldo Pendiente)' : '100% Crédito Pendiente'"></span>
+                  <span x-show="!parseFloat(liveSaleForm.initial_downpayment_amount)" class="text-[10px] text-indigo-700 font-bold mt-1 block">
+                    📑 Cartera CxC (Sin movimiento de caja ni banco)
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -432,8 +445,25 @@
               </div>
             </div>
 
-            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (CLIENTE, N° DOCUMENTO Y MONTO) -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (VENDEDOR, CLIENTE, N° DOCUMENTO Y MONEDA) -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-xs font-black text-gray-700 mb-1 flex items-center justify-between">
+                  <span>👤 Vendedor: *</span>
+                  <span class="text-[9px] text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">Comisión</span>
+                </label>
+                <select x-model="liveSaleForm.seller_code" class="w-full input-large border border-emerald-300 bg-white font-black text-gray-800 focus:ring-2 focus:ring-emerald-500">
+                  <option value="">-- Seleccionar --</option>
+                  <option value="01">01 - Oficina (0%)</option>
+                  <option value="20">20 - Oficina (0%)</option>
+                  <option value="23">23 - Orianna Montilla (1%+1%)</option>
+                  <option value="25">25 - Daniel Zabala (5%)</option>
+                  <option value="33">33 - Henry (1%)</option>
+                  <option value="39">39 - Yurima (1%)</option>
+                  <option value="44">44 - Jenny (1%)</option>
+                </select>
+              </div>
+
               <div>
                 <label class="block text-xs font-bold text-gray-700 mb-1"
                        x-text="(liveSaleForm.doc_type === 'DEVOLUCION' || liveSaleForm.doc_type === 'NOTA_CREDITO') ? '👤 Cliente de la NC:' : '👤 Cliente (Nombre / Empresa):'"></label>
@@ -1587,101 +1617,103 @@
           </div>
         </div>
 
-        <!-- Matriz de Resumen de Ventas y Cobranzas del Día -->
+        <!-- Matriz de Resumen: 1. Venta Real del Día vs 2. Total Cobrado del Día -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          <!-- Bloque A: Ventas del Día según Profit Plus -->
-          <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <!-- Bloque A: Venta Real del Día (Comercial / Despacho) -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border-2 border-emerald-200 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h3 class="text-base font-black text-gray-800 flex items-center gap-2">
-                <span>📊 1. Resumen Comercial (Profit Plus)</span>
-              </h3>
-              <span class="text-xs font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-lg" x-text="cuadreDate"></span>
+              <div>
+                <h3 class="text-base font-black text-emerald-950 flex items-center gap-2">
+                  <span>📊 1. Venta Real del Día (Despachos)</span>
+                </h3>
+                <p class="text-[11px] text-gray-500 font-semibold">Ventas Contado + Ventas Crédito - Devoluciones</p>
+              </div>
+              <span class="text-xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200" x-text="cuadreDate"></span>
             </div>
 
             <div class="space-y-2 text-sm">
               <div class="flex justify-between items-center p-2.5 bg-emerald-50 rounded-xl border border-emerald-100">
-                <span class="font-bold text-emerald-900">🧾 Facturación Fiscal (Con IVA):</span>
-                <span class="font-black text-emerald-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.fiscal_iva_usd || 0)"></span>
+                <span class="font-bold text-emerald-900">💵 Ventas de Contado (Facturas + Notas):</span>
+                <span class="font-black text-emerald-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.ventas_contado_usd || 0)"></span>
               </div>
 
-              <div class="flex justify-between items-center p-2.5 bg-blue-50 rounded-xl border border-blue-100">
-                <span class="font-bold text-blue-900">📦 Notas de Entrega a Crédito (CxC):</span>
-                <span class="font-black text-blue-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.notes_credit_usd || 0)"></span>
-              </div>
-
-              <div class="flex justify-between items-center p-2.5 bg-purple-50 rounded-xl border border-purple-100">
-                <span class="font-bold text-purple-900">📥 Notas Cobradas / Convertidas hoy:</span>
-                <span class="font-black text-purple-950 text-base" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.notes_collected_usd || 0)"></span>
+              <div class="flex justify-between items-center p-2.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                <span class="font-bold text-indigo-900">📑 Ventas a Crédito Generadas Hoy:</span>
+                <span class="font-black text-indigo-950 text-base" x-text="'+$' + formatNumber(cashCloseSummary?.sales_summary?.ventas_credito_usd || 0)"></span>
               </div>
 
               <div class="flex justify-between items-center p-2.5 bg-rose-50 rounded-xl border border-rose-100">
-                <span class="font-bold text-rose-900">↩️ Devoluciones / Reembolsos:</span>
-                <span class="font-black text-rose-950 text-base" x-text="'-$' + formatNumber(cashCloseSummary?.sales_summary?.returns_total_usd || 0)"></span>
+                <span class="font-bold text-rose-900">↩️ (-) Devoluciones / Notas de Crédito:</span>
+                <span class="font-black text-rose-950 text-base" x-text="'-$' + formatNumber(cashCloseSummary?.sales_summary?.devoluciones_usd || 0)"></span>
               </div>
 
-              <div class="pt-2 border-t flex justify-between items-center font-black text-gray-900 text-lg">
-                <span>Venta Neta Total del Día:</span>
-                <span class="text-tev-green" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.net_sales_usd || 0)"></span>
+              <div class="pt-3 border-t-2 border-dashed border-gray-200 flex justify-between items-center font-black text-gray-900 text-lg bg-emerald-100/50 p-3 rounded-2xl">
+                <span>Venta Real Total del Día:</span>
+                <span class="text-emerald-900 text-xl font-black" x-text="'$' + formatNumber(cashCloseSummary?.sales_summary?.venta_real_del_dia_usd || 0)"></span>
               </div>
             </div>
           </div>
 
-          <!-- Bloque B: Cobranza Real por Canal Financiero -->
-          <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <!-- Bloque B: Total Cobrado del Día (Flujo Real de Tesorería) -->
+          <div class="bg-white p-6 rounded-3xl shadow-sm border-2 border-teal-200 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h3 class="text-base font-black text-gray-800 flex items-center gap-2">
-                <span>🏦 2. Fondos y Cobranzas por Canal</span>
-              </h3>
+              <div>
+                <h3 class="text-base font-black text-teal-950 flex items-center gap-2">
+                  <span>💵 2. Total Cobrado del Día (Caja Real)</span>
+                </h3>
+                <p class="text-[11px] text-gray-500 font-semibold">Ventas Cobradas + CxC Recibidas - Gastos de Caja</p>
+              </div>
               <span class="text-xs font-bold text-gray-500" x-text="(cashCloseSummary?.transactions_count || 0) + ' transacciones'"></span>
             </div>
 
             <div class="space-y-2 text-xs">
+              <div class="flex justify-between items-center p-2 bg-teal-50 rounded-xl border border-teal-100 text-xs">
+                <span class="font-bold text-teal-950">📥 Ventas Cobradas Hoy (Contado + Abono Inicial):</span>
+                <span class="font-black text-teal-950 text-sm" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.ventas_cobradas_hoy_usd || 0)"></span>
+              </div>
+
+              <div class="flex justify-between items-center p-2 bg-blue-50 rounded-xl border border-blue-100 text-xs">
+                <span class="font-bold text-blue-950">📥 CxC Recibidas Hoy (Cobros de Facturas Viejas):</span>
+                <span class="font-black text-blue-950 text-sm" x-text="'+$' + formatNumber(cashCloseSummary?.collections_summary?.cxc_recibidas_hoy_usd || 0)"></span>
+              </div>
+
+              <div class="flex justify-between items-center p-2 bg-rose-50 rounded-xl border border-rose-100 text-xs">
+                <span class="font-bold text-rose-900">💸 (-) Vales / Gastos Menores Pagados Hoy:</span>
+                <span class="font-black text-rose-950 text-sm" x-text="'-$' + formatNumber(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0)"></span>
+              </div>
+
               <!-- Efectivo USD y VES -->
-              <div class="grid grid-cols-2 gap-2">
-                <div class="p-2.5 bg-slate-50 rounded-xl border">
-                  <p class="text-gray-500 font-bold">💵 Gaveta USD Físico:</p>
-                  <p class="text-base font-black text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cash_usd_net || 0)"></p>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="p-2 bg-slate-50 rounded-xl border">
+                  <p class="text-gray-500 font-bold text-[10px]">💵 Gaveta USD Neto:</p>
+                  <p class="text-sm font-black text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cash_usd_net || 0)"></p>
                 </div>
-                <div class="p-2.5 bg-slate-50 rounded-xl border">
-                  <p class="text-gray-500 font-bold">🇻🇪 Gaveta VES Físico:</p>
-                  <p class="text-base font-black text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves_net || 0)"></p>
-                </div>
-              </div>
-
-              <!-- Puntos de Venta (POS) -->
-              <div class="p-2.5 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1">
-                <div class="flex justify-between font-bold text-blue-950">
-                  <span>💳 Total Lotes Puntos de Venta (POS):</span>
-                  <span class="font-black text-sm" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd || 0)"></span>
-                </div>
-                <div class="grid grid-cols-3 gap-1 text-[11px] text-gray-600 pt-1">
-                  <span>Banesco: <strong x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown?.Banesco || 0)"></strong></span>
-                  <span>Bancaribe: <strong x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown?.Bancaribe || 0)"></strong></span>
-                  <span>BDV: <strong x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown?.BDV || 0)"></strong></span>
+                <div class="p-2 bg-slate-50 rounded-xl border">
+                  <p class="text-gray-500 font-bold text-[10px]">🇻🇪 Gaveta VES Neto:</p>
+                  <p class="text-sm font-black text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves_net || 0)"></p>
                 </div>
               </div>
 
-              <!-- Bancos, Cashea y Retenciones -->
+              <!-- Puntos de Venta (POS) y Canales Digitales -->
               <div class="grid grid-cols-3 gap-2">
-                <div class="p-2 bg-slate-50 rounded-xl border text-center">
-                  <p class="text-gray-500 font-bold">📲 Pago Móvil:</p>
-                  <p class="font-black text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd || 0)"></p>
-                </div>
-                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center">
-                  <p class="text-amber-800 font-bold">🟡 BNC - Cashea:</p>
-                  <p class="font-black text-amber-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></p>
+                <div class="p-2 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
+                  <p class="text-blue-800 font-bold text-[10px]">💳 Puntos POS:</p>
+                  <p class="font-black text-blue-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd || 0)"></p>
                 </div>
                 <div class="p-2 bg-purple-50 rounded-xl border border-purple-200 text-center">
-                  <p class="text-purple-800 font-bold">📑 Retenciones IVA:</p>
-                  <p class="font-black text-purple-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.retentions_iva_usd || 0)"></p>
+                  <p class="text-purple-800 font-bold text-[10px]">📲 Pago Móvil:</p>
+                  <p class="font-black text-purple-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd || 0)"></p>
+                </div>
+                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center">
+                  <p class="text-amber-800 font-bold text-[10px]">🟡 Cashea BNC:</p>
+                  <p class="font-black text-amber-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></p>
                 </div>
               </div>
 
-              <!-- Vales / Gastos Menores -->
-              <div class="flex justify-between items-center p-2 bg-rose-50 rounded-xl border border-rose-100 font-bold text-rose-900">
-                <span>(-) Vales / Gastos Menores Pagados Hoy:</span>
-                <span x-text="'-$' + formatNumber(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0)"></span>
+              <div class="pt-2 border-t-2 border-dashed border-gray-200 flex justify-between items-center font-black text-gray-900 bg-teal-100/50 p-2.5 rounded-2xl">
+                <span>Total Cobrado Efectivo del Día:</span>
+                <span class="text-teal-900 text-lg font-black" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_cobrado_dia_usd || 0)"></span>
               </div>
             </div>
           </div>
@@ -1855,10 +1887,10 @@
               <p class="text-xs text-gray-500">Cierre formal y bloqueo de las operaciones del día</p>
             </div>
             <div class="text-right">
-              <span class="text-xs font-bold text-gray-500">Estado del Cuadre:</span>
+              <span class="text-xs font-bold text-gray-500">Conciliación Gaveta Física:</span>
               <div class="text-sm font-black"
                    :class="calculateCuadreDifference() === 0 ? 'text-emerald-700' : 'text-rose-700'"
-                   x-text="calculateCuadreDifference() === 0 ? '🟢 CAJA CUADRADA ($0.00)' : (calculateCuadreDifference() > 0 ? '🟡 SOBRANTE (+$' + formatNumber(calculateCuadreDifference()) + ')' : '🔴 FALTANTE (-$' + formatNumber(Math.abs(calculateCuadreDifference())) + ')')">
+                   x-text="calculateCuadreDifference() === 0 ? '🟢 GAVETA CUADRADA ($0.00)' : (calculateCuadreDifference() > 0 ? '🟡 SOBRANTE EN GAVETA (+$' + formatNumber(calculateCuadreDifference()) + ')' : '🔴 FALTANTE EN GAVETA (-$' + formatNumber(Math.abs(calculateCuadreDifference())) + ')')">
               </div>
             </div>
           </div>
@@ -2160,6 +2192,161 @@
       </div>
 
       <!-- ======================================================== -->
+﻿      <!-- ======================================================== -->
+      <!-- TAB: COMISIONES DE VENDEDORES (BASE COBRADA REAL)        -->
+      <!-- ======================================================== -->
+      <div x-show=activeTab === 'comisiones' class=space-y-6>
+        
+        <!-- Header con Selector de Mes y Control -->
+        <div class=bg-white p-5 sm:p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4>
+          <div>
+            <h2 class=text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2>
+              <span>💼 Liquidación de Comisiones de Ventas</span>
+              <span class=text-xs px-2.5 py-0.5 bg-amber-100 text-amber-900 rounded-full font-bold>Base Cobrada (Cash-Basis)</span>
+            </h2>
+            <p class=text-xs text-gray-500>Comisiones calculadas sobre dinero efectivamente cobrado (Contado + CxC Viejas - Devoluciones)</p>
+          </div>
+
+          <div class=flex items-center gap-2>
+            <div class=flex items-center gap-1.5 bg-slate-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm>
+              <span>📅 Mes:</span>
+              <input type=month x-model=commissionsMonth @change=loadCommissions() class=bg-transparent border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none>
+            </div>
+
+            <button type=button @click=loadCommissions() :disabled=isLoadingCommissions class=px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50>
+              <span x-show=!isLoadingCommissions>🔄</span>
+              <span x-show=isLoadingCommissions>⏳</span>
+              <span x-text=isLoadingCommissions ? 'Calculando...' : 'Actualizar'></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Tarjetas Métricas Globales de Comisiones -->
+        <div class=grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4>
+          <div class=bg-white p-5 rounded-3xl shadow-sm border border-gray-200>
+            <p class=text-xs font-bold text-gray-500>💵 Ventas Contado Cobradas:</p>
+            <p class=text-2xl font-black text-emerald-700 mt-1 x-text='$' + formatNumber(commissionsData?.totals?.total_ventas_contado_usd || 0)></p>
+            <p class=text-[10px] text-gray-400 mt-0.5>Cobro al momento en tienda</p>
+          </div>
+
+          <div class=bg-white p-5 rounded-3xl shadow-sm border border-gray-200>
+            <p class=text-xs font-bold text-gray-500>📥 Cobros de CxC Viejas:</p>
+            <p class=text-2xl font-black text-blue-700 mt-1 x-text='$' + formatNumber(commissionsData?.totals?.total_cxc_cobradas_usd || 0)></p>
+            <p class=text-[10px] text-gray-400 mt-0.5>Abonos recibidos en el período</p>
+          </div>
+
+          <div class=bg-white p-5 rounded-3xl shadow-sm border border-gray-200>
+            <p class=text-xs font-bold text-gray-500>↩️ Devoluciones / NC Descontadas:</p>
+            <p class=text-2xl font-black text-rose-700 mt-1 x-text='-$' + formatNumber(commissionsData?.totals?.total_devoluciones_usd || 0)></p>
+            <p class=text-[10px] text-gray-400 mt-0.5>Deducción de base para no duplicar</p>
+          </div>
+
+          <div class=bg-gradient-to-br from-amber-500 to-amber-600 text-white p-5 rounded-3xl shadow-md>
+            <p class=text-xs font-bold text-amber-100>💰 Total Comisiones a Liquidar:</p>
+            <p class=text-2xl font-black text-white mt-1 x-text='$' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_usd || 0)></p>
+            <p class=text-[10px] text-amber-200 mt-0.5>Directas + Bono Coordinación</p>
+          </div>
+        </div>
+
+        <!-- Tabla Detallada por Vendedor -->
+        <div class=bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden>
+          <div class=p-5 border-b border-gray-100 flex items-center justify-between>
+            <div>
+              <h3 class=text-base font-black text-gray-900>👥 Liquidación Individual por Vendedor</h3>
+              <p class=text-xs text-gray-500>Reglas: Daniel Zabala 5%, Orianna Montilla 1%+1% Coord, Vendedores 1%, Oficina 0%</p>
+            </div>
+            <span class=text-xs font-bold px-3 py-1 bg-gray-100 rounded-xl x-text=commissionsData?.period?.label || ''></span>
+          </div>
+
+          <div class=overflow-x-auto>
+            <table class=w-full text-left border-collapse text-xs>
+              <thead>
+                <tr class=bg-slate-50 text-gray-600 font-black border-b border-gray-200>
+                  <th class=p-3.5>Cód.</th>
+                  <th class=p-3.5>Vendedor</th>
+                  <th class=p-3.5 text-center>Tasa Directa</th>
+                  <th class=p-3.5 text-right>Contado ($)</th>
+                  <th class=p-3.5 text-right>Cobro CxC ($)</th>
+                  <th class=p-3.5 text-right>Devoluciones ($)</th>
+                  <th class=p-3.5 text-right font-black>Base Neta ($)</th>
+                  <th class=p-3.5 text-right>Comisión Directa</th>
+                  <th class=p-3.5 text-right>Bono Coord. (1%)</th>
+                  <th class=p-3.5 text-right bg-amber-50 text-amber-950 font-black>Total a Pagar ($)</th>
+                </tr>
+              </thead>
+              <tbody class=divide-y divide-gray-100>
+                <template x-for=s in (commissionsData?.sellers || []) :key=s.code>
+                  <tr class=hover:bg-slate-50 transition :class=s.code === '23' ? 'bg-amber-50/30' : ''>
+                    <td class=p-3.5 font-bold font-mono text-gray-700 x-text=s.code></td>
+                    <td class=p-3.5>
+                      <div class=flex items-center gap-2>
+                        <span class=font-black text-gray-900 x-text=s.name></span>
+                        <span x-show=s.code === '23' class=px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-black rounded-md>Coordinadora</span>
+                        <span x-show=s.is_office class=px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md>Oficina</span>
+                      </div>
+                    </td>
+                    <td class=p-3.5 text-center font-bold x-text=s.rate_pct></td>
+                    <td class=p-3.5 text-right font-bold text-gray-700 x-text='$' + formatNumber(s.ventas_contado_usd)></td>
+                    <td class=p-3.5 text-right font-bold text-blue-700 x-text='$' + formatNumber(s.cxc_cobradas_usd)></td>
+                    <td class=p-3.5 text-right font-bold text-rose-700 x-text='-$' + formatNumber(s.devoluciones_usd)></td>
+                    <td class=p-3.5 text-right font-black text-gray-900 bg-slate-50/50 x-text='$' + formatNumber(s.base_neta_cobrada_usd)></td>
+                    <td class=p-3.5 text-right font-bold text-gray-800 x-text='$' + formatNumber(s.comision_directa_usd)></td>
+                    <td class=p-3.5 text-right font-bold :class=s.comision_coordinacion_usd > 0 ? 'text-amber-800 font-black' : 'text-gray-400' x-text=s.comision_coordinacion_usd > 0 ? '+$' + formatNumber(s.comision_coordinacion_usd) : '-'></td>
+                    <td class=p-3.5 text-right font-black text-sm bg-amber-50 text-amber-950 x-text='$' + formatNumber(s.comision_total_usd)></td>
+                  </tr>
+                </template>
+                <tr x-show=!commissionsData?.sellers || commissionsData.sellers.length === 0>
+                  <td colspan=10 class=p-6 text-center text-gray-400>Haga clic en Actualizar para calcular las comisiones del período</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class=bg-slate-100 font-black text-gray-900 border-t-2 border-gray-300>
+                  <td colspan=3 class=p-3.5 text-right uppercase text-[11px]>Totales Generales:</td>
+                  <td class=p-3.5 text-right x-text='$' + formatNumber(commissionsData?.totals?.total_ventas_contado_usd || 0)></td>
+                  <td class=p-3.5 text-right x-text='$' + formatNumber(commissionsData?.totals?.total_cxc_cobradas_usd || 0)></td>
+                  <td class=p-3.5 text-right text-rose-800 x-text='-$' + formatNumber(commissionsData?.totals?.total_devoluciones_usd || 0)></td>
+                  <td class=p-3.5 text-right x-text='$' + formatNumber(commissionsData?.totals?.total_base_neta_usd || 0)></td>
+                  <td colspan=2 class=p-3.5 text-right text-[11px] uppercase text-gray-600>Total Liquidación:</td>
+                  <td class=p-3.5 text-right text-base text-amber-950 bg-amber-100 x-text='$' + formatNumber(commissionsData?.totals?.total_comisiones_a_pagar_usd || 0)></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tarjeta Informativa de Coordinación (Orianna Montilla - Vendedor 23) -->
+        <div class=bg-amber-50/70 border border-amber-200 rounded-3xl p-5 sm:p-6 space-y-3>
+          <div class=flex items-center justify-between pb-2 border-b border-amber-200>
+            <h4 class=text-sm font-black text-amber-950 flex items-center gap-2>
+              <span>👑 Detalle de Coordinación de Ventas (Orianna Montilla - Cód. 23)</span>
+            </h4>
+            <span class=text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-300>1% sobre ventas de su equipo</span>
+          </div>
+
+          <p class=text-xs text-amber-900>
+            Orianna comisiona su <strong>1% individual</strong> sobre sus ventas directas + un <strong>1% de coordinación</strong> sobre la cobranza neta de su equipo comercial (Daniel Zabala #25, Henry #33, Yurima #39 y Jenny #44).
+            <span class=font-bold>No genera comisión sobre los vendedores oficina (01 y 20) ni sobre sí misma dos veces.</span>
+          </p>
+
+          <div class=grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2>
+            <template x-for=m in (commissionsData?.coordination_detail?.team_members || []) :key=m.code>
+              <div class=p-3 bg-white rounded-2xl border border-amber-200>
+                <p class=text-[11px] font-bold text-gray-600 x-text='Vendedor ' + m.code + ' - ' + m.name></p>
+                <p class=text-sm font-black text-gray-900 mt-0.5 x-text='$' + formatNumber(m.base_neta_usd)></p>
+                <p class=text-[10px] text-amber-700 mt-0.5 font-bold x-text='1% Coord: $' + formatNumber(m.base_neta_usd * 0.01)></p>
+              </div>
+            </template>
+          </div>
+
+          <div class=p-3 bg-amber-100 rounded-2xl border border-amber-300 flex items-center justify-between>
+            <span class=text-xs font-bold text-amber-950>Base Neta del Equipo Coordinado: <strong x-text='$' + formatNumber(commissionsData?.coordination_detail?.team_base_usd || 0)></strong></span>
+            <span class=text-sm font-black text-amber-950>Bono Coordinación (1%): <strong class=text-base text-amber-900 x-text='$' + formatNumber(commissionsData?.coordination_detail?.coordination_bonus_usd || 0)></strong></span>
+          </div>
+        </div>
+
+      </div>
+
+
       <!-- TAB 3: FLUJO DE CAJA INTEGRAL (CON 3 VISTAS + ONE-PAGE) -->
       <!-- ======================================================== -->
 

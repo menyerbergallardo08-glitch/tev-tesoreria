@@ -38,7 +38,7 @@ class Transaction(Base):
     # Subtipos
     subtype = Column(String(50), nullable=False, index=True)
 
-    account_id = Column(Integer, ForeignKey('treasury_accounts.id'), nullable=False)
+    account_id = Column(Integer, ForeignKey('treasury_accounts.id'), nullable=True)
     destination_account_id = Column(Integer, ForeignKey('treasury_accounts.id'), nullable=True)
     category_id = Column(Integer, ForeignKey('budget_categories.id'), nullable=True)
 
@@ -57,6 +57,8 @@ class Transaction(Base):
     invoice_date = Column(Date, nullable=True)
     client_name = Column(String(150), nullable=True)
     client_rif = Column(String(30), nullable=True)
+    seller_code = Column(String(10), nullable=True, index=True)
+    seller_name = Column(String(100), nullable=True)
     
     is_credit = Column(Boolean, default=False)
     credit_status = Column(String(20), default='PAGADO') # 'PENDIENTE', 'PARCIALMENTE_PAGADO', 'PAGADO', 'ANULADO'

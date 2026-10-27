@@ -174,5 +174,108 @@ def test_suppliers_and_v32_features():
         }, headers=headers)
         assert res_live_paid_nc.status_code == 200
 
+        # 10. Test 100% Credit Sale without downpayment (Zero impact on liquid drawer / Binance)
+        res_credit_zero = client.post("/api/sales/live", json={
+            "amount_original": 250.0,
+            "currency": "USD",
+            "doc_type": "NOTA_ENTREGA",
+            "doc_number": f"NE-CRED-ZERO-{ts}",
+            "client_name": "Cliente Credito Puro",
+            "seller_code": "25",
+            "is_credit": True,
+            "initial_downpayment_amount": 0.0
+        }, headers=headers)
+        assert res_credit_zero.status_code == 200
+        cred_tx_id = res_credit_zero.json()["id"]
+        cred_tx = db.query(Transaction).filter(Transaction.id == cred_tx_id).first()
+        assert cred_tx.amount_usd == 0.0
+        assert cred_tx.amount_original == 0.0
+        assert cred_tx.credit_balance_pending_usd == 250.0
+        assert cred_tx.seller_code == "25"
+        assert cred_tx.seller_name == "Daniel Zabala"
+        # Ensure account is Cartera CxC
+        cxc_acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == cred_tx.account_id).first()
+        assert cxc_acc.account_type == 'CXC' or 'CxC' in cxc_acc.name
+
+        # 11. Test CxC Payment inherits seller
+        res_cxc_pay = client.post("/api/cxc/payments", json={
+            "transaction_id": cred_tx_id,
+            "amount_usd": 100.0,
+            "account_id": acc.id if acc else 1,
+            "payment_type": "COBRO",
+            "description": "Cobro parcial de credito puro"
+        }, headers=headers)
+        assert res_cxc_pay.status_code == 200
+        abono_id = res_cxc_pay.json()["id"]
+        abono_tx = db.query(Transaction).filter(Transaction.id == abono_id).first()
+        assert abono_tx.seller_code == "25"
+        assert abono_tx.seller_name == "Daniel Zabala"
+        assert abono_tx.amount_usd == 100.0
+
+        # 12. Test Commission Calculations (Cash-basis + Coordination 1%)
+        # Register a cash sale by Orianna (23) and office (01)
+        res_orianna = client.post("/api/sales/live", json={
+            "account_id": acc.id if acc else 1,
+            "amount_original": 500.0,
+            "currency": "USD",
+            "doc_type": "NOTA_ENTREGA",
+            "doc_number": f"NE-ORIANNA-{ts}",
+            "client_name": "Cliente Directo Orianna",
+            "seller_code": "23",
+            "is_credit": False
+        }, headers=headers)
+        assert res_orianna.status_code == 200
+
+        res_office = client.post("/api/sales/live", json={
+            "account_id": acc.id if acc else 1,
+            "amount_original": 300.0,
+            "currency": "USD",
+            "doc_type": "FACTURA_FISCAL",
+            "doc_number": f"FAC-OFICINA-{ts}",
+            "client_name": "Cliente Mostrador Oficina",
+            "seller_code": "01",
+            "is_credit": False
+        }, headers=headers)
+        assert res_office.status_code == 200
+
+        # Query /api/commissions
+        res_comm = client.get("/api/commissions", headers=headers)
+        assert res_comm.status_code == 200
+        comm_data = res_comm.json()
+        assert "sellers" in comm_data
+        assert "totals" in comm_data
+        assert "coordination_detail" in comm_data
+
+        sellers_by_code = {s["code"]: s for s in comm_data["sellers"]}
+        # Daniel Zabala (25): 5% on collected
+        assert "25" in sellers_by_code
+        assert sellers_by_code["25"]["rate_pct"] == "5%"
+        assert sellers_by_code["25"]["cxc_cobradas_usd"] >= 100.0
+        assert sellers_by_code["25"]["comision_directa_usd"] > 0.0
+
+        # Orianna Montilla (23): 1% direct + 1% coordination on team
+        assert "23" in sellers_by_code
+        assert sellers_by_code["23"]["rate_pct"] == "1%"
+        assert sellers_by_code["23"]["comision_coordinacion_usd"] > 0.0
+        assert sellers_by_code["23"]["comision_total_usd"] == round(sellers_by_code["23"]["comision_directa_usd"] + sellers_by_code["23"]["comision_coordinacion_usd"], 2)
+
+        # Oficina (01): 0%
+        assert "01" in sellers_by_code
+        assert sellers_by_code["01"]["comision_total_usd"] == 0.0
+
+        # 13. Test Cash Close Summary Separation: Venta Real vs Total Cobrado
+        res_summary = client.get("/api/cash-close/summary", headers=headers)
+        assert res_summary.status_code == 200
+        summary_data = res_summary.json()
+        assert "sales_summary" in summary_data
+        assert "collections_summary" in summary_data
+        assert "venta_real_del_dia_usd" in summary_data["sales_summary"]
+        assert "total_cobrado_dia_usd" in summary_data["collections_summary"]
+        assert "ventas_contado_usd" in summary_data["sales_summary"]
+        assert "ventas_credito_usd" in summary_data["sales_summary"]
+        # Venta real del día must equal contado + credito - devoluciones
+        ss = summary_data["sales_summary"]
+        assert ss["venta_real_del_dia_usd"] == round(ss["ventas_contado_usd"] + ss["ventas_credito_usd"] - ss["devoluciones_usd"], 2)
+
     finally:
         db.close()

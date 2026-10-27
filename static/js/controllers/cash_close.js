@@ -39,11 +39,41 @@ window.TEVCashClose = {
           }
         },
 
+        calculatePhysicalUsdDiff() {
+          if (!this.cashCloseSummary) return 0;
+          const expected = this.cashCloseSummary.collections_summary?.cash_usd_net || 0;
+          return roundNumber(this.calculatePhysicalUsd() - expected, 2);
+        },
+
+        calculatePhysicalVesDiff() {
+          if (!this.cashCloseSummary) return 0;
+          const expected = this.cashCloseSummary.collections_summary?.cash_ves_net || 0;
+          return roundNumber(this.calculatePhysicalVes() - expected, 2);
+        },
+
         calculateCuadreDifference() {
           if (!this.cashCloseSummary) return 0;
-          const netSales = this.cashCloseSummary.sales_summary?.net_sales_usd || 0;
-          const collected = this.cashCloseSummary.collections_summary?.total_collected_real_usd || 0;
-          return roundNumber(collected - netSales, 2);
+          const diffUSD = this.calculatePhysicalUsdDiff();
+          const diffVES = this.calculatePhysicalVesDiff();
+          const bcv = this.cashCloseSummary.collections_summary?.bcv_rate || this.bcvRate || 881.0;
+          return roundNumber(diffUSD + (diffVES / bcv), 2);
+        },
+
+        async loadCommissions() {
+          try {
+            this.isLoadingCommissions = true;
+            const token = this.getToken();
+            const res = await fetch(`/api/commissions?month=${this.commissionsMonth}`, {
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+              this.commissionsData = await res.json();
+            }
+          } catch (e) {
+            console.error('Error loading commissions:', e);
+          } finally {
+            this.isLoadingCommissions = false;
+          }
         },
 
         async executeSaveDailyCashClose() {
