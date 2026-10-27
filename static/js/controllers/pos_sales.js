@@ -213,6 +213,14 @@ window.TEVPosSales = {
             return;
           }
 
+          // Confirmación previa de seguridad (evita guardado accidental por presionar Enter)
+          const docTypeLabel = this.liveSaleForm.doc_type === 'FACTURA_FISCAL' ? 'Factura Fiscal' : (this.liveSaleForm.doc_type === 'NOTA_ENTREGA' ? 'Nota de Entrega' : this.liveSaleForm.doc_type);
+          const confirmMsg = `¿Confirma registrar esta ${docTypeLabel}?\n\n• Documento: ${this.liveSaleForm.doc_number}\n• Cliente: ${this.liveSaleForm.client_name}\n• Monto: $${parseFloat(this.liveSaleForm.amount_usd || amt).toFixed(2)} (${this.liveSaleForm.currency === 'VES' ? 'Bs. ' + amt.toFixed(2) : '$' + amt.toFixed(2)})\n• Método: ${this.liveSaleForm.payment_method}`;
+          if (!confirm(confirmMsg)) {
+            this.isSubmittingSale = false;
+            return;
+          }
+
           try {
             const res = await fetch('/api/sales/live', {
               method: 'POST',

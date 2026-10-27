@@ -123,6 +123,14 @@ window.TEVExpenses = {
             const currentAcc = (this.accounts || []).find(a => a.id == this.form.account_id);
             const curr = (currentAcc && currentAcc.currency) || this.selectedAccountCurrency || 'USD';
 
+            // Confirmación previa de seguridad (evita guardado accidental por presionar Enter)
+            const subLabel = (this.form.subtype || '').replace(/_/g, ' ');
+            const confMsg = `¿Confirma registrar este movimiento (${subLabel})?\n\n• Beneficiario / Proveedor: ${this.form.beneficiary || 'N/A'}\n• Monto: ${curr} ${this.form.amount_original}\n• Concepto: ${this.form.description || 'Sin descripción'}`;
+            if (!confirm(confMsg)) {
+              this.isSubmittingMovement = false;
+              return;
+            }
+
             const isRetActive = this.retentionAssistant && this.retentionAssistant.active;
             const retAmt = isRetActive ? (this.retentionAssistant.total_retention || 0) : 0;
             const retProof = isRetActive ? (this.retentionAssistant.proof_number || '') : '';

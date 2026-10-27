@@ -33,6 +33,11 @@ window.TEVCxcCollections = {
 
         async submitAbono() {
           if (!this.selectedCreditObj) return;
+
+          // Confirmación previa de seguridad (evita guardado accidental por presionar Enter)
+          const confMsg = `¿Confirma registrar este abono de CxC?\n\n• Cliente: ${this.selectedCreditObj.client_name}\n• Documento: ${this.selectedCreditObj.doc_type} #${this.selectedCreditObj.doc_number}\n• Monto Abono: $${this.abonoForm.amount_original}`;
+          if (!confirm(confMsg)) return;
+
           try {
             const token = this.getToken();
             const res = await fetch(`/api/receivables/${this.selectedCreditObj.id}/abono`, {

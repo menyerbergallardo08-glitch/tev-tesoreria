@@ -129,6 +129,12 @@ window.TEVReports = {
             alert('Por favor ingrese una tasa válida.');
             return;
           }
+
+          // Confirmación de seguridad
+          if (!confirm(`¿Confirma actualizar la Tasa Oficial BCV a Bs. ${this.formatNumber(this.newBcvRate)}?`)) {
+            return;
+          }
+
           const token = this.getToken();
           const res = await fetch('/api/system/bcv-rate', {
             method: 'POST',
