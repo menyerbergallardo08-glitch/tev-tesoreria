@@ -25,24 +25,30 @@ window.TEVExpenses = {
           }
         },
 
-        recalculateRetentions() {
+        recalculateRetentions(source = 'total') {
           if (!this.retentionAssistant || !this.retentionAssistant.active) return;
           
           let totalInv = parseFloat(String(this.retentionAssistant.total_invoice || '0').replace(',', '.')) || 0;
           let base = parseFloat(String(this.retentionAssistant.tax_base || '0').replace(',', '.')) || 0;
           
-          if (totalInv > 0 && base <= 0) {
+          if (source === 'total' && totalInv > 0) {
+            // Deducción automática: Base = Total / 1.16
             base = Math.round((totalInv / 1.16) * 100) / 100;
             this.retentionAssistant.tax_base = base;
-          } else if (base > 0 && totalInv <= 0) {
-            totalInv = Math.round((base * 1.16) * 100) / 100;
+          } else if (source === 'base' && base > 0) {
+            // Deducción automática: Total = Base * 1.16
+            const calcIva = Math.round((base * 0.16) * 100) / 100;
+            totalInv = Math.round((base + calcIva) * 100) / 100;
             this.retentionAssistant.total_invoice = totalInv;
           }
           
+          // El IVA no puede ser mayor al 16% de la base ni exceder la diferencia
           const iva = Math.max(0, Math.round((totalInv - base) * 100) / 100);
           this.retentionAssistant.calc_iva = iva;
           
+          // Retención IVA: Solo sobre el IVA facturado
           const retIva = Math.round((iva * (this.retentionAssistant.iva_rate || 0)) * 100) / 100;
+          // Retención ISLR: Solo sobre la base imponible
           const retIslr = Math.round((base * (this.retentionAssistant.islr_rate || 0)) * 100) / 100;
           const totalRet = Math.round((retIva + retIslr) * 100) / 100;
           const netToPay = Math.max(0, Math.round((totalInv - totalRet) * 100) / 100);

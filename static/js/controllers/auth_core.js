@@ -68,6 +68,7 @@ window.TEVAuthCore = {
           await this.loadSuppliers();
           if (this.currentUser?.role === 'directivo') {
             await this.loadUsers();
+            await this.loadDirectorKpis();
           }
         },
 

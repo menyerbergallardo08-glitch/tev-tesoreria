@@ -206,14 +206,14 @@
                   <div>
                     <label class="block text-xs font-bold text-amber-950 mb-1">Total Factura Proveedor (con IVA):</label>
                     <input type="text" inputmode="decimal" x-model="retentionAssistant.total_invoice" 
-                           @input="recalculateRetentions()"
+                           @input="recalculateRetentions('total')"
                            placeholder="0.00"
                            class="w-full input-large border border-amber-300 bg-white font-bold text-xs sm:text-sm">
                   </div>
                   <div>
                     <label class="block text-xs font-bold text-amber-950 mb-1">Base Imponible (sin IVA):</label>
                     <input type="text" inputmode="decimal" x-model="retentionAssistant.tax_base" 
-                           @input="recalculateRetentions()"
+                           @input="recalculateRetentions('base')"
                            placeholder="0.00"
                            class="w-full input-large border border-amber-300 bg-white font-bold text-xs sm:text-sm">
                   </div>

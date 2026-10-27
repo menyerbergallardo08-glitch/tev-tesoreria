@@ -333,19 +333,20 @@ def get_accumulated_sales(
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
                 total_returns_usd += t.amount_usd
 
-        recent_records.append({
-            "id": t.id,
-            "date": t.date.isoformat() if t.date else "",
-            "doc_type": t.doc_type or "-",
-            "doc_number": t.doc_number or "-",
-            "client_name": t.client_name or t.beneficiary or "Cliente Mostrador",
-            "is_credit": t.is_credit,
-            "condition_label": "A Crédito (CxC)" if t.is_credit else "De Contado",
-            "amount_usd": round(t.amount_usd, 2),
-            "amount_original": round(t.amount_original, 2),
-            "currency": t.currency,
-            "tax_retention_amount": round(t.tax_retention_amount or 0.0, 2)
-        })
+        if t.movement_type == "INGRESO" or t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type == "DEVOLUCION":
+            recent_records.append({
+                "id": t.id,
+                "date": t.date.isoformat() if t.date else "",
+                "doc_type": t.doc_type or "-",
+                "doc_number": t.doc_number or "-",
+                "client_name": t.client_name or t.beneficiary or "Cliente Mostrador",
+                "is_credit": t.is_credit,
+                "condition_label": "A Crédito (CxC)" if t.is_credit else "De Contado",
+                "amount_usd": round(t.amount_usd, 2),
+                "amount_original": round(t.amount_original, 2),
+                "currency": t.currency,
+                "tax_retention_amount": round(t.tax_retention_amount or 0.0, 2)
+            })
 
     total_fiscal_iva_usd = fac_contado_usd + fac_credito_usd
     total_notes_despacho_usd = not_contado_usd + not_credito_usd
