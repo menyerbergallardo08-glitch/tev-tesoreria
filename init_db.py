@@ -49,6 +49,12 @@ def run_migrations():
             except Exception:
                 pass
 
+        if not is_sqlite:
+            try:
+                conn.execute(text("ALTER TABLE transactions ALTER COLUMN account_id DROP NOT NULL;"))
+            except Exception:
+                pass
+
 def init_all():
     run_migrations()
     db = SessionLocal()
