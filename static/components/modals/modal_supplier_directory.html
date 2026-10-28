@@ -1,0 +1,73 @@
+    <!-- MODAL DIRECTORIO Y CATÁLOGO DE PROVEEDORES -->
+    <div x-cloak x-show="showSupplierDirectoryModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+      <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-4xl w-full border border-slate-200 space-y-4 my-auto max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">📒</span>
+            <div>
+              <h3 class="text-lg font-black text-gray-900">Directorio de Proveedores</h3>
+              <p class="text-xs text-gray-500">Consulta, búsqueda rápida y edición de cuentas de proveedores</p>
+            </div>
+          </div>
+          <button @click="showSupplierDirectoryModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-xl p-1 rounded-lg cursor-pointer">✕</button>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="relative flex-1 min-w-[200px]">
+            <input type="text" x-model="supplierSearchQuery" placeholder="🔍 Buscar por nombre, RIF, teléfono o banco..."
+                   class="w-full p-2.5 pl-3 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-slate-400">
+          </div>
+          <button type="button" @click="showSupplierDirectoryModal = false; openSupplierModal()"
+                  class="px-3.5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1 cursor-pointer">
+            <span>➕</span> Nuevo Proveedor
+          </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 border border-gray-200 rounded-2xl">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-gray-100 text-gray-700 font-bold sticky top-0">
+              <tr>
+                <th class="p-3">Nombre / Razón Social</th>
+                <th class="p-3">RIF</th>
+                <th class="p-3">Teléfono</th>
+                <th class="p-3">Datos Bancarios / Pago Móvil</th>
+                <th class="p-3 text-center">Estado</th>
+                <th class="p-3 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <template x-for="sup in getFilteredSuppliers()" :key="sup.id">
+                <tr class="hover:bg-slate-50 transition">
+                  <td class="p-3 font-bold text-gray-900" x-text="sup.name"></td>
+                  <td class="p-3 font-mono text-gray-700" x-text="sup.rif || '-'"></td>
+                  <td class="p-3 text-gray-700" x-text="sup.phone || '-'"></td>
+                  <td class="p-3 font-mono text-[11px] text-gray-600 max-w-[240px] truncate" :title="sup.bank_details" x-text="sup.bank_details || '-'"></td>
+                  <td class="p-3 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                          :class="sup.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'"
+                          x-text="sup.is_active ? 'Activo' : 'Inactivo'"></span>
+                  </td>
+                  <td class="p-3 text-center">
+                    <button type="button" @click="openEditSupplierModal(sup)"
+                            class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-lg border border-amber-300 transition flex items-center gap-1 mx-auto cursor-pointer"
+                            title="Editar datos del proveedor">
+                      <span>✏️</span> Editar
+                    </button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!getFilteredSuppliers() || getFilteredSuppliers().length === 0">
+                <td colspan="6" class="p-6 text-center text-gray-400">No se encontraron proveedores que coincidan con la búsqueda.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t text-xs text-gray-500">
+          <span>Total proveedores: <strong x-text="getFilteredSuppliers().length"></strong> de <strong x-text="(suppliers || []).length"></strong></span>
+          <button type="button" @click="showSupplierDirectoryModal = false" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>

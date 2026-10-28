@@ -278,34 +278,58 @@ window.TEVExpenses = {
             beneficiary: item.beneficiary || item.client_name || '',
             doc_number: item.doc_number || '',
             reference_number: item.reference_number || '',
-            description: item.description || ''
+            description: item.description || '',
+            amount_original: item.amount_original || '',
+            currency: item.currency || 'USD',
+            account_id: item.account_id || '',
+            category_id: item.category_id || '',
+            edit_reason: ''
           };
           this.showEditTransactionModal = true;
         },
 
         async saveEditedTransaction() {
           if (!this.editingTx) return;
+          if (!this.editingTxForm.edit_reason || !this.editingTxForm.edit_reason.trim()) {
+            this.showToast('error', 'Motivo Obligatorio', 'Debe indicar obligatoriamente el motivo de la corrección para la bitácora de auditoría.');
+            return;
+          }
           this.isSavingEditTx = true;
           try {
             const token = this.getToken();
+            const payload = {
+              beneficiary: this.editingTxForm.beneficiary,
+              doc_number: this.editingTxForm.doc_number,
+              reference_number: this.editingTxForm.reference_number,
+              description: this.editingTxForm.description,
+              amount_original: parseFloat(this.editingTxForm.amount_original) || this.editingTx.amount_original,
+              currency: this.editingTxForm.currency || this.editingTx.currency,
+              account_id: parseInt(this.editingTxForm.account_id) || this.editingTx.account_id,
+              category_id: this.editingTxForm.category_id ? parseInt(this.editingTxForm.category_id) : this.editingTx.category_id,
+              edit_reason: this.editingTxForm.edit_reason.trim()
+            };
             const res = await fetch('/api/transactions/' + this.editingTx.id, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
               },
-              body: JSON.stringify(this.editingTxForm)
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al actualizar');
-            this.showToast('success', 'Movimiento Corregido', `Se actualizaron los datos del registro #${this.editingTx.id}`);
+            this.showToast('success', 'Movimiento Corregido', `Se corrigió el movimiento #${this.editingTx.id} con registro en auditoría.`);
             this.showEditTransactionModal = false;
             await this.loadTransactions();
+            await this.loadAccounts();
             if (typeof this.loadLiveMonitor === 'function') {
               await this.loadLiveMonitor();
             }
             if (typeof this.loadSalesAccumulated === 'function') {
               await this.loadSalesAccumulated();
+            }
+            if (typeof this.loadDirectorKpis === 'function') {
+              await this.loadDirectorKpis();
             }
           } catch (err) {
             this.showToast('error', 'Error al Guardar', err.message);
@@ -678,6 +702,78 @@ window.TEVExpenses = {
             }
             this.showToast('error', 'Error Proveedor', errMsg);
           }
+        },
+
+        openEditSupplierModal(sup) {
+          const target = sup || this.selectedSupplierObj;
+          if (!target) {
+            this.showToast('error', 'Proveedor Requerido', 'Seleccione un proveedor para editar.');
+            return;
+          }
+          this.editingSupplier = {
+            id: target.id,
+            name: target.name || '',
+            rif: target.rif || '',
+            phone: target.phone || '',
+            bank_details: target.bank_details || '',
+            is_active: target.is_active !== false
+          };
+          this.showEditSupplierModal = true;
+        },
+
+        async saveEditSupplier() {
+          if (!this.editingSupplier || !this.editingSupplier.id) return;
+          if (!this.editingSupplier.name.trim()) {
+            this.showToast('error', 'Nombre Requerido', 'La razón social del proveedor es obligatoria.');
+            return;
+          }
+          this.isSavingSupplier = true;
+          try {
+            const token = this.getToken();
+            const res = await fetch('/api/suppliers/' + this.editingSupplier.id, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({
+                name: this.editingSupplier.name.trim(),
+                rif: this.editingSupplier.rif ? this.editingSupplier.rif.trim() : null,
+                phone: this.editingSupplier.phone ? this.editingSupplier.phone.trim() : null,
+                bank_details: this.editingSupplier.bank_details ? this.editingSupplier.bank_details.trim() : '',
+                is_active: this.editingSupplier.is_active
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al actualizar proveedor');
+            await this.loadSuppliers();
+            if (this.selectedSupplierId === this.editingSupplier.id) {
+              this.onSupplierSelect();
+            }
+            this.showEditSupplierModal = false;
+            this.showToast('success', 'Proveedor Actualizado', `Datos del proveedor '${data.name}' actualizados correctamente.`);
+          } catch (err) {
+            this.showToast('error', 'Error Proveedor', err.message);
+          } finally {
+            this.isSavingSupplier = false;
+          }
+        },
+
+        openSupplierDirectory() {
+          this.supplierSearchQuery = '';
+          this.showSupplierDirectoryModal = true;
+        },
+
+        getFilteredSuppliers() {
+          if (!this.suppliers || !Array.isArray(this.suppliers)) return [];
+          const q = (this.supplierSearchQuery || '').toLowerCase().trim();
+          if (!q) return this.suppliers;
+          return this.suppliers.filter(s =>
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            (s.rif && s.rif.toLowerCase().includes(q)) ||
+            (s.phone && s.phone.toLowerCase().includes(q)) ||
+            (s.bank_details && s.bank_details.toLowerCase().includes(q))
+          );
         },
 
         getAvailableAccountsForForm() {

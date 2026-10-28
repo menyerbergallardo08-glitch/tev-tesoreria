@@ -88,7 +88,17 @@ window.TEVState = {
         // Modal y Formulario de Corrección de Movimientos
         showEditTransactionModal: false,
         editingTx: null,
-        editingTxForm: { beneficiary: '', doc_number: '', reference_number: '', description: '' },
+        editingTxForm: {
+          beneficiary: '',
+          doc_number: '',
+          reference_number: '',
+          description: '',
+          amount_original: '',
+          currency: 'USD',
+          account_id: '',
+          category_id: '',
+          edit_reason: ''
+        },
         isSavingEditTx: false,
 
         setDocumentType(type) {
@@ -257,7 +267,12 @@ window.TEVState = {
         selectedSupplierId: '',
         selectedSupplierObj: null,
         showSupplierModal: false,
+        showEditSupplierModal: false,
+        showSupplierDirectoryModal: false,
+        supplierSearchQuery: '',
+        isSavingSupplier: false,
         newSupplierForm: { name: '', rif: '', phone: '', bank_details: '' },
+        editingSupplier: { id: null, name: '', rif: '', phone: '', bank_details: '', is_active: true },
         filterDate: '',
         showArqueoReceiptModal: false,
         onePageMode: 'mensual',

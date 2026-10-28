@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from models import TreasuryAccount, AccountMonthlyBalance, Transaction, BudgetCategory, User, DailyCashClose
+from models import TreasuryAccount, AccountMonthlyBalance, Transaction, BudgetCategory, User, DailyCashClose, AuditLog
 from core.security import require_roles
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard / Flujo de Caja"])
@@ -730,6 +730,61 @@ def get_director_kpis(
 
     avg_dpo_days = round(total_dpo_days_weighted / total_supp_paid_usd, 1) if (total_supp_paid_usd > 0 and supp_invoiced_count > 0) else 0.0
 
+    # 6. KPI de Correcciones y Errores Operativos (Egresos y Pagos Editados)
+    audit_start_dt = datetime.datetime.combine(start_date, datetime.time.min)
+    audit_end_dt = datetime.datetime.combine(end_date, datetime.time.max)
+    
+    correction_logs = db.query(AuditLog).filter(
+        AuditLog.action.in_(["CORRECCION_EMERGENCIA_EGRESO", "UPDATE_TRANSACTION"]),
+        AuditLog.timestamp >= audit_start_dt,
+        AuditLog.timestamp <= audit_end_dt
+    ).order_by(AuditLog.timestamp.desc()).all()
+
+    corrections_by_user = {}
+    corrections_list = []
+    for log in correction_logs:
+        u = log.username or "Desconocido"
+        corrections_by_user[u] = corrections_by_user.get(u, 0) + 1
+        
+        raw_det = log.details_json
+        det = {}
+        if isinstance(raw_det, str):
+            try:
+                import json
+                det = json.loads(raw_det)
+            except Exception:
+                det = {}
+        elif isinstance(raw_det, dict):
+            det = raw_det
+        
+        reason = det.get("reason", "Corrección operativa")
+        prev = det.get("previous", {})
+        changes = det.get("changes", {})
+        
+        prev_amt = prev.get("amount_original", None)
+        new_amt = changes.get("amount_original", prev_amt)
+        curr = changes.get("currency", prev.get("currency", "USD"))
+        
+        corrections_list.append({
+            "id": log.id,
+            "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else "",
+            "username": u,
+            "entity_id": log.entity_id,
+            "action": log.action,
+            "reason": reason,
+            "prev_amount": prev_amt,
+            "new_amount": new_amt,
+            "currency": curr,
+            "beneficiary": changes.get("beneficiary", prev.get("beneficiary", "")),
+            "reference": changes.get("reference_number", prev.get("reference_number", ""))
+        })
+
+    operational_corrections_kpi = {
+        "total_count": len(correction_logs),
+        "by_user": [{"username": k, "count": v} for k, v in corrections_by_user.items()],
+        "recent_corrections": corrections_list[:20]
+    }
+
     return {
         "month": target_month,
         "period_label": f"{start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}",
@@ -776,5 +831,6 @@ def get_director_kpis(
             "payments_count": len(supplier_payments),
             "avg_dpo_days": avg_dpo_days,
             "invoiced_count": supp_invoiced_count
-        }
+        },
+        "operational_corrections_kpi": operational_corrections_kpi
     }

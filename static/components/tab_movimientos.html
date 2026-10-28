@@ -80,17 +80,29 @@
             <div x-show="form.movement_type === 'EGRESO' && form.subtype === 'PAGO_PROVEEDOR'" class="p-4 bg-orange-50/80 border border-orange-200 rounded-2xl space-y-3">
               <div class="flex items-center justify-between">
                 <label class="block text-xs font-black text-orange-950">📦 Proveedor al que se realiza el pago:</label>
-                <button type="button" @click="openSupplierModal()" class="text-xs font-bold text-orange-700 bg-white hover:bg-orange-100 px-2.5 py-1 rounded-lg border border-orange-300 flex items-center gap-1 cursor-pointer">
-                  <span>➕</span> Registrar Nuevo Proveedor
+                <div class="flex items-center gap-2">
+                  <button type="button" @click="openSupplierDirectory()" class="text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-300 flex items-center gap-1 cursor-pointer" title="Directorio y catálogo completo de proveedores">
+                    <span>📒</span> Directorio
+                  </button>
+                  <button type="button" @click="openSupplierModal()" class="text-xs font-bold text-orange-700 bg-white hover:bg-orange-100 px-2.5 py-1 rounded-lg border border-orange-300 flex items-center gap-1 cursor-pointer">
+                    <span>➕</span> Nuevo Proveedor
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <select x-model="selectedSupplierId" @change="onSupplierSelect()"
+                        class="w-full input-large border border-orange-300 bg-white font-bold text-xs sm:text-sm text-orange-950">
+                  <option value="">-- Seleccionar Proveedor Registrado o Escribir Abajo --</option>
+                  <template x-for="sup in suppliers" :key="sup.id">
+                    <option :value="sup.id" x-text="sup.name + (sup.rif ? ' [' + sup.rif + ']' : '')"></option>
+                  </template>
+                </select>
+                <button type="button" x-show="selectedSupplierId" @click="openEditSupplierModal(selectedSupplierObj)"
+                        class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                        title="Editar datos del proveedor seleccionado (RIF, teléfono, pago móvil)">
+                  <span>✏️</span> Editar
                 </button>
               </div>
-              <select x-model="selectedSupplierId" @change="onSupplierSelect()"
-                      class="w-full input-large border border-orange-300 bg-white font-bold text-xs sm:text-sm text-orange-950">
-                <option value="">-- Seleccionar Proveedor Registrado o Escribir Abajo --</option>
-                <template x-for="sup in suppliers" :key="sup.id">
-                  <option :value="sup.id" x-text="sup.name + (sup.rif ? ' [' + sup.rif + ']' : '')"></option>
-                </template>
-              </select>
               <div x-show="selectedSupplierObj?.bank_details" class="text-xs text-orange-900 bg-white p-2.5 rounded-xl border border-orange-200">
                 <strong>Datos de Pago / Pago Móvil:</strong> <span class="font-mono" x-text="selectedSupplierObj?.bank_details"></span>
               </div>
@@ -390,11 +402,18 @@
                             x-text="item.status"></span>
                     </td>
                     <td class="p-3 text-center">
-                      <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
-                        <button @click="cancelTransaction(item.id)" class="text-rose-600 hover:text-rose-800 font-bold p-1 text-xs" title="Anular movimiento">
-                          ❌
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" @click="openEditTransactionModal(item)"
+                                class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer"
+                                title="Corregir datos de emergencia o error de digitación">
+                          <span>✏️</span> Corregir
                         </button>
-                      </template>
+                        <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
+                          <button @click="cancelTransaction(item.id)" class="text-rose-600 hover:text-rose-800 font-bold p-1 text-xs" title="Anular movimiento">
+                            ❌
+                          </button>
+                        </template>
+                      </div>
                     </td>
                   </tr>
                 </template>

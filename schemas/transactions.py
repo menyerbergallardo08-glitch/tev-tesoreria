@@ -48,9 +48,11 @@ class TransactionUpdate(BaseModel):
     beneficiary: Optional[str] = None
     reference_number: Optional[str] = None
     category_id: Optional[int] = None
+    account_id: Optional[int] = None
     doc_type: Optional[str] = None
     doc_number: Optional[str] = None
     is_credit: Optional[bool] = None
     credit_status: Optional[str] = None
     description: Optional[str] = None
+    edit_reason: Optional[str] = None
 
