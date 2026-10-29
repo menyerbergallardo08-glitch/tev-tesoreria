@@ -1170,7 +1170,7 @@
       <!-- ======================================================== -->
 
       <!-- COMPONENTE: static/components/tab_movimientos.html -->
-      <div x-show="activeTab === 'movimientos'" class="space-y-6">
+<div x-show="activeTab === 'movimientos'" class="space-y-6">
         
         <!-- Formulario Principal Limpio y Ergonómico -->
         <div class="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-gray-200">
@@ -1197,7 +1197,7 @@
               </label>
 
               <!-- Tarjetas Grandes y Claras -->
-              <div :class="currentUser?.role === 'cajera' ? 'grid grid-cols-1 sm:grid-cols-3 gap-3' : 'grid grid-cols-2 sm:grid-cols-4 gap-3'">
+              <div :class="currentUser?.role === 'cajera' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 sm:grid-cols-4 gap-3'">
                 
                 <!-- Opción 1: Pago a Proveedor -->
                 <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'PAGO_PROVEEDOR'"
@@ -1221,14 +1221,14 @@
                   </div>
                 </button>
 
-                <!-- Opción 3: Retiro de Accionista (Socios / Utilidades) -->
-                <button type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
+                <!-- Opción 3: Retiro de Accionista (Exclusivo Administradora y Directivos) -->
+                <button x-show="currentUser?.role !== 'cajera'" type="button" @click="form.movement_type = 'EGRESO'; form.subtype = 'RETIRO_ACCIONISTA'"
                         :class="(form.movement_type === 'EGRESO' && form.subtype === 'RETIRO_ACCIONISTA') ? 'bg-purple-700 text-white shadow-md ring-4 ring-purple-200' : 'bg-slate-50 text-gray-700 border border-gray-200 hover:bg-purple-50'"
                         class="p-3.5 rounded-2xl flex items-center gap-2.5 transition text-left cursor-pointer">
                   <span class="text-2xl">👤</span>
                   <div>
                     <p class="text-xs font-black">Retiro de Accionista</p>
-                    <p class="text-[10px] opacity-80">Retiro de socios / accionistas</p>
+                    <p class="text-[10px] opacity-80">Retiro de socios / utilidades</p>
                   </div>
                 </button>
 
@@ -1373,8 +1373,6 @@
               </label>
               <input type="text" x-model="form.beneficiary" placeholder="Ej: Distribuidora Eléctrica Centro C.A. / Corpoelec / Pago de Almuerzos"
                      class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
-            </div>
-
             <!-- 4.1 ASISTENTE QUIRÚRGICO DE RETENCIONES SENIAT (SUJETO PASIVO ESPECIAL) -->
             <div x-show="form.movement_type === 'EGRESO' && (form.subtype === 'PAGO_PROVEEDOR' || form.subtype === 'GASTO_OPERATIVO')" 
                  class="p-4 rounded-2xl border transition-all"
@@ -1482,21 +1480,126 @@
               </div>
             </div>
 
-            <!-- 5. MONTO Y CONVERSIÓN EN VIVO -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">
-                  Monto en <span class="text-tev-darkgreen font-black" x-text="selectedAccountCurrency"></span>:
-                </label>
-                <input type="text" inputmode="decimal" x-model="form.amount_original" placeholder="0.00"
-                       class="w-full input-large border border-gray-300 font-black text-xl text-tev-darkgreen bg-white">
+            <!-- 4.2 ASISTENTE DE DESCUENTO POR PRONTO PAGO -->
+            <div x-show="form.movement_type === 'EGRESO' && (form.subtype === 'PAGO_PROVEEDOR' || form.subtype === 'GASTO_OPERATIVO')" 
+                 class="p-4 rounded-2xl border transition-all"
+                 :class="discountAssistant?.active ? 'bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-200' : 'bg-slate-50/80 border-slate-200'">
+              <div class="flex items-center justify-between cursor-pointer" @click="toggleDiscountAssistant()">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-xl">🎁</span>
+                  <div>
+                    <p class="text-xs font-black text-gray-900">Descuento Comercial / Pronto Pago</p>
+                    <p class="text-[11px] text-gray-500">Descontar automáticamente beneficio por pronto pago (ej: 5%, 10% o monto fijo)</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold" :class="discountAssistant?.active ? 'text-indigo-800' : 'text-gray-400'" 
+                        x-text="discountAssistant?.active ? 'ACTIVADO' : 'NO APLICA'"></span>
+                  <div class="w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out relative cursor-pointer"
+                       :class="discountAssistant?.active ? 'bg-indigo-600' : 'bg-gray-300'">
+                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out"
+                         :class="discountAssistant?.active ? 'translate-x-4' : 'translate-x-0'"></div>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">Equivalente de Conversión:</label>
-                <div class="input-large bg-emerald-50 border border-emerald-200 text-emerald-950 font-black text-xl flex items-center justify-between">
-                  <span x-text="selectedAccountCurrency === 'USD' ? 'Bs. Equivalente:' : '$ Equivalente:'"></span>
-                  <span x-text="selectedAccountCurrency === 'USD' ? 'Bs. ' + formatNumber((parseFloat(String(form.amount_original).replace(',', '.')) || 0) * (form.exchange_rate || bcvRate)) : '$ ' + formatNumber((parseFloat(String(form.amount_original).replace(',', '.')) || 0) / (form.exchange_rate || bcvRate))"></span>
+              <!-- PANEL ASISTIDO DE DESCUENTO -->
+              <div x-show="discountAssistant?.active" class="mt-4 pt-4 border-t border-indigo-200 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-indigo-950 mb-1">Total Factura Proveedor:</label>
+                    <input type="text" inputmode="decimal" x-model="discountAssistant.total_invoice" 
+                           @input="recalculateDiscount()"
+                           placeholder="0.00"
+                           class="w-full input-large border border-indigo-300 bg-white font-bold text-xs sm:text-sm">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-indigo-950 mb-1">Tipo de Descuento:</label>
+                    <select x-model="discountAssistant.discount_type" @change="recalculateDiscount()"
+                            class="w-full input-large border border-indigo-300 bg-white font-bold text-xs sm:text-sm">
+                      <option value="percent">Porcentaje (%)</option>
+                      <option value="amount">Monto Fijo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-indigo-950 mb-1" x-text="discountAssistant.discount_type === 'percent' ? 'Porcentaje (%):' : 'Monto Descuento:'"></label>
+                    <input type="text" inputmode="decimal" x-model="discountAssistant.discount_value" 
+                           @input="recalculateDiscount()"
+                           :placeholder="discountAssistant.discount_type === 'percent' ? 'Ej: 10' : 'Ej: 50.00'"
+                           class="w-full input-large border border-indigo-300 bg-white font-bold text-xs sm:text-sm">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <div class="p-2.5 bg-indigo-100/70 border border-indigo-300 rounded-xl text-center">
+                    <span class="block text-[11px] font-bold text-indigo-900">AHORRO / DESCUENTO</span>
+                    <span class="text-base font-black text-indigo-800" x-text="'- ' + formatNumber(discountAssistant.discount_amount || 0)"></span>
+                    <span class="block text-[10px] text-indigo-700">Deducido de la factura</span>
+                  </div>
+                  <div class="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl text-center">
+                    <span class="block text-[11px] font-bold text-emerald-800">NETO REAL A DESEMBOLSAR</span>
+                    <span class="text-base font-black text-emerald-700" x-text="formatNumber(discountAssistant.net_to_pay || 0)"></span>
+                    <span class="block text-[10px] text-emerald-600">Monto asignado al pago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. MONTO Y CONVERSIÓN EN VIVO -->
+            <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3">
+              
+              <!-- Si la cuenta de salida es VES: Fila de Tasa de Cambio y selector bidireccional -->
+              <div x-show="selectedAccountCurrency === 'VES'" class="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label class="block text-xs font-black text-blue-950">
+                      💱 Tasa de Cambio para este Pago (Bs / $):
+                    </label>
+                    <p class="text-[11px] text-blue-700">Tasa oficial BCV o pactada con el proveedor (Binance, Euro, etc.)</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input type="text" inputmode="decimal" x-model="form.exchange_rate" 
+                           @input="recalculateExpenseUsd('original')"
+                           class="w-32 p-2 border border-blue-300 rounded-xl font-black text-right text-blue-950 bg-white">
+                    <button type="button" @click="form.exchange_rate = bcvRate; recalculateExpenseUsd('original')"
+                            class="px-2.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition whitespace-nowrap cursor-pointer"
+                            title="Restablecer a Tasa Oficial BCV">
+                      BCV: <span x-text="formatNumber(bcvRate)"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fila de Montos: Monto en Moneda de Cuenta + Equivalente / Base USD -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-bold text-gray-700 mb-1">
+                    Monto a Transferir en <span class="text-tev-darkgreen font-black" x-text="selectedAccountCurrency"></span>:
+                  </label>
+                  <input type="text" inputmode="decimal" x-model="form.amount_original" 
+                         @input="recalculateExpenseUsd('original')"
+                         placeholder="0.00"
+                         class="w-full input-large border border-gray-300 font-black text-xl text-tev-darkgreen bg-white">
+                </div>
+
+                <div x-show="selectedAccountCurrency === 'VES'">
+                  <label class="block text-xs font-bold text-gray-700 mb-1">Base en Dólares ($ USD):</label>
+                  <div class="relative">
+                    <input type="text" inputmode="decimal" x-model="form.amount_usd" 
+                           @input="recalculateExpenseUsd('usd')"
+                           placeholder="0.00"
+                           class="w-full input-large border border-emerald-300 font-black text-xl text-emerald-800 bg-emerald-50/50 pr-12">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">USD</span>
+                  </div>
+                  <p class="text-[10px] text-gray-500 mt-1">Puedes escribir el monto en Bs. o directamente los $ de la factura.</p>
+                </div>
+
+                <div x-show="selectedAccountCurrency !== 'VES'">
+                  <label class="block text-xs font-bold text-gray-700 mb-1">Equivalente de Conversión:</label>
+                  <div class="input-large bg-emerald-50 border border-emerald-200 text-emerald-950 font-black text-xl flex items-center justify-between">
+                    <span>Bs. Equivalente:</span>
+                    <span x-text="'Bs. ' + formatNumber((parseFloat(String(form.amount_original).replace(',', '.')) || 0) * (form.exchange_rate || bcvRate))"></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1577,11 +1680,13 @@
                     </td>
                     <td class="p-3 text-center">
                       <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" @click="openEditTransactionModal(item)" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer" title="Editar datos descriptivos del movimiento">
-                          <span>✏️</span> Editar
+                        <button type="button" @click="openEditTransactionModal(item)"
+                                class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer"
+                                title="Corregir datos de emergencia o error de digitación">
+                          <span>✏️</span> Corregir
                         </button>
                         <template x-if="currentUser?.role === 'directivo' || currentUser?.role === 'administradora'">
-                          <button type="button" @click="cancelTransaction(item.id)" class="p-1 text-rose-600 hover:text-rose-800 font-bold text-xs hover:bg-rose-50 rounded-lg transition cursor-pointer" title="Anular movimiento">
+                          <button @click="cancelTransaction(item.id)" class="text-rose-600 hover:text-rose-800 font-bold p-1 text-xs" title="Anular movimiento">
                             ❌
                           </button>
                         </template>
@@ -1598,6 +1703,11 @@
         </div>
 
       </div>
+
+
+      <!-- ======================================================== -->
+      <!-- TAB CUADRE DIARIO INTEGRAL & ARQUEO DE CAJA -->
+      <!-- ======================================================== -->
 
 
       <!-- ======================================================== -->
