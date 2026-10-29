@@ -60,6 +60,59 @@ window.TEVExpenses = {
           
           if (netToPay > 0) {
             this.form.amount_original = netToPay;
+            this.recalculateExpenseUsd('original');
+          }
+        },
+
+        toggleDiscountAssistant() {
+          if (!this.discountAssistant) {
+            this.discountAssistant = {
+              active: false,
+              total_invoice: '',
+              discount_type: 'percent',
+              discount_value: '',
+              discount_amount: 0,
+              net_to_pay: 0
+            };
+          }
+          this.discountAssistant.active = !this.discountAssistant.active;
+          if (this.discountAssistant.active) {
+            this.recalculateDiscount();
+          }
+        },
+
+        recalculateDiscount() {
+          if (!this.discountAssistant || !this.discountAssistant.active) return;
+          const tot = parseFloat(String(this.discountAssistant.total_invoice || '0').replace(',', '.')) || 0;
+          const val = parseFloat(String(this.discountAssistant.discount_value || '0').replace(',', '.')) || 0;
+          let discAmt = 0;
+          if (this.discountAssistant.discount_type === 'percent') {
+            discAmt = Math.round(tot * (val / 100) * 100) / 100;
+          } else {
+            discAmt = Math.min(tot, val);
+          }
+          const net = Math.max(0, Math.round((tot - discAmt) * 100) / 100);
+          this.discountAssistant.discount_amount = discAmt;
+          this.discountAssistant.net_to_pay = net;
+          if (net > 0) {
+            this.form.amount_original = net;
+            this.recalculateExpenseUsd('original');
+          }
+        },
+
+        recalculateExpenseUsd(fromField = 'original') {
+          const rate = parseFloat(this.form.exchange_rate) || parseFloat(this.bcvRate) || 1.0;
+          if (this.selectedAccountCurrency === 'VES') {
+            if (fromField === 'original') {
+              const orig = parseFloat(String(this.form.amount_original || '0').replace(',', '.')) || 0;
+              this.form.amount_usd = Math.round((orig / rate) * 100) / 100;
+            } else if (fromField === 'usd') {
+              const usd = parseFloat(String(this.form.amount_usd || '0').replace(',', '.')) || 0;
+              this.form.amount_original = Math.round((usd * rate) * 100) / 100;
+            }
+          } else {
+            const orig = parseFloat(String(this.form.amount_original || '0').replace(',', '.')) || 0;
+            this.form.amount_usd = orig;
           }
         },
 
@@ -137,8 +190,17 @@ window.TEVExpenses = {
             
             let extraDesc = '';
             if (isRetActive && retAmt > 0) {
-              extraDesc = ` [Retención SENIAT: Factura: ${this.retentionAssistant.total_invoice} | Ret. IVA: ${this.retentionAssistant.ret_iva_amt} | Ret. ISLR: ${this.retentionAssistant.ret_islr_amt} | Neto Pagado: ${this.form.amount_original}]`;
+              extraDesc += ` [Retención SENIAT: Factura: ${this.retentionAssistant.total_invoice} | Ret. IVA: ${this.retentionAssistant.ret_iva_amt} | Ret. ISLR: ${this.retentionAssistant.ret_islr_amt} | Neto Pagado: ${this.form.amount_original}]`;
             }
+            const isDiscActive = this.discountAssistant && this.discountAssistant.active;
+            if (isDiscActive && this.discountAssistant.discount_amount > 0) {
+              const dLabel = this.discountAssistant.discount_type === 'percent' ? `${this.discountAssistant.discount_value}%` : `${this.discountAssistant.discount_value}`;
+              extraDesc += ` [Descuento Pronto Pago: -${dLabel} (Monto: ${this.discountAssistant.discount_amount}) | Factura: ${this.discountAssistant.total_invoice} | Neto Pagado: ${this.form.amount_original}]`;
+            }
+
+            const finalRate = (curr === 'VES') ? (parseFloat(this.form.exchange_rate) || parseFloat(this.bcvRate) || 1.0) : 1.0;
+            const finalUsd = (curr === 'VES') ? (parseFloat(this.form.amount_usd) || (Math.round((parseFloat(this.form.amount_original) / finalRate) * 100) / 100)) : parseFloat(this.form.amount_original);
+            const savedDate = this.form.date;
 
             const payload = {
               date: this.form.date,
@@ -148,7 +210,8 @@ window.TEVExpenses = {
               category_id: this.form.category_id ? parseInt(this.form.category_id) : null,
               amount_original: parseFloat(this.form.amount_original),
               currency: curr,
-              exchange_rate: parseFloat(this.form.exchange_rate) || 1.0,
+              exchange_rate: finalRate,
+              amount_usd: finalUsd,
               reference_number: this.form.reference_number || '',
               invoice_date: this.form.invoice_date || null,
               beneficiary: this.form.beneficiary || '',
@@ -169,8 +232,9 @@ window.TEVExpenses = {
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al guardar');
 
-            this.showToast('success', '¡Guardado Exitoso!', 'El movimiento fue registrado correctamente.');
+            this.showToast('success', '¡Guardado Exitoso!', `El movimiento fue registrado correctamente para la fecha ${savedDate}.`);
             this.form.amount_original = '';
+            this.form.amount_usd = 0;
             this.form.reference_number = '';
             this.form.beneficiary = '';
             this.form.description = '';
@@ -185,6 +249,18 @@ window.TEVExpenses = {
               this.retentionAssistant.total_retention = 0;
               this.retentionAssistant.net_to_pay = 0;
               this.retentionAssistant.proof_number = '';
+            }
+
+            if (this.discountAssistant) {
+              this.discountAssistant.active = false;
+              this.discountAssistant.total_invoice = '';
+              this.discountAssistant.discount_value = '';
+              this.discountAssistant.discount_amount = 0;
+              this.discountAssistant.net_to_pay = 0;
+            }
+
+            if (savedDate) {
+              this.filterDate = savedDate;
             }
 
             await this.loadAccounts();
@@ -278,34 +354,58 @@ window.TEVExpenses = {
             beneficiary: item.beneficiary || item.client_name || '',
             doc_number: item.doc_number || '',
             reference_number: item.reference_number || '',
-            description: item.description || ''
+            description: item.description || '',
+            amount_original: item.amount_original || '',
+            currency: item.currency || 'USD',
+            account_id: item.account_id || '',
+            category_id: item.category_id || '',
+            edit_reason: ''
           };
           this.showEditTransactionModal = true;
         },
 
         async saveEditedTransaction() {
           if (!this.editingTx) return;
+          if (!this.editingTxForm.edit_reason || !this.editingTxForm.edit_reason.trim()) {
+            this.showToast('error', 'Motivo Obligatorio', 'Debe indicar obligatoriamente el motivo de la corrección para la bitácora de auditoría.');
+            return;
+          }
           this.isSavingEditTx = true;
           try {
             const token = this.getToken();
+            const payload = {
+              beneficiary: this.editingTxForm.beneficiary,
+              doc_number: this.editingTxForm.doc_number,
+              reference_number: this.editingTxForm.reference_number,
+              description: this.editingTxForm.description,
+              amount_original: parseFloat(this.editingTxForm.amount_original) || this.editingTx.amount_original,
+              currency: this.editingTxForm.currency || this.editingTx.currency,
+              account_id: parseInt(this.editingTxForm.account_id) || this.editingTx.account_id,
+              category_id: this.editingTxForm.category_id ? parseInt(this.editingTxForm.category_id) : this.editingTx.category_id,
+              edit_reason: this.editingTxForm.edit_reason.trim()
+            };
             const res = await fetch('/api/transactions/' + this.editingTx.id, {
               method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
               },
-              body: JSON.stringify(this.editingTxForm)
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al actualizar');
-            this.showToast('success', 'Movimiento Corregido', `Se actualizaron los datos del registro #${this.editingTx.id}`);
+            this.showToast('success', 'Movimiento Corregido', `Se corrigió el movimiento #${this.editingTx.id} con registro en auditoría.`);
             this.showEditTransactionModal = false;
             await this.loadTransactions();
+            await this.loadAccounts();
             if (typeof this.loadLiveMonitor === 'function') {
               await this.loadLiveMonitor();
             }
             if (typeof this.loadSalesAccumulated === 'function') {
               await this.loadSalesAccumulated();
+            }
+            if (typeof this.loadDirectorKpis === 'function') {
+              await this.loadDirectorKpis();
             }
           } catch (err) {
             this.showToast('error', 'Error al Guardar', err.message);
@@ -678,6 +778,78 @@ window.TEVExpenses = {
             }
             this.showToast('error', 'Error Proveedor', errMsg);
           }
+        },
+
+        openEditSupplierModal(sup) {
+          const target = sup || this.selectedSupplierObj;
+          if (!target) {
+            this.showToast('error', 'Proveedor Requerido', 'Seleccione un proveedor para editar.');
+            return;
+          }
+          this.editingSupplier = {
+            id: target.id,
+            name: target.name || '',
+            rif: target.rif || '',
+            phone: target.phone || '',
+            bank_details: target.bank_details || '',
+            is_active: target.is_active !== false
+          };
+          this.showEditSupplierModal = true;
+        },
+
+        async saveEditSupplier() {
+          if (!this.editingSupplier || !this.editingSupplier.id) return;
+          if (!this.editingSupplier.name.trim()) {
+            this.showToast('error', 'Nombre Requerido', 'La razón social del proveedor es obligatoria.');
+            return;
+          }
+          this.isSavingSupplier = true;
+          try {
+            const token = this.getToken();
+            const res = await fetch('/api/suppliers/' + this.editingSupplier.id, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({
+                name: this.editingSupplier.name.trim(),
+                rif: this.editingSupplier.rif ? this.editingSupplier.rif.trim() : null,
+                phone: this.editingSupplier.phone ? this.editingSupplier.phone.trim() : null,
+                bank_details: this.editingSupplier.bank_details ? this.editingSupplier.bank_details.trim() : '',
+                is_active: this.editingSupplier.is_active
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al actualizar proveedor');
+            await this.loadSuppliers();
+            if (this.selectedSupplierId === this.editingSupplier.id) {
+              this.onSupplierSelect();
+            }
+            this.showEditSupplierModal = false;
+            this.showToast('success', 'Proveedor Actualizado', `Datos del proveedor '${data.name}' actualizados correctamente.`);
+          } catch (err) {
+            this.showToast('error', 'Error Proveedor', err.message);
+          } finally {
+            this.isSavingSupplier = false;
+          }
+        },
+
+        openSupplierDirectory() {
+          this.supplierSearchQuery = '';
+          this.showSupplierDirectoryModal = true;
+        },
+
+        getFilteredSuppliers() {
+          if (!this.suppliers || !Array.isArray(this.suppliers)) return [];
+          const q = (this.supplierSearchQuery || '').toLowerCase().trim();
+          if (!q) return this.suppliers;
+          return this.suppliers.filter(s =>
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            (s.rif && s.rif.toLowerCase().includes(q)) ||
+            (s.phone && s.phone.toLowerCase().includes(q)) ||
+            (s.bank_details && s.bank_details.toLowerCase().includes(q))
+          );
         },
 
         getAvailableAccountsForForm() {

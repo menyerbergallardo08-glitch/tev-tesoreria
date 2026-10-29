@@ -70,13 +70,21 @@ def update_supplier(
     supplier_id: int,
     data: SupplierUpdate,
     request: Request,
-    current_user: User = Depends(require_roles(["administradora", "directivo"])),
+    current_user: User = Depends(require_roles(["administradora", "directivo", "cajera", "cajero"])),
     db: Session = Depends(get_db)
 ):
     s = db.query(Supplier).filter(Supplier.id == supplier_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado.")
     
+    old_data = {
+        'name': s.name,
+        'rif': s.rif,
+        'phone': s.phone,
+        'bank_details': s.bank_details,
+        'is_active': s.is_active
+    }
+
     if data.name is not None and data.name.strip():
         s.name = data.name.strip()
     if data.rif is not None:
@@ -88,11 +96,24 @@ def update_supplier(
     if data.is_active is not None:
         s.is_active = data.is_active
 
+    new_data = {
+        'name': s.name,
+        'rif': s.rif,
+        'phone': s.phone,
+        'bank_details': s.bank_details,
+        'is_active': s.is_active
+    }
+
     ip = request.client.host if request.client else ""
-    record_audit(db, current_user, 'UPDATE_SUPPLIER', 'Supplier', str(s.id), {'name': s.name, 'rif': s.rif}, ip)
+    record_audit(db, current_user, 'UPDATE_SUPPLIER', 'Supplier', str(s.id), {
+        'previous': old_data,
+        'changes': new_data,
+        'updated_by': current_user.username,
+        'role': current_user.role
+    }, ip)
     db.commit()
     db.refresh(s)
-    return {"id": s.id, "name": s.name, "rif": s.rif, "phone": s.phone, "is_active": s.is_active}
+    return {"id": s.id, "name": s.name, "rif": s.rif, "phone": s.phone, "bank_details": s.bank_details, "is_active": s.is_active}
 
 @router.delete("/{supplier_id}")
 def delete_supplier(

@@ -134,11 +134,15 @@ def create_transaction(
     active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     if tx_in.currency == "VES":
-        if tx_in.subtype != "CAMBIO_DIVISAS":
-            rate = active_bcv
+        if tx_in.exchange_rate and tx_in.exchange_rate > 1.0:
+            rate = tx_in.exchange_rate
         else:
-            rate = tx_in.exchange_rate if tx_in.exchange_rate > 0 else active_bcv
-        calc_usd = round(tx_in.amount_original / rate, 2)
+            rate = active_bcv
+            
+        if tx_in.amount_usd and tx_in.amount_usd > 0:
+            calc_usd = round(tx_in.amount_usd, 2)
+        else:
+            calc_usd = round(tx_in.amount_original / rate, 2)
     elif tx_in.currency in ["USD", "USDT"]:
         calc_usd = round(tx_in.amount_original, 2)
         rate = 1.0
@@ -212,7 +216,8 @@ def create_transaction(
         "success": True,
         "message": "Movimiento registrado con éxito",
         "id": tx.id,
-        "amount_usd": tx.amount_usd
+        "amount_usd": tx.amount_usd,
+        "exchange_rate": tx.exchange_rate
     }
 
 @router.post("/transfer")
@@ -347,23 +352,84 @@ def update_transaction(
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     
     update_data = data.model_dump(exclude_unset=True)
-    if current_user.role in ["cajera", "cajero"]:
-        forbidden_fields = {'amount_original', 'amount_usd', 'exchange_rate', 'currency', 'account_id'}
-        if any(f in update_data for f in forbidden_fields):
-            raise HTTPException(status_code=403, detail="Las cajeras solo pueden corregir datos descriptivos (Beneficiario, Documento, Referencia, Descripción).")
-    
-    old_data = {}
+    edit_reason = (update_data.pop('edit_reason', None) or "").strip()
+
+    # Si es cajera o si se tocan campos financieros, se exige motivo obligatorio
+    financial_fields = {'amount_original', 'amount_usd', 'exchange_rate', 'currency', 'account_id', 'category_id'}
+    touches_financial = any(f in update_data for f in financial_fields)
+
+    if touches_financial and not edit_reason:
+        raise HTTPException(
+            status_code=400,
+            detail="Debe indicar obligatoriamente el motivo de la corrección de emergencia para la bitácora de auditoría."
+        )
+
+    # Validar nueva cuenta si se envía
+    if 'account_id' in update_data and update_data['account_id'] is not None:
+        acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == update_data['account_id']).first()
+        if not acc or not acc.is_active:
+            raise HTTPException(status_code=400, detail="La cuenta de tesorería seleccionada no existe o está inactiva.")
+
+    old_data = {
+        'amount_original': tx.amount_original,
+        'currency': tx.currency,
+        'exchange_rate': tx.exchange_rate,
+        'amount_usd': tx.amount_usd,
+        'account_id': tx.account_id,
+        'category_id': tx.category_id,
+        'beneficiary': tx.beneficiary,
+        'client_name': tx.client_name,
+        'reference_number': tx.reference_number,
+        'doc_number': tx.doc_number,
+        'description': tx.description
+    }
+
+    # Recalcular montos si se modifica amount_original o currency
+    new_amount = update_data.get('amount_original', tx.amount_original)
+    new_currency = update_data.get('currency', tx.currency)
+    new_rate = update_data.get('exchange_rate', tx.exchange_rate or 1.0)
+
+    if 'amount_original' in update_data or 'currency' in update_data or 'exchange_rate' in update_data:
+        if new_currency == "VES":
+            calc_rate = new_rate if new_rate > 0 else 1.0
+            calc_usd = round(new_amount / calc_rate, 2)
+        elif new_currency in ["USD", "USDT"]:
+            calc_usd = round(new_amount, 2)
+        else:
+            calc_usd = round(new_amount / (new_rate if new_rate > 0 else 1.0), 2)
+        tx.amount_usd = calc_usd
+        update_data['amount_usd'] = calc_usd
+
     for field, val in update_data.items():
-        old_data[field] = getattr(tx, field, None)
         setattr(tx, field, val)
+
     if "beneficiary" in update_data and update_data["beneficiary"]:
         tx.client_name = update_data["beneficiary"]
     elif "client_name" in update_data and update_data["client_name"]:
         tx.beneficiary = update_data["client_name"]
-    
+
+    action_label = 'CORRECCION_EMERGENCIA_EGRESO' if (touches_financial or edit_reason) else 'UPDATE_TRANSACTION'
     ip = request.client.host if request.client else ""
-    record_audit(db, current_user, 'UPDATE_TRANSACTION', 'Transaction', str(tx.id), {'changes': update_data, 'previous': old_data}, ip)
+    record_audit(db, current_user, action_label, 'Transaction', str(tx.id), {
+        'movement_type': tx.movement_type,
+        'subtype': tx.subtype,
+        'previous': old_data,
+        'changes': update_data,
+        'reason': edit_reason or "Corrección de datos",
+        'updated_by': current_user.username,
+        'role': current_user.role
+    }, ip)
     db.commit()
     db.refresh(tx)
-    return {"success": True, "message": f"Movimiento #{id} actualizado", "transaction": {"id": tx.id, "amount_usd": tx.amount_usd}}
+    return {
+        "success": True,
+        "message": f"Movimiento #{id} corregido exitosamente",
+        "transaction": {
+            "id": tx.id,
+            "amount_original": tx.amount_original,
+            "amount_usd": tx.amount_usd,
+            "currency": tx.currency,
+            "account_id": tx.account_id
+        }
+    }
 

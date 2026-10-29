@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 from fastapi.testclient import TestClient
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -302,5 +303,119 @@ def test_suppliers_and_v32_features():
         res_man_404 = client.get("/api/manuals/desconocido", headers=headers)
         assert res_man_404.status_code == 404
 
+        # 15. Test Cajera Role Allowed to Update Supplier
+        cajera_user = db.query(User).filter(User.role == 'cajera').first()
+        if not cajera_user:
+            cajera_user = User(username=f"cajera_test_{ts}", role="cajera", full_name="Cajera Test", password_hash="xxx", is_active=True)
+            db.add(cajera_user)
+            db.commit()
+            db.refresh(cajera_user)
+        cajera_token = create_access_token({"sub": cajera_user.username, "role": cajera_user.role})
+        cajera_headers = {"Authorization": f"Bearer {cajera_token}"}
+
+        # Cajera creates or updates supplier
+        res_sup_cajera = client.put(f"/api/suppliers/{sup_id}", json={
+            "phone": "0414-7777777",
+            "bank_details": "Pago Movil Mercantil 0414..."
+        }, headers=cajera_headers)
+        assert res_sup_cajera.status_code == 200
+        assert res_sup_cajera.json()["phone"] == "0414-7777777"
+
+        # 16. Test Emergency Expense Editing with Mandatory Reason & Audit
+        test_acc = db.query(TreasuryAccount).filter(TreasuryAccount.is_active == True).first()
+        from schemas.transactions import TransactionCreate
+        import datetime
+        create_egreso_res = client.post("/api/transactions", json={
+            "date": str(datetime.date.today()),
+            "movement_type": "EGRESO",
+            "subtype": "GASTO_OPERATIVO",
+            "account_id": test_acc.id,
+            "category_id": 1,
+            "amount_original": 100.0,
+            "currency": "USD",
+            "exchange_rate": 1.0,
+            "beneficiary": "Proveedor Servicio Electrico",
+            "reference_number": f"TEST-EMERG-{ts}",
+            "description": "Gasto operativo inicial"
+        }, headers=cajera_headers)
+        assert create_egreso_res.status_code == 200
+        egreso_id = create_egreso_res.json()["id"]
+
+        # Intentar modificar monto sin justificación debe fallar (400)
+        res_fail = client.patch(f"/api/transactions/{egreso_id}", json={
+            "amount_original": 150.0
+        }, headers=cajera_headers)
+        assert res_fail.status_code == 400
+        assert "motivo" in res_fail.json()["detail"].lower()
+
+        # Modificar monto CON justificación obligatoria debe ser exitoso (200)
+        res_success = client.patch(f"/api/transactions/{egreso_id}", json={
+            "amount_original": 150.0,
+            "edit_reason": "Error de digitación en punto de venta, monto real era 150"
+        }, headers=cajera_headers)
+        assert res_success.status_code == 200
+        assert res_success.json()["transaction"]["amount_original"] == 150.0
+        assert res_success.json()["transaction"]["amount_usd"] == 150.0
+
+        # Verificar que el AuditLog tenga la acción CORRECCION_EMERGENCIA_EGRESO
+        from models import AuditLog
+        audit_entry = db.query(AuditLog).filter(
+            AuditLog.entity_id == str(egreso_id),
+            AuditLog.action == "CORRECCION_EMERGENCIA_EGRESO"
+        ).order_by(AuditLog.id.desc()).first()
+        assert audit_entry is not None
+        det_dict = json.loads(audit_entry.details_json) if isinstance(audit_entry.details_json, str) else (audit_entry.details_json or {})
+        assert "Error de digitación" in det_dict.get("reason", "")
+
+        # 17. Test Director KPIs reflects Operational Corrections
+        res_kpi = client.get("/api/dashboard/director-kpis", headers=headers)
+        assert res_kpi.status_code == 200
+        kpi_json = res_kpi.json()
+        assert "operational_corrections_kpi" in kpi_json
+        assert kpi_json["operational_corrections_kpi"]["total_count"] >= 1
+        found_in_recent = any(c["entity_id"] == str(egreso_id) for c in kpi_json["operational_corrections_kpi"]["recent_corrections"])
+        assert found_in_recent is True
+
+        # 18. Test Custom Exchange Rate for VES Payment (PHEBO ELECTRIC case: Bs. 574.156,50 @ 1005 -> $571.30)
+        res_rate_test = client.post("/api/transactions", json={
+            "date": "2026-10-22",
+            "movement_type": "EGRESO",
+            "subtype": "PAGO_PROVEEDOR",
+            "account_id": test_acc.id,
+            "amount_original": 574156.50,
+            "currency": "VES",
+            "exchange_rate": 1005.0,
+            "beneficiary": "PHEBO ELECTRIC, C.A",
+            "reference_number": f"PHEBO-{ts}",
+            "description": "Pago proveedor a tasa 1005"
+        }, headers=cajera_headers)
+        assert res_rate_test.status_code == 200
+        rate_tx = res_rate_test.json()
+        assert rate_tx["exchange_rate"] == 1005.0
+        assert rate_tx["amount_usd"] == 571.30
+
+        # 19. Test Custom Exchange Rate with Explicit USD Base (LITTMAN case: Bs. 321.850 @ 1025, base $314)
+        res_littman_test = client.post("/api/transactions", json={
+            "date": "2026-10-22",
+            "movement_type": "EGRESO",
+            "subtype": "PAGO_PROVEEDOR",
+            "account_id": test_acc.id,
+            "amount_original": 321850.00,
+            "currency": "VES",
+            "exchange_rate": 1025.0,
+            "amount_usd": 314.00,
+            "beneficiary": "LITTMAN INVERSIONES C.A.",
+            "reference_number": f"LITTMAN-{ts}",
+            "description": "Pago NE 612686 [Descuento Pronto Pago: -5% (-$16.50) | Factura: $330.50 | Neto Pagado: 321850]"
+        }, headers=cajera_headers)
+        assert res_littman_test.status_code == 200
+        littman_tx = res_littman_test.json()
+        assert littman_tx["exchange_rate"] == 1025.0
+        assert littman_tx["amount_usd"] == 314.00
+        littman_db = db.query(Transaction).filter(Transaction.id == littman_tx["id"]).first()
+        assert littman_db is not None
+        assert "Pronto Pago" in littman_db.description
+
     finally:
         db.close()
+
