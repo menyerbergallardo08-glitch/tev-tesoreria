@@ -134,11 +134,15 @@ def create_transaction(
     active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     if tx_in.currency == "VES":
-        if tx_in.subtype != "CAMBIO_DIVISAS":
-            rate = active_bcv
+        if tx_in.exchange_rate and tx_in.exchange_rate > 1.0:
+            rate = tx_in.exchange_rate
         else:
-            rate = tx_in.exchange_rate if tx_in.exchange_rate > 0 else active_bcv
-        calc_usd = round(tx_in.amount_original / rate, 2)
+            rate = active_bcv
+            
+        if tx_in.amount_usd and tx_in.amount_usd > 0:
+            calc_usd = round(tx_in.amount_usd, 2)
+        else:
+            calc_usd = round(tx_in.amount_original / rate, 2)
     elif tx_in.currency in ["USD", "USDT"]:
         calc_usd = round(tx_in.amount_original, 2)
         rate = 1.0
@@ -212,7 +216,8 @@ def create_transaction(
         "success": True,
         "message": "Movimiento registrado con éxito",
         "id": tx.id,
-        "amount_usd": tx.amount_usd
+        "amount_usd": tx.amount_usd,
+        "exchange_rate": tx.exchange_rate
     }
 
 @router.post("/transfer")

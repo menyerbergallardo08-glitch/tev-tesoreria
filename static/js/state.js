@@ -52,6 +52,15 @@ window.TEVState = {
           proof_number: ''
         },
 
+        discountAssistant: {
+          active: false,
+          total_invoice: '',
+          discount_type: 'percent', // 'percent' | 'amount'
+          discount_value: '',
+          discount_amount: 0,
+          net_to_pay: 0
+        },
+
         cashFlowData: {
           initial_balance_usd: 0,
           total_inflows_usd: 0,

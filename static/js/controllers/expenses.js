@@ -60,6 +60,59 @@ window.TEVExpenses = {
           
           if (netToPay > 0) {
             this.form.amount_original = netToPay;
+            this.recalculateExpenseUsd('original');
+          }
+        },
+
+        toggleDiscountAssistant() {
+          if (!this.discountAssistant) {
+            this.discountAssistant = {
+              active: false,
+              total_invoice: '',
+              discount_type: 'percent',
+              discount_value: '',
+              discount_amount: 0,
+              net_to_pay: 0
+            };
+          }
+          this.discountAssistant.active = !this.discountAssistant.active;
+          if (this.discountAssistant.active) {
+            this.recalculateDiscount();
+          }
+        },
+
+        recalculateDiscount() {
+          if (!this.discountAssistant || !this.discountAssistant.active) return;
+          const tot = parseFloat(String(this.discountAssistant.total_invoice || '0').replace(',', '.')) || 0;
+          const val = parseFloat(String(this.discountAssistant.discount_value || '0').replace(',', '.')) || 0;
+          let discAmt = 0;
+          if (this.discountAssistant.discount_type === 'percent') {
+            discAmt = Math.round(tot * (val / 100) * 100) / 100;
+          } else {
+            discAmt = Math.min(tot, val);
+          }
+          const net = Math.max(0, Math.round((tot - discAmt) * 100) / 100);
+          this.discountAssistant.discount_amount = discAmt;
+          this.discountAssistant.net_to_pay = net;
+          if (net > 0) {
+            this.form.amount_original = net;
+            this.recalculateExpenseUsd('original');
+          }
+        },
+
+        recalculateExpenseUsd(fromField = 'original') {
+          const rate = parseFloat(this.form.exchange_rate) || parseFloat(this.bcvRate) || 1.0;
+          if (this.selectedAccountCurrency === 'VES') {
+            if (fromField === 'original') {
+              const orig = parseFloat(String(this.form.amount_original || '0').replace(',', '.')) || 0;
+              this.form.amount_usd = Math.round((orig / rate) * 100) / 100;
+            } else if (fromField === 'usd') {
+              const usd = parseFloat(String(this.form.amount_usd || '0').replace(',', '.')) || 0;
+              this.form.amount_original = Math.round((usd * rate) * 100) / 100;
+            }
+          } else {
+            const orig = parseFloat(String(this.form.amount_original || '0').replace(',', '.')) || 0;
+            this.form.amount_usd = orig;
           }
         },
 
@@ -137,8 +190,17 @@ window.TEVExpenses = {
             
             let extraDesc = '';
             if (isRetActive && retAmt > 0) {
-              extraDesc = ` [Retención SENIAT: Factura: ${this.retentionAssistant.total_invoice} | Ret. IVA: ${this.retentionAssistant.ret_iva_amt} | Ret. ISLR: ${this.retentionAssistant.ret_islr_amt} | Neto Pagado: ${this.form.amount_original}]`;
+              extraDesc += ` [Retención SENIAT: Factura: ${this.retentionAssistant.total_invoice} | Ret. IVA: ${this.retentionAssistant.ret_iva_amt} | Ret. ISLR: ${this.retentionAssistant.ret_islr_amt} | Neto Pagado: ${this.form.amount_original}]`;
             }
+            const isDiscActive = this.discountAssistant && this.discountAssistant.active;
+            if (isDiscActive && this.discountAssistant.discount_amount > 0) {
+              const dLabel = this.discountAssistant.discount_type === 'percent' ? `${this.discountAssistant.discount_value}%` : `${this.discountAssistant.discount_value}`;
+              extraDesc += ` [Descuento Pronto Pago: -${dLabel} (Monto: ${this.discountAssistant.discount_amount}) | Factura: ${this.discountAssistant.total_invoice} | Neto Pagado: ${this.form.amount_original}]`;
+            }
+
+            const finalRate = (curr === 'VES') ? (parseFloat(this.form.exchange_rate) || parseFloat(this.bcvRate) || 1.0) : 1.0;
+            const finalUsd = (curr === 'VES') ? (parseFloat(this.form.amount_usd) || (Math.round((parseFloat(this.form.amount_original) / finalRate) * 100) / 100)) : parseFloat(this.form.amount_original);
+            const savedDate = this.form.date;
 
             const payload = {
               date: this.form.date,
@@ -148,7 +210,8 @@ window.TEVExpenses = {
               category_id: this.form.category_id ? parseInt(this.form.category_id) : null,
               amount_original: parseFloat(this.form.amount_original),
               currency: curr,
-              exchange_rate: parseFloat(this.form.exchange_rate) || 1.0,
+              exchange_rate: finalRate,
+              amount_usd: finalUsd,
               reference_number: this.form.reference_number || '',
               invoice_date: this.form.invoice_date || null,
               beneficiary: this.form.beneficiary || '',
@@ -169,8 +232,9 @@ window.TEVExpenses = {
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Error al guardar');
 
-            this.showToast('success', '¡Guardado Exitoso!', 'El movimiento fue registrado correctamente.');
+            this.showToast('success', '¡Guardado Exitoso!', `El movimiento fue registrado correctamente para la fecha ${savedDate}.`);
             this.form.amount_original = '';
+            this.form.amount_usd = 0;
             this.form.reference_number = '';
             this.form.beneficiary = '';
             this.form.description = '';
@@ -185,6 +249,18 @@ window.TEVExpenses = {
               this.retentionAssistant.total_retention = 0;
               this.retentionAssistant.net_to_pay = 0;
               this.retentionAssistant.proof_number = '';
+            }
+
+            if (this.discountAssistant) {
+              this.discountAssistant.active = false;
+              this.discountAssistant.total_invoice = '';
+              this.discountAssistant.discount_value = '';
+              this.discountAssistant.discount_amount = 0;
+              this.discountAssistant.net_to_pay = 0;
+            }
+
+            if (savedDate) {
+              this.filterDate = savedDate;
             }
 
             await this.loadAccounts();

@@ -376,6 +376,46 @@ def test_suppliers_and_v32_features():
         found_in_recent = any(c["entity_id"] == str(egreso_id) for c in kpi_json["operational_corrections_kpi"]["recent_corrections"])
         assert found_in_recent is True
 
+        # 18. Test Custom Exchange Rate for VES Payment (PHEBO ELECTRIC case: Bs. 574.156,50 @ 1005 -> $571.30)
+        res_rate_test = client.post("/api/transactions", json={
+            "date": "2026-10-22",
+            "movement_type": "EGRESO",
+            "subtype": "PAGO_PROVEEDOR",
+            "account_id": test_acc.id,
+            "amount_original": 574156.50,
+            "currency": "VES",
+            "exchange_rate": 1005.0,
+            "beneficiary": "PHEBO ELECTRIC, C.A",
+            "reference_number": f"PHEBO-{ts}",
+            "description": "Pago proveedor a tasa 1005"
+        }, headers=cajera_headers)
+        assert res_rate_test.status_code == 200
+        rate_tx = res_rate_test.json()
+        assert rate_tx["exchange_rate"] == 1005.0
+        assert rate_tx["amount_usd"] == 571.30
+
+        # 19. Test Custom Exchange Rate with Explicit USD Base (LITTMAN case: Bs. 321.850 @ 1025, base $314)
+        res_littman_test = client.post("/api/transactions", json={
+            "date": "2026-10-22",
+            "movement_type": "EGRESO",
+            "subtype": "PAGO_PROVEEDOR",
+            "account_id": test_acc.id,
+            "amount_original": 321850.00,
+            "currency": "VES",
+            "exchange_rate": 1025.0,
+            "amount_usd": 314.00,
+            "beneficiary": "LITTMAN INVERSIONES C.A.",
+            "reference_number": f"LITTMAN-{ts}",
+            "description": "Pago NE 612686 [Descuento Pronto Pago: -5% (-$16.50) | Factura: $330.50 | Neto Pagado: 321850]"
+        }, headers=cajera_headers)
+        assert res_littman_test.status_code == 200
+        littman_tx = res_littman_test.json()
+        assert littman_tx["exchange_rate"] == 1025.0
+        assert littman_tx["amount_usd"] == 314.00
+        littman_db = db.query(Transaction).filter(Transaction.id == littman_tx["id"]).first()
+        assert littman_db is not None
+        assert "Pronto Pago" in littman_db.description
+
     finally:
         db.close()
 
