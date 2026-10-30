@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.5.6"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.5.6"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.5.6"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.5.6"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.5.6"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.5.6"></script>
-  <script src="/static/js/controllers/reports.js?v=2.5.6"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.5.6"></script>
+  <script src="/static/js/state.js?v=2.5.7"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.5.7"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.5.7"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.5.7"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.5.7"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.5.7"></script>
+  <script src="/static/js/controllers/reports.js?v=2.5.7"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.5.7"></script>
   <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
@@ -4554,6 +4554,68 @@
             </div>
           </div>
 
+          <!-- ASISTENTE DE DESCUENTO POR PRONTO PAGO EN EDICIÓN -->
+          <div class="p-3.5 rounded-2xl border transition-all"
+               :class="editingTxDiscount?.active ? 'bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-200' : 'bg-slate-50 border-slate-200'">
+            <div class="flex items-center justify-between cursor-pointer" @click="toggleEditDiscountAssistant()">
+              <div class="flex items-center gap-2">
+                <span class="text-lg">🎁</span>
+                <div>
+                  <p class="text-xs font-black text-gray-900">Ajuste de Descuento / Pronto Pago</p>
+                  <p class="text-[10px] text-gray-500">Recalcular beneficio por pronto pago acordado con proveedor</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold" :class="editingTxDiscount?.active ? 'text-indigo-800' : 'text-gray-400'" 
+                      x-text="editingTxDiscount?.active ? 'ACTIVADO' : 'NO APLICA'"></span>
+                <div class="w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out relative cursor-pointer"
+                     :class="editingTxDiscount?.active ? 'bg-indigo-600' : 'bg-gray-300'">
+                  <div class="w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                       :class="editingTxDiscount?.active ? 'translate-x-4' : 'translate-x-0'"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel desplegable de Pronto Pago -->
+            <div x-show="editingTxDiscount?.active" class="mt-3 pt-3 border-t border-indigo-200 space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-[11px] font-bold text-indigo-950 mb-0.5">Total Factura:</label>
+                  <input type="text" inputmode="decimal" x-model="editingTxDiscount.total_invoice" 
+                         @input="recalculateEditDiscount()"
+                         placeholder="0.00"
+                         class="w-full p-2 border border-indigo-300 rounded-xl bg-white font-bold text-xs">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-indigo-950 mb-0.5">Tipo:</label>
+                  <select x-model="editingTxDiscount.discount_type" @change="recalculateEditDiscount()"
+                          class="w-full p-2 border border-indigo-300 rounded-xl bg-white font-bold text-xs">
+                    <option value="percent">Porcentaje (%)</option>
+                    <option value="amount">Monto Fijo</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-indigo-950 mb-0.5" x-text="editingTxDiscount.discount_type === 'percent' ? '% Descuento:' : 'Monto Desc.:'"></label>
+                  <input type="text" inputmode="decimal" x-model="editingTxDiscount.discount_value" 
+                         @input="recalculateEditDiscount()"
+                         :placeholder="editingTxDiscount.discount_type === 'percent' ? 'Ej: 5' : 'Ej: 20.00'"
+                         class="w-full p-2 border border-indigo-300 rounded-xl bg-white font-bold text-xs">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 pt-0.5 text-center">
+                <div class="p-2 bg-indigo-100/70 border border-indigo-300 rounded-xl">
+                  <span class="block text-[10px] font-bold text-indigo-900">DESCUENTO / AHORRO</span>
+                  <span class="text-sm font-black text-indigo-800" x-text="'- ' + formatNumber(editingTxDiscount.discount_amount || 0)"></span>
+                </div>
+                <div class="p-2 bg-emerald-50 border border-emerald-300 rounded-xl">
+                  <span class="block text-[10px] font-bold text-emerald-800">NETO RESULTANTE</span>
+                  <span class="text-sm font-black text-emerald-700" x-text="formatNumber(editingTxDiscount.net_to_pay || 0)"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Caja / Cuenta de Tesorería Afectada -->
           <div>
             <label class="block text-xs font-bold text-gray-700 mb-1">Caja o Cuenta Afectada *</label>
@@ -5459,9 +5521,23 @@
         <!-- Formulario de Abono -->
         <form @submit.prevent="submitAbono()" class="space-y-4">
           
+          <!-- Tipo de Operación: Cobro Dinero vs Comprobante Retención SENIAT -->
+          <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl border">
+            <button type="button" @click="abonoForm.is_retention = false"
+                    :class="!abonoForm.is_retention ? 'bg-purple-700 text-white shadow font-bold' : 'text-gray-700 hover:bg-slate-200'"
+                    class="py-2 text-xs rounded-xl transition text-center cursor-pointer">
+              💵 Pago / Cobro Líquido
+            </button>
+            <button type="button" @click="abonoForm.is_retention = true"
+                    :class="abonoForm.is_retention ? 'bg-amber-600 text-white shadow font-bold' : 'text-gray-700 hover:bg-slate-200'"
+                    class="py-2 text-xs rounded-xl transition text-center cursor-pointer">
+              📜 Retención SENIAT Cliente
+            </button>
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold text-gray-800 mb-1">Monto a Abonar / Cobrar ($ USD): *</label>
+              <label class="block text-xs font-bold text-gray-800 mb-1" x-text="abonoForm.is_retention ? 'Monto Retenido ($ USD): *' : 'Monto a Abonar / Cobrar ($ USD): *'"></label>
               <input type="number" step="0.01" min="0.01" :max="selectedCreditObj?.pending_balance_usd"
                      x-model.number="abonoForm.amount_original" required
                      placeholder="Ej: 50.00"
@@ -5469,31 +5545,43 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-gray-800 mb-1">Fecha del Abono: *</label>
+              <label class="block text-xs font-bold text-gray-800 mb-1" x-text="abonoForm.is_retention ? 'Fecha del Comprobante: *' : 'Fecha del Abono: *'"></label>
               <input type="date" x-model="abonoForm.date" required
                      class="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
             </div>
           </div>
 
-          <div>
+          <!-- Si es Pago Ordinario: Caja o Banco -->
+          <div x-show="!abonoForm.is_retention">
             <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
-            <select x-model.number="abonoForm.account_id" required
+            <select x-model.number="abonoForm.account_id" :required="!abonoForm.is_retention"
                     class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
-              <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
+              <template x-for="acc in accounts.filter(a => a.is_active && a.account_type !== 'CXC' && a.account_type !== 'RETENCION_CLIENTE')" :key="acc.id">
                 <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
               </template>
             </select>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Si es Retención SENIAT del Cliente: Comprobante y aviso -->
+          <div x-show="abonoForm.is_retention" class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-2">
             <div>
+              <label class="block text-xs font-bold text-amber-950 mb-1">N° Comprobante Retención SENIAT (14 dígitos): *</label>
+              <input type="text" x-model="abonoForm.tax_retention_proof" :required="abonoForm.is_retention"
+                     placeholder="Ej: 20261000000045"
+                     class="w-full p-2.5 border border-amber-300 rounded-xl font-mono text-xs bg-white text-amber-950 font-bold">
+              <p class="text-[10px] text-amber-800 mt-1">💡 Se acreditará al saldo fiscal retenido por el cliente y rebajará su cuenta por cobrar.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div x-show="!abonoForm.is_retention">
               <label class="block text-xs font-bold text-gray-800 mb-1">N° Referencia / Depósito:</label>
               <input type="text" x-model="abonoForm.reference_number" placeholder="Ej: Depósito #90421"
                      class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
             </div>
-            <div>
+            <div :class="abonoForm.is_retention ? 'col-span-2' : ''">
               <label class="block text-xs font-bold text-gray-800 mb-1">Concepto / Detalle:</label>
-              <input type="text" x-model="abonoForm.description" placeholder="Ej: Abono parcial en efectivo"
+              <input type="text" x-model="abonoForm.description" placeholder="Ej: Comprobante retención IVA Mango Bajito"
                      class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
             </div>
           </div>

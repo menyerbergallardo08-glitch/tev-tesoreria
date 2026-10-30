@@ -20,13 +20,16 @@ window.TEVCxcCollections = {
 
         openAbonoModal(credit) {
           this.selectedCreditObj = credit;
+          const validAccounts = (this.accounts || []).filter(a => a.is_active && a.account_type !== 'CXC' && a.account_type !== 'RETENCION_CLIENTE');
           this.abonoForm = {
             date: new Date().toISOString().split('T')[0],
             amount_original: credit.pending_balance_usd,
             currency: 'USD',
-            account_id: this.accounts.length > 0 ? this.accounts[0].id : 1,
+            account_id: validAccounts.length > 0 ? validAccounts[0].id : 1,
             reference_number: '',
-            description: `Abono a ${credit.doc_type} #${credit.doc_number}`
+            description: `Abono a ${credit.doc_type} #${credit.doc_number}`,
+            is_retention: false,
+            tax_retention_proof: ''
           };
           this.showAbonoModal = true;
         },
@@ -34,8 +37,13 @@ window.TEVCxcCollections = {
         async submitAbono() {
           if (!this.selectedCreditObj) return;
 
-          // Confirmación previa de seguridad (evita guardado accidental por presionar Enter)
-          const confMsg = `¿Confirma registrar este abono de CxC?\n\n• Cliente: ${this.selectedCreditObj.client_name}\n• Documento: ${this.selectedCreditObj.doc_type} #${this.selectedCreditObj.doc_number}\n• Monto Abono: $${this.abonoForm.amount_original}`;
+          if (this.abonoForm.is_retention && (!this.abonoForm.tax_retention_proof || !this.abonoForm.tax_retention_proof.trim())) {
+            this.showToast('error', 'Comprobante Requerido', 'Debe indicar el N° de comprobante de retención SENIAT.');
+            return;
+          }
+
+          const opType = this.abonoForm.is_retention ? 'Retención SENIAT de Cliente' : 'Pago / Cobro Líquido';
+          const confMsg = `¿Confirma registrar este abono de CxC?\n\n• Operación: ${opType}\n• Cliente: ${this.selectedCreditObj.client_name}\n• Documento: ${this.selectedCreditObj.doc_type} #${this.selectedCreditObj.doc_number}\n• Monto: $${this.abonoForm.amount_original}` + (this.abonoForm.is_retention ? `\n• N° Comprobante SENIAT: ${this.abonoForm.tax_retention_proof}` : '');
           if (!confirm(confMsg)) return;
 
           try {

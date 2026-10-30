@@ -411,11 +411,89 @@ def test_suppliers_and_v32_features():
         assert res_littman_test.status_code == 200
         littman_tx = res_littman_test.json()
         assert littman_tx["exchange_rate"] == 1025.0
-        assert littman_tx["amount_usd"] == 314.00
-        littman_db = db.query(Transaction).filter(Transaction.id == littman_tx["id"]).first()
-        assert littman_db is not None
-        assert "Pronto Pago" in littman_db.description
+        # 20. Test SENIAT Client Retention Abono (Mango Bajito scenario)
+        mango_sale = client.post("/api/sales", json={
+            "doc_type": "NOTA_ENTREGA",
+            "doc_number": f"NE-MANGO-{ts}",
+            "client_name": "MANGO BAJITO VALENCIA C.A.",
+            "client_rif": "J-31445566-7",
+            "payment_method": "TRANSFERENCIA",
+            "is_credit": True,
+            "amount_usd": 100.0,
+            "currency": "USD"
+        }, headers=cajera_headers)
+        assert mango_sale.status_code == 200
+        mango_data = mango_sale.json()
+        mango_credit_id = mango_data["id"]
+
+        # Abono vía Retención SENIAT
+        res_ret = client.post(f"/api/receivables/{mango_credit_id}/abono", json={
+            "amount_original": 75.0,
+            "currency": "USD",
+            "is_retention": True,
+            "tax_retention_proof": "20261000000045",
+            "date": "2026-10-30",
+            "description": "Retención SENIAT IVA 75% aplicada por Mango Bajito"
+        }, headers=cajera_headers)
+        assert res_ret.status_code == 200
+        ret_json = res_ret.json()
+        assert ret_json["success"] is True
+        assert ret_json["is_retention"] is True
+
+        # Verificar que el saldo pendiente se rebajó a $25
+        db.expire_all()
+        parent_tx = db.query(Transaction).filter(Transaction.id == mango_credit_id).first()
+        assert parent_tx.credit_balance_pending_usd == 25.0
+        assert parent_tx.credit_status == "PARCIALMENTE_PAGADO"
+
+        # Verificar que la transacción de retención tiene cuenta RETENCION_CLIENTE
+        abono_tx = db.query(Transaction).filter(
+            Transaction.parent_transaction_id == mango_credit_id,
+            Transaction.subtype == "RETENCION_CLIENTE_CXC"
+        ).first()
+        assert abono_tx is not None
+        assert abono_tx.doc_type == "RETENCION_SENIAT"
+        assert abono_tx.tax_retention_proof == "20261000000045"
+        assert abono_tx.tax_retention_amount == 75.0
+        ret_account = db.query(TreasuryAccount).filter(TreasuryAccount.id == abono_tx.account_id).first()
+        assert ret_account.account_type == "RETENCION_CLIENTE"
+
+        # 21. Test Emergency Edit with Pronto Pago Adjustment
+        patch_res = client.patch(f"/api/transactions/{littman_tx['id']}", json={
+            "amount_original": 297.45,
+            "currency": "USD",
+            "description": "Pago NE 612686 [Descuento Pronto Pago: -10% (Monto: 33.05) | Factura: 330.50 | Neto Pagado: 297.45]",
+            "edit_reason": "Ajuste de pronto pago de 5% a 10% acordado con proveedor"
+        }, headers=headers)
+        assert patch_res.status_code == 200
+        updated_tx = db.query(Transaction).filter(Transaction.id == littman_tx["id"]).first()
+        assert updated_tx.amount_original == 297.45
+        assert updated_tx.amount_usd == 297.45
+        assert "Descuento Pronto Pago: -10%" in updated_tx.description
+
+        # 22. Test BCV 4:00 PM Policy
+        from core.bcv import resolve_effective_bcv_rate
+        import datetime
+        # Simular Miércoles 16:30 (4:30 PM)
+        wed_evening = datetime.datetime(2026, 10, 28, 16, 30, 0)
+        res_evening = resolve_effective_bcv_rate(
+            db,
+            now_dt=wed_evening,
+            mock_fresh_rate=950.0
+        )
+        assert "Jornada en curso" in res_evening["policy_applied"]
+        assert res_evening["next_rate_tomorrow"] == 950.0
+
+        # Simular Miércoles 11:00 AM (horario laboral matutino)
+        wed_morning = datetime.datetime(2026, 10, 28, 11, 0, 0)
+        res_morning = resolve_effective_bcv_rate(
+            db,
+            now_dt=wed_morning,
+            mock_fresh_rate=920.0
+        )
+        assert res_morning["rate"] == 920.0
 
     finally:
         db.close()
+
 

@@ -163,18 +163,38 @@ def create_abono(
     if not parent:
         raise HTTPException(status_code=404, detail="Cuenta por cobrar no encontrada.")
 
+    is_retention = bool(data.get("is_retention"))
+    retention_proof = (data.get("tax_retention_proof") or "").strip()
+    
     account_id = data.get("account_id")
-    account = db.query(TreasuryAccount).filter(TreasuryAccount.id == account_id).first()
-    if not account:
-        raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
+    if is_retention:
+        # Buscar o crear cuenta contable de Retenciones SENIAT Recibidas de Clientes
+        ret_acc = db.query(TreasuryAccount).filter(TreasuryAccount.account_type == 'RETENCION_CLIENTE').first()
+        if not ret_acc:
+            ret_acc = TreasuryAccount(
+                name='Retenciones SENIAT Recibidas de Clientes',
+                currency='USD',
+                account_type='RETENCION_CLIENTE',
+                initial_balance=0.0,
+                is_active=True
+            )
+            db.add(ret_acc)
+            db.flush()
+        account = ret_acc
+    else:
+        account = db.query(TreasuryAccount).filter(TreasuryAccount.id == account_id).first()
+        if not account:
+            raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
 
     bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
     active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     amount_original = float(data.get("amount_original", 0.0) or 0.0)
     currency = data.get("currency", "USD")
+    custom_rate = float(data.get("exchange_rate", 0.0) or 0.0)
+    
     if currency == "VES":
-        rate = active_bcv
+        rate = custom_rate if custom_rate > 1.0 else active_bcv
         calc_usd = round(amount_original / rate, 2)
     else:
         rate = 1.0
@@ -183,24 +203,29 @@ def create_abono(
     date_str = data.get("date")
     abono_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else datetime.date.today()
 
+    sub_label = "RETENCION_CLIENTE_CXC" if is_retention else "ABONO_CXC"
+    desc = data.get("description", "") or (f"Retención SENIAT aplicada por {parent.client_name} (Comp: {retention_proof})" if is_retention else f"Abono a {parent.doc_type} #{parent.doc_number}")
+
     tx = Transaction(
         branch_id=current_user.branch_id,
         date=abono_date,
         movement_type="INGRESO",
-        subtype="ABONO_CXC",
+        subtype=sub_label,
         account_id=account.id,
         amount_original=amount_original,
         currency=currency,
         exchange_rate=rate,
         amount_usd=calc_usd,
-        doc_type="ABONO_CXC",
-        doc_number=f"ABONO-{parent.doc_number or parent.id}",
+        doc_type="RETENCION_SENIAT" if is_retention else "ABONO_CXC",
+        doc_number=retention_proof if (is_retention and retention_proof) else f"ABONO-{parent.doc_number or parent.id}",
         client_name=parent.client_name,
         client_rif=parent.client_rif,
         beneficiary=parent.client_name,
         parent_transaction_id=parent.id,
-        reference_number=data.get("reference_number", ""),
-        description=data.get("description", "") or f"Abono a {parent.doc_type} #{parent.doc_number}",
+        reference_number=retention_proof if is_retention else (data.get("reference_number", "")),
+        tax_retention_amount=calc_usd if is_retention else 0.0,
+        tax_retention_proof=retention_proof if is_retention else "",
+        description=desc,
         status="REGISTRADO",
         created_by_id=current_user.id
     )
@@ -212,7 +237,8 @@ def create_abono(
         Transaction.status != "ANULADO"
     ).scalar() or 0.0
 
-    rem = max(0.0, parent.amount_usd - float(total_ab))
+    orig_total = parent.credit_original_amount_usd if (parent.credit_original_amount_usd and parent.credit_original_amount_usd > 0) else parent.amount_usd
+    rem = max(0.0, float(orig_total) - float(total_ab))
     parent.credit_balance_pending_usd = round(rem, 2)
     parent.credit_status = "PAGADO" if rem <= 0.01 else "PARCIALMENTE_PAGADO"
 
@@ -237,8 +263,9 @@ def create_abono(
 
     return {
         "success": True,
-        "message": f"Abono de ${calc_usd:.2f} registrado con éxito. Saldo restante: ${rem:.2f}",
+        "message": f"{'Retención SENIAT' if is_retention else 'Abono'} de ${calc_usd:.2f} registrado con éxito. Saldo restante: ${rem:.2f}",
         "abono_id": tx.id,
+        "is_retention": is_retention,
         "remaining_balance_usd": round(rem, 2),
         "status": parent.credit_status
     }
