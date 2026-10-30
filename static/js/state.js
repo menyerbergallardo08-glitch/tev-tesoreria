@@ -108,6 +108,14 @@ window.TEVState = {
           category_id: '',
           edit_reason: ''
         },
+        editingTxDiscount: {
+          active: false,
+          total_invoice: '',
+          discount_type: 'percent',
+          discount_value: '',
+          discount_amount: 0,
+          net_to_pay: 0
+        },
         isSavingEditTx: false,
 
         setDocumentType(type) {
@@ -245,7 +253,9 @@ window.TEVState = {
           seller_code: '',
           seller_name: '',
           reference_number: '',
-          description: ''
+          description: '',
+          is_retention: false,
+          tax_retention_proof: ''
         },
         commissionsData: null,
         commissionsMonth: new Date().toISOString().slice(0, 7),

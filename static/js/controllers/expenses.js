@@ -350,11 +350,38 @@ window.TEVExpenses = {
 
         openEditTransactionModal(item) {
           this.editingTx = item;
+          let baseDesc = item.description || '';
+
+          // Detectar si ya tiene un descuento de pronto pago en la descripción
+          const discRegex = /\[Descuento Pronto Pago:\s*-?([\d.]+)(%?)\s*\(Monto:\s*([\d.]+)\)\s*\|\s*Factura:\s*([\d.]+)\s*\|\s*Neto Pagado:\s*([\d.]+)\]/i;
+          const match = baseDesc.match(discRegex);
+
+          if (match) {
+            this.editingTxDiscount = {
+              active: true,
+              discount_type: match[2] === '%' ? 'percent' : 'amount',
+              discount_value: match[1],
+              discount_amount: parseFloat(match[3]) || 0,
+              total_invoice: match[4],
+              net_to_pay: parseFloat(match[5]) || (item.amount_original || 0)
+            };
+            baseDesc = baseDesc.replace(discRegex, '').trim();
+          } else {
+            this.editingTxDiscount = {
+              active: false,
+              total_invoice: item.amount_original ? String(item.amount_original) : '',
+              discount_type: 'percent',
+              discount_value: '',
+              discount_amount: 0,
+              net_to_pay: item.amount_original || 0
+            };
+          }
+
           this.editingTxForm = {
             beneficiary: item.beneficiary || item.client_name || '',
             doc_number: item.doc_number || '',
             reference_number: item.reference_number || '',
-            description: item.description || '',
+            description: baseDesc,
             amount_original: item.amount_original || '',
             currency: item.currency || 'USD',
             account_id: item.account_id || '',
@@ -362,6 +389,44 @@ window.TEVExpenses = {
             edit_reason: ''
           };
           this.showEditTransactionModal = true;
+        },
+
+        toggleEditDiscountAssistant() {
+          if (!this.editingTxDiscount) {
+            this.editingTxDiscount = {
+              active: false,
+              total_invoice: this.editingTxForm.amount_original ? String(this.editingTxForm.amount_original) : '',
+              discount_type: 'percent',
+              discount_value: '',
+              discount_amount: 0,
+              net_to_pay: this.editingTxForm.amount_original || 0
+            };
+          }
+          this.editingTxDiscount.active = !this.editingTxDiscount.active;
+          if (this.editingTxDiscount.active) {
+            if (!this.editingTxDiscount.total_invoice && this.editingTxForm.amount_original) {
+              this.editingTxDiscount.total_invoice = String(this.editingTxForm.amount_original);
+            }
+            this.recalculateEditDiscount();
+          }
+        },
+
+        recalculateEditDiscount() {
+          if (!this.editingTxDiscount || !this.editingTxDiscount.active) return;
+          const tot = parseFloat(String(this.editingTxDiscount.total_invoice || '0').replace(',', '.')) || 0;
+          const val = parseFloat(String(this.editingTxDiscount.discount_value || '0').replace(',', '.')) || 0;
+          let discAmt = 0;
+          if (this.editingTxDiscount.discount_type === 'percent') {
+            discAmt = Math.round(tot * (val / 100) * 100) / 100;
+          } else {
+            discAmt = Math.min(tot, val);
+          }
+          const net = Math.max(0, Math.round((tot - discAmt) * 100) / 100);
+          this.editingTxDiscount.discount_amount = discAmt;
+          this.editingTxDiscount.net_to_pay = net;
+          if (net > 0) {
+            this.editingTxForm.amount_original = net;
+          }
         },
 
         async saveEditedTransaction() {
@@ -373,11 +438,20 @@ window.TEVExpenses = {
           this.isSavingEditTx = true;
           try {
             const token = this.getToken();
+
+            let finalDesc = this.editingTxForm.description ? this.editingTxForm.description.trim() : '';
+            finalDesc = finalDesc.replace(/\[Descuento Pronto Pago:[^\]]+\]/gi, '').trim();
+
+            if (this.editingTxDiscount && this.editingTxDiscount.active && this.editingTxDiscount.discount_amount > 0) {
+              const dLabel = this.editingTxDiscount.discount_type === 'percent' ? `${this.editingTxDiscount.discount_value}%` : `${this.editingTxDiscount.discount_value}`;
+              finalDesc += ` [Descuento Pronto Pago: -${dLabel} (Monto: ${this.editingTxDiscount.discount_amount}) | Factura: ${this.editingTxDiscount.total_invoice} | Neto Pagado: ${this.editingTxForm.amount_original}]`;
+            }
+
             const payload = {
               beneficiary: this.editingTxForm.beneficiary,
               doc_number: this.editingTxForm.doc_number,
               reference_number: this.editingTxForm.reference_number,
-              description: this.editingTxForm.description,
+              description: finalDesc,
               amount_original: parseFloat(this.editingTxForm.amount_original) || this.editingTx.amount_original,
               currency: this.editingTxForm.currency || this.editingTx.currency,
               account_id: parseInt(this.editingTxForm.account_id) || this.editingTx.account_id,

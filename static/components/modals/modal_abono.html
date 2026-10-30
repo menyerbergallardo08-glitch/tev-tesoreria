@@ -42,9 +42,23 @@
         <!-- Formulario de Abono -->
         <form @submit.prevent="submitAbono()" class="space-y-4">
           
+          <!-- Tipo de Operación: Cobro Dinero vs Comprobante Retención SENIAT -->
+          <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl border">
+            <button type="button" @click="abonoForm.is_retention = false"
+                    :class="!abonoForm.is_retention ? 'bg-purple-700 text-white shadow font-bold' : 'text-gray-700 hover:bg-slate-200'"
+                    class="py-2 text-xs rounded-xl transition text-center cursor-pointer">
+              💵 Pago / Cobro Líquido
+            </button>
+            <button type="button" @click="abonoForm.is_retention = true"
+                    :class="abonoForm.is_retention ? 'bg-amber-600 text-white shadow font-bold' : 'text-gray-700 hover:bg-slate-200'"
+                    class="py-2 text-xs rounded-xl transition text-center cursor-pointer">
+              📜 Retención SENIAT Cliente
+            </button>
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold text-gray-800 mb-1">Monto a Abonar / Cobrar ($ USD): *</label>
+              <label class="block text-xs font-bold text-gray-800 mb-1" x-text="abonoForm.is_retention ? 'Monto Retenido ($ USD): *' : 'Monto a Abonar / Cobrar ($ USD): *'"></label>
               <input type="number" step="0.01" min="0.01" :max="selectedCreditObj?.pending_balance_usd"
                      x-model.number="abonoForm.amount_original" required
                      placeholder="Ej: 50.00"
@@ -52,31 +66,43 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-gray-800 mb-1">Fecha del Abono: *</label>
+              <label class="block text-xs font-bold text-gray-800 mb-1" x-text="abonoForm.is_retention ? 'Fecha del Comprobante: *' : 'Fecha del Abono: *'"></label>
               <input type="date" x-model="abonoForm.date" required
                      class="w-full p-2.5 border border-gray-300 rounded-xl text-xs font-bold bg-white">
             </div>
           </div>
 
-          <div>
+          <!-- Si es Pago Ordinario: Caja o Banco -->
+          <div x-show="!abonoForm.is_retention">
             <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
-            <select x-model.number="abonoForm.account_id" required
+            <select x-model.number="abonoForm.account_id" :required="!abonoForm.is_retention"
                     class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
-              <template x-for="acc in accounts.filter(a => a.is_active)" :key="acc.id">
+              <template x-for="acc in accounts.filter(a => a.is_active && a.account_type !== 'CXC' && a.account_type !== 'RETENCION_CLIENTE')" :key="acc.id">
                 <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
               </template>
             </select>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Si es Retención SENIAT del Cliente: Comprobante y tipo -->
+          <div x-show="abonoForm.is_retention" class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-2">
             <div>
+              <label class="block text-xs font-bold text-amber-950 mb-1">N° Comprobante Retención SENIAT (14 dígitos): *</label>
+              <input type="text" x-model="abonoForm.tax_retention_proof" :required="abonoForm.is_retention"
+                     placeholder="Ej: 20261000000045"
+                     class="w-full p-2.5 border border-amber-300 rounded-xl font-mono text-xs bg-white text-amber-950 font-bold">
+              <p class="text-[10px] text-amber-800 mt-1">💡 Se acreditará al saldo fiscal retenido por el cliente y rebajará su cuenta por cobrar.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div x-show="!abonoForm.is_retention">
               <label class="block text-xs font-bold text-gray-800 mb-1">N° Referencia / Depósito:</label>
               <input type="text" x-model="abonoForm.reference_number" placeholder="Ej: Depósito #90421"
                      class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
             </div>
-            <div>
+            <div :class="abonoForm.is_retention ? 'col-span-2' : ''">
               <label class="block text-xs font-bold text-gray-800 mb-1">Concepto / Detalle:</label>
-              <input type="text" x-model="abonoForm.description" placeholder="Ej: Abono parcial en efectivo"
+              <input type="text" x-model="abonoForm.description" placeholder="Ej: Comprobante retención IVA Mango Bajito"
                      class="w-full p-2.5 border border-gray-300 rounded-xl text-xs bg-white">
             </div>
           </div>

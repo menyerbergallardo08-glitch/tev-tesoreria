@@ -50,14 +50,21 @@ def fetch_bcv_official_rate() -> Optional[float]:
 
     return None
 
-def resolve_effective_bcv_rate(db: Session) -> dict:
+def resolve_effective_bcv_rate(
+    db: Session,
+    now_dt: Optional[datetime.datetime] = None,
+    mock_fresh_rate: Optional[float] = None
+) -> dict:
     tz_ve = datetime.timezone(datetime.timedelta(hours=-4))
-    now_ve = datetime.datetime.now(tz_ve)
+    if now_dt is not None:
+        now_ve = now_dt if now_dt.tzinfo else now_dt.replace(tzinfo=tz_ve)
+    else:
+        now_ve = datetime.datetime.now(tz_ve)
     weekday = now_ve.weekday()
     current_minutes = now_ve.hour * 60 + now_ve.minute
     cutoff_430 = 16 * 60 + 30
 
-    fresh_rate = fetch_bcv_official_rate()
+    fresh_rate = mock_fresh_rate if mock_fresh_rate is not None else fetch_bcv_official_rate()
     setting_active = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
     setting_friday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes').first()
     setting_next_monday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_proximo_lunes').first()
@@ -100,6 +107,26 @@ def resolve_effective_bcv_rate(db: Session) -> dict:
             "synced": True
         }
 
+    # Política de Lunes a Jueves después de las 4:00 PM (16:00)
+    # El BCV publica la tasa del día siguiente, pero en tienda se sigue facturando a la tasa del día en curso.
+    cutoff_400 = 16 * 60  # 16:00
+    if weekday in (0, 1, 2, 3) and current_minutes >= cutoff_400:
+        setting_next_day = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_siguiente_dia').first()
+        if fresh_rate and fresh_rate > 100.0:
+            if not setting_next_day:
+                db.add(SystemSetting(key='tasa_bcv_siguiente_dia', value=str(fresh_rate)))
+            else:
+                setting_next_day.value = str(fresh_rate)
+            db.commit()
+
+        return {
+            "rate": current_val,
+            "policy_applied": "Jornada en curso (Tasa del día congelada; la tasa del BCV de la tarde regirá a partir de mañana)",
+            "next_rate_tomorrow": float(setting_next_day.value) if setting_next_day else (fresh_rate or current_val),
+            "synced": True
+        }
+
+    # Durante la mañana / primera mitad del día antes de las 4:00 PM: actualizar si hay tasa fresca
     if fresh_rate and fresh_rate > 100.0:
         if fresh_rate != current_val:
             if not setting_active:
