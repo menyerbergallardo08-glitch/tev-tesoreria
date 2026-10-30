@@ -21,6 +21,7 @@ dr_recovery/
 *.tar.gz
 *.xlsx
 *.xls
+*.exe
 
 # Compilación y Cache Python
 __pycache__/
