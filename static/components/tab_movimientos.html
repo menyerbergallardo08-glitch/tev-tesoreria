@@ -201,6 +201,7 @@
               </label>
               <input type="text" x-model="form.beneficiary" placeholder="Ej: Distribuidora Eléctrica Centro C.A. / Corpoelec / Pago de Almuerzos"
                      class="w-full input-large border border-gray-300 bg-white font-bold text-xs sm:text-sm">
+            </div>
             <!-- 4.1 ASISTENTE QUIRÚRGICO DE RETENCIONES SENIAT (SUJETO PASIVO ESPECIAL) -->
             <div x-show="form.movement_type === 'EGRESO' && (form.subtype === 'PAGO_PROVEEDOR' || form.subtype === 'GASTO_OPERATIVO')" 
                  class="p-4 rounded-2xl border transition-all"

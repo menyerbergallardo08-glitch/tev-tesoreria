@@ -151,22 +151,19 @@ def get_cash_close_summary(
                 cash_ves_in += t.amount_original
             elif "CASHEA" in acc_name:
                 cashea_usd += t.amount_usd
-            elif "BANCO" in acc_name or "PUNTO" in acc_name or "POS" in acc_name:
-                if t.pos_terminal:
-                    p_term = t.pos_terminal.upper()
-                    if "BANESCO" in p_term:
-                        pos_breakdown["Banesco"] += t.amount_usd
-                    elif "BANCARIBE" in p_term:
-                        pos_breakdown["Bancaribe"] += t.amount_usd
-                    elif "VENEZUELA" in p_term or "BDV" in p_term:
-                        pos_breakdown["BDV"] += t.amount_usd
-                    elif "BNC" in p_term:
-                        pos_breakdown["BNC"] += t.amount_usd
-                    else:
-                        pos_breakdown["Otros"] += t.amount_usd
-                    pos_total_usd += t.amount_usd
+            elif t.pos_terminal or "POS" in acc_name or "PUNTO" in acc_name:
+                p_term = (t.pos_terminal or acc_name).upper()
+                if "BANESCO" in p_term:
+                    pos_breakdown["Banesco"] += t.amount_usd
+                elif "BANCARIBE" in p_term:
+                    pos_breakdown["Bancaribe"] += t.amount_usd
+                elif "VENEZUELA" in p_term or "BDV" in p_term:
+                    pos_breakdown["BDV"] += t.amount_usd
+                elif "BNC" in p_term:
+                    pos_breakdown["BNC"] += t.amount_usd
                 else:
-                    bank_transfers_usd += t.amount_usd
+                    pos_breakdown["Otros"] += t.amount_usd
+                pos_total_usd += t.amount_usd
             elif acc_name and "CXC" not in acc_name:
                 bank_transfers_usd += t.amount_usd
 
@@ -174,7 +171,7 @@ def get_cash_close_summary(
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
                 amt = t.amount_usd if (t.amount_usd and t.amount_usd > 0) else (t.credit_original_amount_usd or 0.0)
                 devoluciones_usd += amt
-            elif t.subtype == "GASTO_OPERATIVO":
+            else:
                 expenses_caja_usd += t.amount_usd
 
             if "EFECTIVO USD" in acc_name:
@@ -188,13 +185,16 @@ def get_cash_close_summary(
     # Total Cobrado del Día (Ventas Cobradas + CxC Recibidas - Gastos de Caja)
     total_cobrado_dia_usd = round(ventas_cobradas_hoy_usd + cxc_recibidas_hoy_usd - expenses_caja_usd, 2)
 
-    # Conversión precisa de efectivo en bolívares a USD con tasa BCV real
-    ves_converted_usd = round(cash_ves_in / active_bcv, 2) if active_bcv > 0 else 0.0
-    total_collected_real_usd = round(cash_usd_in + ves_converted_usd + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
+    # Conversión precisa de efectivo neto a USD con tasa BCV real
+    cash_usd_net = round(cash_usd_in - cash_usd_out, 2)
+    cash_ves_net = round(cash_ves_in - cash_ves_out, 2)
+    ves_converted_net_usd = round(cash_ves_net / active_bcv, 2) if active_bcv > 0 else 0.0
+    total_collected_real_usd = round(cash_usd_net + ves_converted_net_usd + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
 
     return {
         "date": target_date.isoformat(),
         "is_closed": bool(existing_close),
+        "bcv_rate": active_bcv,
         "existing_close": {
             "id": existing_close.id,
             "status": existing_close.status,
@@ -222,14 +222,18 @@ def get_cash_close_summary(
             "ventas_cobradas_hoy_usd": round(ventas_cobradas_hoy_usd, 2),
             "cxc_recibidas_hoy_usd": round(cxc_recibidas_hoy_usd, 2),
             "bcv_rate": active_bcv,
+            "cash_usd": cash_usd_net,
+            "cash_usd_net": cash_usd_net,
             "cash_usd_in": round(cash_usd_in, 2),
             "cash_usd_out": round(cash_usd_out, 2),
-            "cash_usd_net": round(cash_usd_in - cash_usd_out, 2),
+            "cash_ves": cash_ves_net,
+            "cash_ves_net": cash_ves_net,
             "cash_ves_in": round(cash_ves_in, 2),
             "cash_ves_out": round(cash_ves_out, 2),
-            "cash_ves_net": round(cash_ves_in - cash_ves_out, 2),
+            "pos_total": round(pos_total_usd, 2),
             "pos_total_usd": round(pos_total_usd, 2),
-            "pos_breakdown": pos_breakdown,
+            "pos_breakdown": {k: round(v, 2) for k, v in pos_breakdown.items()},
+            "pago_movil_usd": round(bank_transfers_usd, 2),
             "bank_transfers_usd": round(bank_transfers_usd, 2),
             "cashea_usd": round(cashea_usd, 2),
             "retentions_iva_usd": round(retentions_iva_usd, 2),

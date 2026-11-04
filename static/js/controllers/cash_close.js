@@ -55,8 +55,9 @@ window.TEVCashClose = {
           if (!this.cashCloseSummary) return 0;
           const diffUSD = this.calculatePhysicalUsdDiff();
           const diffVES = this.calculatePhysicalVesDiff();
-          const bcv = this.cashCloseSummary.collections_summary?.bcv_rate || this.bcvRate || 881.0;
-          return roundNumber(diffUSD + (diffVES / bcv), 2);
+          const bcv = this.cashCloseSummary.collections_summary?.bcv_rate || this.cashCloseSummary?.bcv_rate || this.bcvRate || 881.0;
+          const diff = roundNumber(diffUSD + (diffVES / bcv), 2);
+          return Math.abs(diff) < 0.01 ? 0 : diff;
         },
 
         async loadCommissions() {
@@ -80,19 +81,22 @@ window.TEVCashClose = {
           if (!this.cashCloseSummary) return;
           try {
             const token = this.getToken();
+            const diff = this.calculateCuadreDifference();
+            const physicalUSD = this.calculatePhysicalUsd();
+            const physicalVES = this.calculatePhysicalVes();
             const payload = {
               date: this.cuadreDate,
               cajero_name: this.currentUser?.full_name || 'Cajero',
               verified_by: 'Administración',
-              status: this.calculateCuadreDifference() === 0 ? 'CUADRADO' : (this.calculateCuadreDifference() > 0 ? 'SOBRANTE' : 'FALTANTE'),
+              status: Math.abs(diff) < 0.01 ? 'CUADRADO' : (diff > 0 ? 'SOBRANTE' : 'FALTANTE'),
               profit_sales_total_usd: this.cashCloseSummary.sales_summary?.net_sales_usd || 0,
               sales_fiscal_iva_usd: this.cashCloseSummary.sales_summary?.fiscal_iva_usd || 0,
               sales_notes_credit_usd: this.cashCloseSummary.sales_summary?.notes_credit_usd || 0,
               sales_notes_collected_usd: this.cashCloseSummary.sales_summary?.notes_collected_usd || 0,
               returns_total_usd: this.cashCloseSummary.sales_summary?.returns_total_usd || 0,
               net_sales_usd: this.cashCloseSummary.sales_summary?.net_sales_usd || 0,
-              cash_usd_physical: this.cashCloseSummary.collections_summary?.cash_usd_net || 0,
-              cash_ves_physical: this.cashCloseSummary.collections_summary?.cash_ves_net || 0,
+              cash_usd_physical: physicalUSD > 0 ? physicalUSD : (this.cashCloseSummary.collections_summary?.cash_usd_net || 0),
+              cash_ves_physical: physicalVES > 0 ? physicalVES : (this.cashCloseSummary.collections_summary?.cash_ves_net || 0),
               pos_total_usd: this.cashCloseSummary.collections_summary?.pos_total_usd || 0,
               bank_transfers_usd: this.cashCloseSummary.collections_summary?.bank_transfers_usd || 0,
               cashea_usd: this.cashCloseSummary.collections_summary?.cashea_usd || 0,
@@ -101,7 +105,7 @@ window.TEVCashClose = {
               expenses_caja_usd: this.cashCloseSummary.collections_summary?.expenses_caja_usd || 0,
               total_collected_real_usd: this.cashCloseSummary.collections_summary?.total_collected_real_usd || 0,
               total_expected_usd: this.cashCloseSummary.sales_summary?.net_sales_usd || 0,
-              difference_usd: this.calculateCuadreDifference(),
+              difference_usd: diff,
               notes: this.cuadreNotes
             };
 

@@ -258,7 +258,7 @@
                   Bs. <span x-text="formatNumber(calculatePhysicalVes())"></span>
                 </div>
                 <p class="text-xs text-blue-700 font-semibold">
-                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (bcvRate || 827.74))"></span> USD</strong>
+                  Equivalente BCV: <strong>$<span x-text="formatNumber(calculatePhysicalVes() / (cashCloseSummary?.collections_summary?.bcv_rate || cashCloseSummary?.bcv_rate || bcvRate || 881.0))"></span> USD</strong>
                 </p>
                 <div class="pt-2.5 border-t border-blue-200 text-xs space-y-1 text-blue-900">
                   <div class="flex justify-between">
