@@ -28,6 +28,8 @@ class DailyCashClose(Base):
     cash_ves_physical = Column(Float, default=0.0)
     pos_total_usd = Column(Float, default=0.0)
     bank_transfers_usd = Column(Float, default=0.0)
+    zelle_usd = Column(Float, default=0.0)
+    binance_usd = Column(Float, default=0.0)
     cashea_usd = Column(Float, default=0.0)
     retentions_iva_usd = Column(Float, default=0.0)
     retentions_islr_usd = Column(Float, default=0.0)

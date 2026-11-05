@@ -147,8 +147,14 @@
               </div>
             </div>
 
-            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (VENDEDOR, CLIENTE, N° DOCUMENTO Y MONEDA) -->
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <!-- 3. DATOS DE LA VENTA / NOTA DE CRÉDITO (FECHA, VENDEDOR, CLIENTE, N° DOCUMENTO Y MONEDA) -->
+            <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+              <div>
+                <label class="block text-xs font-black text-gray-700 mb-1">📅 Fecha de Venta: *</label>
+                <input type="date" x-model="liveSaleForm.date"
+                       class="w-full input-large border border-emerald-300 bg-white font-bold text-gray-800 focus:ring-2 focus:ring-emerald-500">
+              </div>
+
               <div>
                 <label class="block text-xs font-black text-gray-700 mb-1">
                   <span>👤 Vendedor: *</span>

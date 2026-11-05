@@ -485,7 +485,7 @@
               <tbody>
                 <template x-for="item in transactions" :key="item.id">
                   <tr class="border-b hover:bg-slate-50 transition">
-                    <td class="p-3 font-bold" x-text="item.date"></td>
+                    <td class="p-3 font-bold text-gray-600 whitespace-nowrap" x-text="formatDate(item.date)"></td>
                     <td class="p-3">
                       <span class="px-2 py-0.5 rounded-full text-[10px] font-black"
                             :class="{

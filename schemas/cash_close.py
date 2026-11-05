@@ -12,6 +12,8 @@ class CashCloseCreate(BaseModel):
     cash_ves_physical: float = 0.0
     pos_total_usd: float = 0.0
     bank_transfers_usd: float = 0.0
+    zelle_usd: float = 0.0
+    binance_usd: float = 0.0
     cashea_usd: float = 0.0
     retentions_iva_usd: float = 0.0
     retentions_islr_usd: float = 0.0

@@ -202,6 +202,24 @@ window.TEVReports = {
           return parseFloat(val).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
 
+        formatDate(val) {
+          if (!val) return '';
+          const str = String(val).trim();
+          const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) {
+            return `${m[3]}/${m[2]}/${m[1]}`;
+          }
+          if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
+            return str;
+          }
+          const d = new Date(str);
+          if (isNaN(d.getTime())) return str;
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return `${day}/${month}/${year}`;
+        },
+
         async resetSystemDemo() {
           const pass1 = confirm("⚠️ ATENCIÓN: RESETEO DE PRUEBAS A CERO ⚠️\n\n¿Está seguro de que desea reiniciar la herramienta?\n\n- Se ELIMINARÁN todos los movimientos y gastos de prueba.\n- Los saldos iniciales de todas las cajas volverán a 0.00.\n- Los usuarios, partidas y cuentas se conservarán intactos.");
           if (!pass1) return;

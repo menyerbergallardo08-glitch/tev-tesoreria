@@ -207,6 +207,7 @@ def get_live_monitor(
             # EXCLUSIVO VENTAS: En el stream de ventas del turno SOLO entran ventas reales
             recent_stream.append({
                 "id": t.id,
+                "date": t.date.isoformat() if t.date else "",
                 "created_at": t.created_at.strftime("%I:%M %p") if t.created_at else "",
                 "doc_type": t.doc_type,
                 "doc_number": t.doc_number,

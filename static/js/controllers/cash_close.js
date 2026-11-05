@@ -99,6 +99,8 @@ window.TEVCashClose = {
               cash_ves_physical: physicalVES > 0 ? physicalVES : (this.cashCloseSummary.collections_summary?.cash_ves_net || 0),
               pos_total_usd: this.cashCloseSummary.collections_summary?.pos_total_usd || 0,
               bank_transfers_usd: this.cashCloseSummary.collections_summary?.bank_transfers_usd || 0,
+              zelle_usd: this.cashCloseSummary.collections_summary?.zelle_usd || 0,
+              binance_usd: this.cashCloseSummary.collections_summary?.binance_usd || 0,
               cashea_usd: this.cashCloseSummary.collections_summary?.cashea_usd || 0,
               retentions_iva_usd: this.cashCloseSummary.collections_summary?.retentions_iva_usd || 0,
               retentions_islr_usd: this.cashCloseSummary.collections_summary?.retentions_islr_usd || 0,

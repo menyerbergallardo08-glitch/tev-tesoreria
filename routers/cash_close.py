@@ -40,6 +40,7 @@ def create_cash_close(
         raise HTTPException(status_code=409, detail=f"Ya existe un cierre de caja registrado para la fecha {data.date}.")
 
     total_real = (data.cash_usd_physical + data.pos_total_usd + data.bank_transfers_usd +
+                  data.zelle_usd + data.binance_usd +
                   data.cashea_usd + data.retentions_iva_usd + data.retentions_islr_usd)
 
     close_obj = DailyCashClose(
@@ -56,6 +57,8 @@ def create_cash_close(
         cash_ves_physical=data.cash_ves_physical,
         pos_total_usd=data.pos_total_usd,
         bank_transfers_usd=data.bank_transfers_usd,
+        zelle_usd=data.zelle_usd,
+        binance_usd=data.binance_usd,
         cashea_usd=data.cashea_usd,
         retentions_iva_usd=data.retentions_iva_usd,
         retentions_islr_usd=data.retentions_islr_usd,
@@ -116,7 +119,12 @@ def get_cash_close_summary(
 
     pos_breakdown = {"Banesco": 0.0, "Bancaribe": 0.0, "BDV": 0.0, "BNC": 0.0, "Otros": 0.0}
     pos_total_usd = 0.0
-    bank_transfers_usd = 0.0
+    bank_transfers_usd_in = 0.0
+    bank_transfers_usd_out = 0.0
+    zelle_usd_in = 0.0
+    zelle_usd_out = 0.0
+    binance_usd_in = 0.0
+    binance_usd_out = 0.0
     cashea_usd = 0.0
     retentions_iva_usd = 0.0
     retentions_islr_usd = 0.0
@@ -151,6 +159,10 @@ def get_cash_close_summary(
                 cash_ves_in += t.amount_original
             elif "CASHEA" in acc_name:
                 cashea_usd += t.amount_usd
+            elif "ZELLE" in acc_name or "PANAMÁ" in acc_name or "PANAMA" in acc_name:
+                zelle_usd_in += t.amount_usd
+            elif "BINANCE" in acc_name or "USDT" in acc_name or t.currency == "USDT":
+                binance_usd_in += t.amount_usd
             elif t.pos_terminal or "POS" in acc_name or "PUNTO" in acc_name:
                 p_term = (t.pos_terminal or acc_name).upper()
                 if "BANESCO" in p_term:
@@ -165,7 +177,7 @@ def get_cash_close_summary(
                     pos_breakdown["Otros"] += t.amount_usd
                 pos_total_usd += t.amount_usd
             elif acc_name and "CXC" not in acc_name:
-                bank_transfers_usd += t.amount_usd
+                bank_transfers_usd_in += t.amount_usd
 
         elif t.movement_type == "EGRESO":
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
@@ -178,6 +190,12 @@ def get_cash_close_summary(
                 cash_usd_out += t.amount_original
             elif "EFECTIVO VES" in acc_name:
                 cash_ves_out += t.amount_original
+            elif "ZELLE" in acc_name or "PANAMÁ" in acc_name or "PANAMA" in acc_name:
+                zelle_usd_out += t.amount_usd
+            elif "BINANCE" in acc_name or "USDT" in acc_name or t.currency == "USDT":
+                binance_usd_out += t.amount_usd
+            elif acc_name and "CXC" not in acc_name and not ("POS" in acc_name or "PUNTO" in acc_name):
+                bank_transfers_usd_out += t.amount_usd
 
     # Venta Real Comercial del Día (Contado + Crédito - Devoluciones)
     venta_real_del_dia_usd = round(ventas_contado_usd + ventas_credito_usd - devoluciones_usd, 2)
@@ -188,8 +206,11 @@ def get_cash_close_summary(
     # Conversión precisa de efectivo neto a USD con tasa BCV real
     cash_usd_net = round(cash_usd_in - cash_usd_out, 2)
     cash_ves_net = round(cash_ves_in - cash_ves_out, 2)
+    zelle_usd_net = round(zelle_usd_in - zelle_usd_out, 2)
+    binance_usd_net = round(binance_usd_in - binance_usd_out, 2)
+    bank_transfers_usd_net = round(bank_transfers_usd_in - bank_transfers_usd_out, 2)
     ves_converted_net_usd = round(cash_ves_net / active_bcv, 2) if active_bcv > 0 else 0.0
-    total_collected_real_usd = round(cash_usd_net + ves_converted_net_usd + pos_total_usd + bank_transfers_usd + cashea_usd, 2)
+    total_collected_real_usd = round(cash_usd_net + ves_converted_net_usd + pos_total_usd + bank_transfers_usd_net + zelle_usd_net + binance_usd_net + cashea_usd, 2)
 
     return {
         "date": target_date.isoformat(),
@@ -233,8 +254,11 @@ def get_cash_close_summary(
             "pos_total": round(pos_total_usd, 2),
             "pos_total_usd": round(pos_total_usd, 2),
             "pos_breakdown": {k: round(v, 2) for k, v in pos_breakdown.items()},
-            "pago_movil_usd": round(bank_transfers_usd, 2),
-            "bank_transfers_usd": round(bank_transfers_usd, 2),
+            "pago_movil_usd": bank_transfers_usd_net,
+            "bank_transfers_usd": bank_transfers_usd_net,
+            "zelle_usd": zelle_usd_net,
+            "binance_usd": binance_usd_net,
+            "usdt_usd": binance_usd_net,
             "cashea_usd": round(cashea_usd, 2),
             "retentions_iva_usd": round(retentions_iva_usd, 2),
             "retentions_islr_usd": round(retentions_islr_usd, 2),
@@ -283,6 +307,8 @@ def save_daily_cash_close_legacy(
             cash_ves_physical=float(data.get("cash_ves_physical", 0.0) or 0.0),
             pos_total_usd=float(data.get("pos_total_usd", 0.0) or 0.0),
             bank_transfers_usd=float(data.get("bank_transfers_usd", 0.0) or 0.0),
+            zelle_usd=float(data.get("zelle_usd", 0.0) or 0.0),
+            binance_usd=float(data.get("binance_usd", 0.0) or 0.0),
             cashea_usd=float(data.get("cashea_usd", 0.0) or 0.0),
             retentions_iva_usd=float(data.get("retentions_iva_usd", 0.0) or 0.0),
             retentions_islr_usd=float(data.get("retentions_islr_usd", 0.0) or 0.0),

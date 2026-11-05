@@ -37,7 +37,9 @@ def run_migrations():
             ('transactions', 'tax_retention_proof', 'VARCHAR(100)'),
             ('transactions', 'invoice_date', 'DATE'),
             ('transactions', 'seller_code', 'VARCHAR(10)'),
-            ('transactions', 'seller_name', 'VARCHAR(100)')
+            ('transactions', 'seller_name', 'VARCHAR(100)'),
+            ('daily_cash_closes', 'zelle_usd', 'FLOAT'),
+            ('daily_cash_closes', 'binance_usd', 'FLOAT')
         ]
 
         for table, col, coltype in columns_to_add:

@@ -103,7 +103,7 @@
               <tbody class="divide-y divide-gray-100">
                 <template x-for="item in receivablesList" :key="item.id">
                   <tr class="hover:bg-slate-50 transition">
-                    <td class="p-3 font-bold text-gray-500 whitespace-nowrap" x-text="item.date"></td>
+                    <td class="p-3 font-bold text-gray-500 whitespace-nowrap" x-text="formatDate(item.date)"></td>
                     <td class="p-3">
                       <span class="px-2 py-0.5 rounded-md text-[10px] font-black"
                             :class="item.is_cashea ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-blue-100 text-blue-900 border border-blue-200'"

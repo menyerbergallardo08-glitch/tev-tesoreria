@@ -36,7 +36,7 @@
               <span class="inline-block px-3 py-1 bg-gray-900 text-white font-black text-xs rounded-lg uppercase tracking-wider">
                 COMPROBANTE DE CIERRE
               </span>
-              <p class="text-xs font-bold text-gray-700 mt-1">Fecha: <strong class="text-gray-900" x-text="cuadreDate"></strong></p>
+              <p class="text-xs font-bold text-gray-700 mt-1">Fecha: <strong class="text-gray-900" x-text="formatDate(cuadreDate)"></strong></p>
               <p class="text-[10px] text-gray-500">Tasa BCV: Bs. <span x-text="formatNumber(cashCloseSummary?.bcv_rate || cashCloseSummary?.collections_summary?.bcv_rate || bcvRate)"></span></p>
             </div>
           </div>
@@ -113,6 +113,14 @@
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-gray-600">📲 Pago Móvil / Bancos VES:</span>
                 <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd ?? cashCloseSummary?.collections_summary?.pago_movil_usd ?? 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-emerald-900 font-bold">💵 Zelle ($ USD):</span>
+                <span class="font-bold text-emerald-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.zelle_usd || 0)"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-gray-100">
+                <span class="text-slate-800 font-bold">🪙 Binance (USDT):</span>
+                <span class="font-bold text-slate-950" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.binance_usd || 0)"></span>
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-amber-900 font-bold">🟡 BNC - Cashea (Por Liquidar):</span>

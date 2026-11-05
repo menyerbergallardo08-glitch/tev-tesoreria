@@ -101,16 +101,24 @@
               </div>
 
               <!-- Puntos de Venta (POS) y Canales Digitales -->
-              <div class="grid grid-cols-3 gap-2">
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <div class="p-2 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
                   <p class="text-blue-800 font-bold text-[10px]">💳 Puntos POS:</p>
                   <p class="font-black text-blue-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd || 0)"></p>
                 </div>
                 <div class="p-2 bg-purple-50 rounded-xl border border-purple-200 text-center">
-                  <p class="text-purple-800 font-bold text-[10px]">📲 Pago Móvil:</p>
+                  <p class="text-purple-800 font-bold text-[10px]">📲 Pago Móvil Bs:</p>
                   <p class="font-black text-purple-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd || 0)"></p>
                 </div>
-                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center">
+                <div class="p-2 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
+                  <p class="text-emerald-800 font-bold text-[10px]">💵 Zelle ($):</p>
+                  <p class="font-black text-emerald-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.zelle_usd || 0)"></p>
+                </div>
+                <div class="p-2 bg-slate-100 rounded-xl border border-slate-300 text-center">
+                  <p class="text-slate-800 font-bold text-[10px]">🪙 Binance (USDT):</p>
+                  <p class="font-black text-slate-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.binance_usd || 0)"></p>
+                </div>
+                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center col-span-2 sm:col-span-1">
                   <p class="text-amber-800 font-bold text-[10px]">🟡 Cashea BNC:</p>
                   <p class="font-black text-amber-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></p>
                 </div>
@@ -391,7 +399,7 @@
               <tbody>
                 <template x-for="item in cashCloseHistory" :key="item.id">
                   <tr class="border-b hover:bg-slate-50 transition">
-                    <td class="p-3 font-bold" x-text="item.date"></td>
+                    <td class="p-3 font-bold text-gray-700 whitespace-nowrap" x-text="formatDate(item.date)"></td>
                     <td class="p-3" x-text="item.cajero_name"></td>
                     <td class="p-3 text-right font-black" x-text="'$' + formatNumber(item.net_sales_usd)"></td>
                     <td class="p-3 text-right font-black text-tev-darkgreen" x-text="'$' + formatNumber(item.total_collected_real_usd)"></td>
