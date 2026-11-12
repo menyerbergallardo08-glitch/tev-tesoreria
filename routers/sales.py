@@ -118,6 +118,7 @@ def get_live_monitor(
     db: Session = Depends(get_db)
 ):
     from models.system import SystemSetting
+    from models import TreasuryAccount
     target_date = datetime.datetime.strptime(date, "%Y-%m-%d").date() if date else datetime.date.today()
     txs = db.query(Transaction).filter(
         Transaction.date == target_date,
@@ -126,6 +127,17 @@ def get_live_monitor(
 
     bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
     active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
+
+    # Cargar todas las cuentas de fondos activas (Cajas, Bancos, Billeteras, POS)
+    fund_accounts = db.query(TreasuryAccount).filter(
+        TreasuryAccount.is_active == True,
+        ~TreasuryAccount.account_type.in_(['CXC', 'RETENCION_CLIENTE', 'OTRO']),
+        ~TreasuryAccount.name.ilike('%CxC%'),
+        ~TreasuryAccount.name.ilike('%Retenciones%'),
+        ~TreasuryAccount.name.ilike('%Saldo a Favor%'),
+        ~TreasuryAccount.name.ilike('%Cuenta Test%')
+    ).order_by(TreasuryAccount.id.asc()).all()
+    account_funds = {a.id: {"usd": 0.0, "orig": 0.0} for a in fund_accounts}
 
     fac_contado_usd = 0.0
     fac_credito_usd = 0.0
@@ -204,6 +216,46 @@ def get_live_monitor(
                 elif "BANCO" in acc_name:
                     pago_movil_usd += cash_in_usd
 
+                # Vincular dinámicamente al desglose de cuentas activas
+                target_a_id = None
+                if t.account_id and t.account_id in account_funds:
+                    target_a_id = t.account_id
+                elif t.pos_terminal:
+                    p = t.pos_terminal.upper()
+                    for a in fund_accounts:
+                        if "POS" in a.name.upper() and any(k in p and k in a.name.upper() for k in ["BANESCO", "BANCARIBE", "VENEZUELA", "BDV", "BNC"]):
+                            target_a_id = a.id
+                            break
+                elif "BINANCE" in acc_name or t.currency == "USDT" or "USDT" in acc_name:
+                    for a in fund_accounts:
+                        if "BINANCE" in a.name.upper() or a.currency == "USDT":
+                            target_a_id = a.id
+                            break
+                elif "ZELLE" in acc_name or "PANAMÁ" in acc_name or "PANAMA" in acc_name:
+                    for a in fund_accounts:
+                        if "ZELLE" in a.name.upper() or "PANAMÁ" in a.name.upper() or "PANAMA" in a.name.upper():
+                            target_a_id = a.id
+                            break
+                elif "CASHEA" in acc_name:
+                    for a in fund_accounts:
+                        if "CASHEA" in a.name.upper():
+                            target_a_id = a.id
+                            break
+                elif "EFECTIVO USD" in acc_name:
+                    for a in fund_accounts:
+                        if "EFECTIVO USD" in a.name.upper():
+                            target_a_id = a.id
+                            break
+                elif "EFECTIVO VES" in acc_name:
+                    for a in fund_accounts:
+                        if "EFECTIVO VES" in a.name.upper():
+                            target_a_id = a.id
+                            break
+
+                if target_a_id and target_a_id in account_funds:
+                    account_funds[target_a_id]["usd"] += cash_in_usd
+                    account_funds[target_a_id]["orig"] += cash_in_orig
+
             # EXCLUSIVO VENTAS: En el stream de ventas del turno SOLO entran ventas reales
             recent_stream.append({
                 "id": t.id,
@@ -231,6 +283,122 @@ def get_live_monitor(
                     cash_usd_expected = max(0.0, cash_usd_expected - t.amount_usd)
                 elif "EFECTIVO VES" in acc_name:
                     cash_ves_expected = max(0.0, cash_ves_expected - (t.amount_original if t.currency == "VES" else round(t.amount_usd * active_bcv, 2)))
+
+    # Construcción dinámica de tarjetas para todas las cuentas activas
+    accounts_cards = []
+    for a in fund_accounts:
+        name_u = a.name.upper()
+        curr = a.currency.upper()
+        acc_type = a.account_type.upper()
+
+        if "EFECTIVO USD" in name_u or (acc_type == "EFECTIVO" and curr == "USD"):
+            val_usd = cash_usd_expected
+            val_orig = cash_usd_expected
+            icon = "💵"
+            sub = "Efectivo en gaveta"
+            c_class = "bg-emerald-50 border-emerald-200"
+            t_class = "text-emerald-800"
+            a_class = "text-emerald-950"
+            s_class = "text-emerald-700"
+            fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif "EFECTIVO VES" in name_u or (acc_type == "EFECTIVO" and curr == "VES"):
+            val_usd = round(cash_ves_expected / active_bcv, 2) if active_bcv > 0 else 0.0
+            val_orig = cash_ves_expected
+            icon = "🇻🇪"
+            sub = "Bolívares en gaveta"
+            c_class = "bg-sky-50 border-sky-200"
+            t_class = "text-sky-800"
+            a_class = "text-sky-950"
+            s_class = "text-sky-700"
+            fmt = f"Bs. {val_orig:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif "BINANCE" in name_u or curr == "USDT" or "USDT" in name_u:
+            val_usd = max(usdt_usd, account_funds[a.id]["usd"])
+            val_orig = val_usd
+            icon = "🪙"
+            sub = "Billetera Binance USDT"
+            c_class = "bg-amber-500/10 border-amber-500/30"
+            t_class = "text-amber-800"
+            a_class = "text-amber-950"
+            s_class = "text-amber-700"
+            fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif "ZELLE" in name_u or "PANAMÁ" in name_u or "PANAMA" in name_u:
+            val_usd = max(zelle_usd, account_funds[a.id]["usd"])
+            val_orig = val_usd
+            icon = "💵"
+            sub = "Transferencia Zelle / USD"
+            c_class = "bg-teal-50 border-teal-200"
+            t_class = "text-teal-800"
+            a_class = "text-teal-950"
+            s_class = "text-teal-700"
+            fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif "CASHEA" in name_u:
+            val_usd = max(cashea_usd, account_funds[a.id]["usd"])
+            val_orig = account_funds[a.id]["orig"]
+            icon = "🟡"
+            sub = "BNC Cashea"
+            c_class = "bg-amber-50 border-amber-200"
+            t_class = "text-amber-800"
+            a_class = "text-amber-950"
+            s_class = "text-amber-700"
+            fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif "POS" in name_u or "PUNTO" in name_u:
+            if "BANESCO" in name_u:
+                val_usd = max(pos_banesco, account_funds[a.id]["usd"])
+            elif "BANCARIBE" in name_u:
+                val_usd = max(pos_bancaribe, account_funds[a.id]["usd"])
+            elif "VENEZUELA" in name_u or "BDV" in name_u:
+                val_usd = max(pos_bdv, account_funds[a.id]["usd"])
+            elif "BNC" in name_u:
+                val_usd = max(pos_bnc, account_funds[a.id]["usd"])
+            else:
+                val_usd = account_funds[a.id]["usd"]
+            val_orig = account_funds[a.id]["orig"]
+            icon = "💳"
+            sub = "Punto de Venta"
+            c_class = "bg-blue-50 border-blue-200"
+            t_class = "text-blue-800"
+            a_class = "text-blue-950"
+            s_class = "text-blue-700"
+            fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif "PAGO MÓVIL" in name_u or "PAGO MOVIL" in name_u:
+            val_usd = max(pago_movil_usd, account_funds[a.id]["usd"])
+            val_orig = account_funds[a.id]["orig"]
+            icon = "📲"
+            sub = "Bancos recibidos"
+            c_class = "bg-purple-50 border-purple-200"
+            t_class = "text-purple-800"
+            a_class = "text-purple-950"
+            s_class = "text-purple-700"
+            fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            val_usd = account_funds[a.id]["usd"]
+            val_orig = account_funds[a.id]["orig"]
+            icon = "🏦" if acc_type == "BANCO" else ("🪙" if acc_type == "BILLETERA" else "💵")
+            sub = f"{a.account_type.title()} ({curr})"
+            c_class = "bg-slate-50 border-slate-200"
+            t_class = "text-slate-800"
+            a_class = "text-slate-950"
+            s_class = "text-slate-600"
+            if curr == "VES":
+                fmt = f"Bs. {val_orig:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            else:
+                fmt = f"${val_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        accounts_cards.append({
+            "id": a.id,
+            "name": a.name,
+            "currency": curr,
+            "account_type": a.account_type,
+            "amount_usd": round(val_usd, 2),
+            "amount_original": round(val_orig, 2),
+            "formatted_amount": fmt,
+            "icon": icon,
+            "subtitle": sub,
+            "card_class": c_class,
+            "title_class": t_class,
+            "amount_class": a_class,
+            "subtitle_class": s_class
+        })
 
     total_sales_today = fac_contado_usd + fac_credito_usd + not_contado_usd + not_credito_usd - returns_today_usd
 
@@ -261,8 +429,10 @@ def get_live_monitor(
             "pago_movil_usd": round(pago_movil_usd, 2),
             "cashea_usd": round(cashea_usd, 2),
             "zelle_usd": round(zelle_usd, 2),
-            "usdt_usd": round(usdt_usd, 2)
+            "usdt_usd": round(usdt_usd, 2),
+            "binance_usd": round(usdt_usd, 2)
         },
+        "accounts_cards": accounts_cards,
         "recent_stream": recent_stream[:30]
     }
 

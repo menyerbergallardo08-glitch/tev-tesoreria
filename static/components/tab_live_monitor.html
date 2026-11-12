@@ -20,18 +20,49 @@
           </div>
         </div>
 
-        <!-- Tarjetas de Fondos Esperados en Este Segundo -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <!-- Tarjetas de Fondos Esperados en Vivo (Dinámico por Cuenta y Canal) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          <template x-for="card in (liveMonitorData?.accounts_cards || [])" :key="card.id">
+            <div class="p-4 rounded-2xl border text-center transition hover:shadow-xs"
+                 :class="card.card_class || 'bg-slate-50 border-slate-200'"
+                 :title="card.name">
+              <p class="font-bold uppercase truncate text-[11px]"
+                 :class="card.title_class || 'text-slate-800'"
+                 x-text="(card.icon || '🏦') + ' ' + card.name"></p>
+              <p class="text-xl font-black mt-1 truncate"
+                 :class="card.amount_class || 'text-slate-950'"
+                 x-text="card.formatted_amount || ('$' + formatNumber(card.amount_usd || 0))"></p>
+              <p class="text-[10px] mt-0.5 truncate"
+                 :class="card.subtitle_class || 'text-slate-600'"
+                 x-text="card.subtitle || card.currency"></p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Fallback si aún no cargan las tarjetas dinámicas -->
+        <div x-show="!liveMonitorData?.accounts_cards || liveMonitorData.accounts_cards.length === 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
           <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
             <p class="text-[11px] font-bold text-emerald-800 uppercase">💵 Gaveta USD</p>
             <p class="text-xl font-black text-emerald-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.cash_usd_expected || 0)"></p>
             <p class="text-[10px] text-emerald-700 mt-0.5">Efectivo en gaveta</p>
           </div>
 
-          <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center">
-            <p class="text-[11px] font-bold text-emerald-800 uppercase">🇻🇪 Gaveta VES</p>
-            <p class="text-xl font-black text-emerald-950 mt-1" x-text="'Bs. ' + formatNumber(liveMonitorData?.live_funds_expected?.cash_ves_expected || 0)"></p>
-            <p class="text-[10px] text-emerald-700 mt-0.5">Bolívares en gaveta</p>
+          <div class="p-4 bg-sky-50 rounded-2xl border border-sky-200 text-center">
+            <p class="text-[11px] font-bold text-sky-800 uppercase">🇻🇪 Gaveta VES</p>
+            <p class="text-xl font-black text-sky-950 mt-1" x-text="'Bs. ' + formatNumber(liveMonitorData?.live_funds_expected?.cash_ves_expected || 0)"></p>
+            <p class="text-[10px] text-sky-700 mt-0.5">Bolívares en gaveta</p>
+          </div>
+
+          <div class="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/30 text-center">
+            <p class="text-[11px] font-bold text-amber-800 uppercase">🪙 Binance (USDT)</p>
+            <p class="text-xl font-black text-amber-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.binance_usd || liveMonitorData?.live_funds_expected?.usdt_usd || 0)"></p>
+            <p class="text-[10px] text-amber-700 mt-0.5">Billetera USDT</p>
+          </div>
+
+          <div class="p-4 bg-teal-50 rounded-2xl border border-teal-200 text-center">
+            <p class="text-[11px] font-bold text-teal-800 uppercase">💵 Zelle ($)</p>
+            <p class="text-xl font-black text-teal-950 mt-1" x-text="'$' + formatNumber(liveMonitorData?.live_funds_expected?.zelle_usd || 0)"></p>
+            <p class="text-[10px] text-teal-700 mt-0.5">Transferencia Zelle</p>
           </div>
 
           <div class="p-4 bg-blue-50 rounded-2xl border border-blue-200 text-center">
