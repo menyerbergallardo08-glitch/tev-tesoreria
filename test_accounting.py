@@ -36,11 +36,12 @@ def test_live_sales_and_duality():
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
+    ts = int(datetime.datetime.now().timestamp())
     # 1. Factura Fiscal de Contado
     res1 = client.post("/api/sales/live", headers=headers, json={
         "date": str(datetime.date.today()),
         "doc_type": "FACTURA_FISCAL",
-        "doc_number": "TEST-FAC-001",
+        "doc_number": f"TEST-FAC-{ts}",
         "client_name": "Cliente Prueba Fiscal",
         "client_rif": "J-12345678",
         "is_credit": False,
@@ -56,7 +57,7 @@ def test_live_sales_and_duality():
     res2 = client.post("/api/sales/live", headers=headers, json={
         "date": str(datetime.date.today()),
         "doc_type": "NOTA_ENTREGA",
-        "doc_number": "TEST-NE-001",
+        "doc_number": f"TEST-NE-{ts}",
         "client_name": "Cliente Prueba Crédito",
         "client_rif": "V-98765432",
         "is_credit": True,

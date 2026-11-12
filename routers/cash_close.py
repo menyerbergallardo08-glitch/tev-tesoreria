@@ -183,7 +183,7 @@ def get_cash_close_summary(
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
                 amt = t.amount_usd if (t.amount_usd and t.amount_usd > 0) else (t.credit_original_amount_usd or 0.0)
                 devoluciones_usd += amt
-            else:
+            elif "EFECTIVO USD" in acc_name or "EFECTIVO VES" in acc_name:
                 expenses_caja_usd += t.amount_usd
 
             if "EFECTIVO USD" in acc_name:
@@ -203,14 +203,13 @@ def get_cash_close_summary(
     # Total Cobrado del Día (Ventas Cobradas + CxC Recibidas de Turno - Cuadre Puro)
     total_cobrado_dia_usd = round(ventas_cobradas_hoy_usd + cxc_recibidas_hoy_usd, 2)
 
-    # Conversión precisa de efectivo neto a USD con tasa BCV real
+    # Conversión precisa de efectivo neto a USD con tasa BCV real (para arqueo de gaveta)
     cash_usd_net = round(cash_usd_in - cash_usd_out, 2)
     cash_ves_net = round(cash_ves_in - cash_ves_out, 2)
     zelle_usd_net = round(zelle_usd_in - zelle_usd_out, 2)
     binance_usd_net = round(binance_usd_in - binance_usd_out, 2)
     bank_transfers_usd_net = round(bank_transfers_usd_in - bank_transfers_usd_out, 2)
-    ves_converted_net_usd = round(cash_ves_net / active_bcv, 2) if active_bcv > 0 else 0.0
-    total_collected_real_usd = round(cash_usd_net + ves_converted_net_usd + pos_total_usd + bank_transfers_usd_net + zelle_usd_net + binance_usd_net + cashea_usd, 2)
+    total_collected_real_usd = total_cobrado_dia_usd
 
     return {
         "date": target_date.isoformat(),
@@ -243,22 +242,34 @@ def get_cash_close_summary(
             "ventas_cobradas_hoy_usd": round(ventas_cobradas_hoy_usd, 2),
             "cxc_recibidas_hoy_usd": round(cxc_recibidas_hoy_usd, 2),
             "bcv_rate": active_bcv,
-            "cash_usd": cash_usd_net,
+            "cash_usd": round(cash_usd_in, 2),
             "cash_usd_net": cash_usd_net,
             "cash_usd_in": round(cash_usd_in, 2),
             "cash_usd_out": round(cash_usd_out, 2),
-            "cash_ves": cash_ves_net,
+            "cash_ves": round(cash_ves_in, 2),
             "cash_ves_net": cash_ves_net,
             "cash_ves_in": round(cash_ves_in, 2),
             "cash_ves_out": round(cash_ves_out, 2),
             "pos_total": round(pos_total_usd, 2),
             "pos_total_usd": round(pos_total_usd, 2),
             "pos_breakdown": {k: round(v, 2) for k, v in pos_breakdown.items()},
-            "pago_movil_usd": bank_transfers_usd_net,
-            "bank_transfers_usd": bank_transfers_usd_net,
-            "zelle_usd": zelle_usd_net,
-            "binance_usd": binance_usd_net,
-            "usdt_usd": binance_usd_net,
+            "pago_movil_usd": round(bank_transfers_usd_in, 2),
+            "pago_movil_usd_in": round(bank_transfers_usd_in, 2),
+            "pago_movil_usd_out": round(bank_transfers_usd_out, 2),
+            "pago_movil_usd_net": bank_transfers_usd_net,
+            "bank_transfers_usd": round(bank_transfers_usd_in, 2),
+            "bank_transfers_usd_in": round(bank_transfers_usd_in, 2),
+            "bank_transfers_usd_out": round(bank_transfers_usd_out, 2),
+            "bank_transfers_usd_net": bank_transfers_usd_net,
+            "zelle_usd": round(zelle_usd_in, 2),
+            "zelle_usd_in": round(zelle_usd_in, 2),
+            "zelle_usd_out": round(zelle_usd_out, 2),
+            "zelle_usd_net": zelle_usd_net,
+            "binance_usd": round(binance_usd_in, 2),
+            "binance_usd_in": round(binance_usd_in, 2),
+            "binance_usd_out": round(binance_usd_out, 2),
+            "binance_usd_net": binance_usd_net,
+            "usdt_usd": round(binance_usd_in, 2),
             "cashea_usd": round(cashea_usd, 2),
             "retentions_iva_usd": round(retentions_iva_usd, 2),
             "retentions_islr_usd": round(retentions_islr_usd, 2),

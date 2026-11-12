@@ -130,8 +130,8 @@
                 <span class="text-purple-900">📑 Comprobantes Retención IVA/ISLR:</span>
                 <span class="font-bold text-purple-950" x-text="'$' + formatNumber((cashCloseSummary?.collections_summary?.retentions_iva_usd || 0) + (cashCloseSummary?.collections_summary?.retentions_islr_usd || 0))"></span>
               </div>
-              <div class="flex justify-between py-1 border-b border-gray-100 col-span-2">
-                <span class="text-rose-700">💸 (-) Vales / Gastos Menores Pagados de Caja:</span>
+              <div x-show="(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0) > 0" class="flex justify-between py-1 border-b border-gray-100 col-span-2">
+                <span class="text-rose-700">💸 (-) Vales / Gastos Menores en Efectivo de Caja:</span>
                 <span class="font-bold text-rose-700" x-text="'-$' + formatNumber(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0)"></span>
               </div>
             </div>
