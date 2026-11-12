@@ -1734,7 +1734,13 @@
             <p class="text-xs text-gray-500">Conciliación integral: Arqueo en mano, Puntos POS, Bancos, Gaveta, Cashea y Facturación Profit</p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" @click="setCuadreDate('yesterday')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Ver cierre del día anterior">
+              <span>⏪</span> Ayer
+            </button>
+            <button type="button" @click="setCuadreDate('today')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Volver al día de hoy">
+              <span>📅</span> Hoy
+            </button>
             <div class="flex items-center gap-1.5 bg-slate-50 border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold">
               <span>📅 Fecha:</span>
               <input type="date" x-model="cuadreDate" @change="loadCashCloseSummary()" class="bg-transparent border-0 text-xs font-black text-gray-800 cursor-pointer focus:outline-none">
@@ -1791,7 +1797,7 @@
                 <h3 class="text-base font-black text-teal-950 flex items-center gap-2">
                   <span>💵 2. Total Cobrado del Día (Caja Real)</span>
                 </h3>
-                <p class="text-[11px] text-gray-500 font-semibold">Ventas Cobradas + CxC Recibidas - Gastos de Caja</p>
+                <p class="text-[11px] text-gray-500 font-semibold">Ventas Cobradas + CxC Recibidas (Cuadre de Turno)</p>
               </div>
               <span class="text-xs font-bold text-gray-500" x-text="(cashCloseSummary?.transactions_count || 0) + ' transacciones'"></span>
             </div>
@@ -1805,11 +1811,6 @@
               <div class="flex justify-between items-center p-2 bg-blue-50 rounded-xl border border-blue-100 text-xs">
                 <span class="font-bold text-blue-950">📥 CxC Recibidas Hoy (Cobros de Facturas Viejas):</span>
                 <span class="font-black text-blue-950 text-sm" x-text="'+$' + formatNumber(cashCloseSummary?.collections_summary?.cxc_recibidas_hoy_usd || 0)"></span>
-              </div>
-
-              <div class="flex justify-between items-center p-2 bg-rose-50 rounded-xl border border-rose-100 text-xs">
-                <span class="font-bold text-rose-900">💸 (-) Vales / Gastos Menores Pagados Hoy:</span>
-                <span class="font-black text-rose-950 text-sm" x-text="'-$' + formatNumber(cashCloseSummary?.collections_summary?.expenses_caja_usd || 0)"></span>
               </div>
 
               <!-- Efectivo USD y VES -->
@@ -5566,15 +5567,58 @@
             </div>
           </div>
 
-          <!-- Si es Pago Ordinario: Caja o Banco -->
-          <div x-show="!abonoForm.is_retention">
-            <label class="block text-xs font-bold text-gray-800 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
-            <select x-model.number="abonoForm.account_id" :required="!abonoForm.is_retention"
-                    class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
-              <template x-for="acc in accounts.filter(a => a.is_active && a.account_type !== 'CXC' && a.account_type !== 'RETENCION_CLIENTE')" :key="acc.id">
-                <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+          <!-- Si es Pago Ordinario: Caja o Banco (Simple o Mixto) -->
+          <div x-show="!abonoForm.is_retention" class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-gray-800">Forma de Pago:</label>
+              <button type="button" @click="toggleAbonoMixed()" class="text-[11px] font-bold text-purple-700 hover:text-purple-900 underline cursor-pointer">
+                <span x-text="abonoForm.is_mixed ? '⬅️ Volver a Pago Simple' : '🔀 Pago Dividido / Mixto (Efectivo + Bs/USDT)'"></span>
+              </button>
+            </div>
+
+            <!-- Pago Simple -->
+            <div x-show="!abonoForm.is_mixed">
+              <label class="block text-[11px] font-semibold text-gray-600 mb-1">¿A qué Caja o Banco ingresa el dinero?: *</label>
+              <select x-model.number="abonoForm.account_id" :required="!abonoForm.is_retention && !abonoForm.is_mixed"
+                      class="w-full p-2.5 border border-purple-300 rounded-xl text-xs font-bold bg-white focus:ring-2 focus:ring-purple-500">
+                <template x-for="acc in accounts.filter(a => a.is_active && a.account_type !== 'CXC' && a.account_type !== 'RETENCION_CLIENTE')" :key="acc.id">
+                  <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                </template>
+              </select>
+            </div>
+
+            <!-- Pago Mixto (Líneas múltiples) -->
+            <div x-show="abonoForm.is_mixed" class="p-3 bg-purple-50/70 rounded-2xl border border-purple-200 space-y-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-bold text-purple-950">Desglose de Pago Mixto:</span>
+                <button type="button" @click="addAbonoPaymentLine()" class="px-2 py-1 bg-purple-700 text-white rounded-lg text-[10px] font-bold hover:bg-purple-800 transition cursor-pointer">
+                  + Agregar Método
+                </button>
+              </div>
+
+              <template x-for="(p, idx) in abonoForm.payments" :key="idx">
+                <div class="grid grid-cols-12 gap-2 items-center p-2 bg-white rounded-xl border border-purple-100 text-xs">
+                  <div class="col-span-6">
+                    <select x-model.number="p.account_id" @change="onAbonoAccountChange(p)" class="w-full p-1.5 border border-gray-300 rounded-lg text-[11px] font-bold">
+                      <template x-for="acc in accounts.filter(a => a.is_active && a.account_type !== 'CXC' && a.account_type !== 'RETENCION_CLIENTE')" :key="acc.id">
+                        <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="col-span-5">
+                    <input type="number" step="0.01" min="0.01" x-model.number="p.amount_original" placeholder="Monto" class="w-full p-1.5 border border-purple-200 rounded-lg text-[11px] font-black">
+                  </div>
+                  <div class="col-span-1 text-center">
+                    <button type="button" @click="removeAbonoPaymentLine(idx)" x-show="abonoForm.payments.length > 1" class="text-rose-600 font-bold hover:text-rose-800 text-base cursor-pointer">&times;</button>
+                  </div>
+                </div>
               </template>
-            </select>
+
+              <div class="flex justify-between items-center pt-2 text-xs font-black text-purple-950 border-t border-purple-200">
+                <span>Total Mixto Estimado USD:</span>
+                <span x-text="'$' + formatNumber(getAbonoMixedTotalUsd())"></span>
+              </div>
+            </div>
           </div>
 
           <!-- Si es Retención SENIAT del Cliente: Comprobante y aviso -->

@@ -25,6 +25,18 @@ window.TEVCashClose = {
           }
         },
 
+        async setCuadreDate(type) {
+          const d = new Date();
+          if (type === 'yesterday') {
+            d.setDate(d.getDate() - 1);
+          }
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          this.cuadreDate = `${yyyy}-${mm}-${dd}`;
+          await this.loadCashCloseSummary();
+        },
+
         async loadCashCloseHistory() {
           try {
             const token = this.getToken();

@@ -116,10 +116,7 @@ def list_receivables(
 
         total_credit = c.credit_original_amount_usd if (c.credit_original_amount_usd and c.credit_original_amount_usd > 0) else c.amount_usd
         total_abonado = sum(a.amount_usd for a in abonos)
-        if c.credit_balance_pending_usd is not None:
-            pending = max(0.0, c.credit_balance_pending_usd - total_abonado)
-        else:
-            pending = max(0.0, total_credit - total_abonado)
+        pending = max(0.0, total_credit - total_abonado)
 
         res.append({
             "id": c.id,
@@ -163,6 +160,99 @@ def create_abono(
     if not parent:
         raise HTTPException(status_code=404, detail="Cuenta por cobrar no encontrada.")
 
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
+
+    date_str = data.get("date")
+    abono_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else datetime.date.today()
+    desc = data.get("description", "")
+
+    # Soporte para Pagos Mixtos (Multipago)
+    payments = data.get("payments")
+    if payments and isinstance(payments, list) and len(payments) > 0:
+        total_multipago_usd = 0.0
+        created_tx_ids = []
+        for p in payments:
+            p_acc_id = p.get("account_id")
+            p_acc = db.query(TreasuryAccount).filter(TreasuryAccount.id == p_acc_id).first()
+            if not p_acc:
+                continue
+            p_amt = float(p.get("amount_original", 0.0) or 0.0)
+            if p_amt <= 0:
+                continue
+            p_curr = p.get("currency") or p_acc.currency
+            p_custom_rate = float(p.get("exchange_rate", 0.0) or 0.0)
+            if p_curr == "VES":
+                p_rate = p_custom_rate if p_custom_rate > 1.0 else active_bcv
+                p_usd = round(p_amt / p_rate, 2)
+            else:
+                p_rate = 1.0
+                p_usd = round(p_amt, 2)
+            
+            p_ref = (p.get("reference_number") or "").strip()
+            p_tx = Transaction(
+                branch_id=current_user.branch_id,
+                date=abono_date,
+                movement_type="INGRESO",
+                subtype="ABONO_CXC",
+                account_id=p_acc.id,
+                amount_original=p_amt,
+                currency=p_curr,
+                exchange_rate=p_rate,
+                amount_usd=p_usd,
+                doc_type="ABONO_CXC",
+                doc_number=f"ABONO-{parent.doc_number or parent.id}",
+                client_name=parent.client_name,
+                client_rif=parent.client_rif,
+                beneficiary=parent.client_name,
+                parent_transaction_id=parent.id,
+                reference_number=p_ref,
+                description=desc or f"Abono mixto ({p_acc.name}) a {parent.doc_type} #{parent.doc_number}",
+                status="REGISTRADO",
+                created_by_id=current_user.id
+            )
+            db.add(p_tx)
+            total_multipago_usd += p_usd
+            created_tx_ids.append(p_tx)
+        
+        db.flush()
+        
+        total_ab = db.query(func.coalesce(func.sum(Transaction.amount_usd), 0.0)).filter(
+            Transaction.parent_transaction_id == parent.id,
+            Transaction.status != "ANULADO"
+        ).scalar() or 0.0
+
+        orig_total = parent.credit_original_amount_usd if (parent.credit_original_amount_usd and parent.credit_original_amount_usd > 0) else parent.amount_usd
+        rem = max(0.0, float(orig_total) - float(total_ab))
+        parent.credit_balance_pending_usd = round(rem, 2)
+        parent.credit_status = "PAGADO" if rem <= 0.01 else "PARCIALMENTE_PAGADO"
+
+        ip = request.client.host if request.client else ""
+        record_audit(
+            db,
+            current_user,
+            "ABONO_CXC_MULTIPAGO",
+            "Transaction",
+            str(parent.id),
+            {
+                "parent_id": parent.id,
+                "parent_doc": parent.doc_number,
+                "total_abono_usd": total_multipago_usd,
+                "remaining_usd": rem,
+                "client": parent.client_name
+            },
+            ip
+        )
+        db.commit()
+        return {
+            "success": True,
+            "message": f"Abono mixto de ${total_multipago_usd:.2f} registrado con éxito. Saldo restante: ${rem:.2f}",
+            "abono_id": created_tx_ids[0].id if created_tx_ids else None,
+            "is_retention": False,
+            "remaining_balance_usd": round(rem, 2),
+            "status": parent.credit_status
+        }
+
     is_retention = bool(data.get("is_retention"))
     retention_proof = (data.get("tax_retention_proof") or "").strip()
     
@@ -185,9 +275,6 @@ def create_abono(
         account = db.query(TreasuryAccount).filter(TreasuryAccount.id == account_id).first()
         if not account:
             raise HTTPException(status_code=400, detail="Cuenta de tesorería no encontrada.")
-
-    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
-    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
 
     amount_original = float(data.get("amount_original", 0.0) or 0.0)
     currency = data.get("currency", "USD")

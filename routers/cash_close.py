@@ -200,8 +200,8 @@ def get_cash_close_summary(
     # Venta Real Comercial del Día (Contado + Crédito - Devoluciones)
     venta_real_del_dia_usd = round(ventas_contado_usd + ventas_credito_usd - devoluciones_usd, 2)
 
-    # Total Cobrado del Día (Ventas Cobradas + CxC Recibidas - Gastos de Caja)
-    total_cobrado_dia_usd = round(ventas_cobradas_hoy_usd + cxc_recibidas_hoy_usd - expenses_caja_usd, 2)
+    # Total Cobrado del Día (Ventas Cobradas + CxC Recibidas de Turno - Cuadre Puro)
+    total_cobrado_dia_usd = round(ventas_cobradas_hoy_usd + cxc_recibidas_hoy_usd, 2)
 
     # Conversión precisa de efectivo neto a USD con tasa BCV real
     cash_usd_net = round(cash_usd_in - cash_usd_out, 2)
@@ -339,6 +339,7 @@ def list_cash_close_history(
             "status": c.status,
             "profit_sales_total_usd": round(c.profit_sales_total_usd, 2),
             "net_sales_usd": round(c.net_sales_usd, 2),
+            "total_collected_real_usd": round(c.total_collected_real_usd or 0.0, 2),
             "difference_usd": round(c.difference_usd, 2)
         })
     return res
