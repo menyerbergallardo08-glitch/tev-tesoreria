@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.5.9"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.5.9"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.5.9"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.5.9"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.5.9"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.5.9"></script>
-  <script src="/static/js/controllers/reports.js?v=2.5.9"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.5.9"></script>
+  <script src="/static/js/state.js?v=2.6.0"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.6.0"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.6.0"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.6.0"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.6.0"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.6.0"></script>
+  <script src="/static/js/controllers/reports.js?v=2.6.0"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.6.0"></script>
   <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
@@ -1849,42 +1849,194 @@
                 <div class="p-2 bg-slate-50 rounded-xl border">
                   <p class="text-gray-500 font-bold text-[10px]">💵 Gaveta USD Neto:</p>
                   <p class="text-sm font-black text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cash_usd_net || 0)"></p>
+                  <p class="text-[10px] text-gray-500 font-semibold" x-text="'(~Bs. ' + formatNumber((cashCloseSummary?.collections_summary?.cash_usd_net || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></p>
                 </div>
                 <div class="p-2 bg-slate-50 rounded-xl border">
                   <p class="text-gray-500 font-bold text-[10px]">🇻🇪 Gaveta VES Neto:</p>
-                  <p class="text-sm font-black text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves_net || 0)"></p>
+                  <p class="text-sm font-black text-blue-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.cash_ves_net || 0)"></p>
+                  <p class="text-[10px] text-gray-500 font-semibold" x-text="'(~$' + formatNumber((cashCloseSummary?.collections_summary?.cash_ves_net || 0) / (cashCloseSummary?.bcv_rate || bcvRate || 1)) + ')'"></p>
                 </div>
               </div>
 
-              <!-- Puntos de Venta (POS) y Canales Digitales -->
+              <!-- Puntos de Venta (POS) y Canales Digitales con Moneda Nativa Prominente -->
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                <div class="p-2 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
-                  <p class="text-blue-800 font-bold text-[10px]">💳 Puntos POS:</p>
-                  <p class="font-black text-blue-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd || 0)"></p>
+                <!-- Puntos POS (Nativo en Bolívares para cotejar con cinta de lote de datáfono) -->
+                <div class="p-2 bg-blue-50/70 rounded-xl border-2 border-blue-200 text-center relative group">
+                  <p class="text-blue-900 font-black text-[10px]">💳 Puntos POS:</p>
+                  <p class="font-black text-blue-950 text-xs sm:text-sm" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_ves || 0)"></p>
+                  <p class="text-[10px] text-blue-700 font-bold" x-text="'(~$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd || 0) + ')'"></p>
+                  <!-- Tooltip de lotes por banco -->
+                  <div class="hidden group-hover:block absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] p-2 rounded-lg shadow-lg z-20 whitespace-nowrap text-left space-y-0.5">
+                    <p class="font-bold border-b border-gray-700 pb-0.5">Lotes POS por Banco (Bs):</p>
+                    <p>Banesco: Bs. <strong x-text="formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown_ves?.Banesco || 0)"></strong></p>
+                    <p>Bancaribe: Bs. <strong x-text="formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown_ves?.Bancaribe || 0)"></strong></p>
+                    <p>BDV: Bs. <strong x-text="formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown_ves?.BDV || 0)"></strong></p>
+                    <p>BNC: Bs. <strong x-text="formatNumber(cashCloseSummary?.collections_summary?.pos_breakdown_ves?.BNC || 0)"></strong></p>
+                  </div>
                 </div>
-                <div class="p-2 bg-purple-50 rounded-xl border border-purple-200 text-center">
-                  <p class="text-purple-800 font-bold text-[10px]">📲 Pago Móvil Bs:</p>
-                  <p class="font-black text-purple-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd || 0)"></p>
+
+                <!-- Pago Móvil / Bancos VES -->
+                <div class="p-2 bg-purple-50 rounded-xl border-2 border-purple-200 text-center">
+                  <p class="text-purple-900 font-black text-[10px]">📲 Pago Móvil:</p>
+                  <p class="font-black text-purple-950 text-xs sm:text-sm" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_ves_in || (cashCloseSummary?.collections_summary?.bank_transfers_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate))"></p>
+                  <p class="text-[10px] text-purple-700 font-bold" x-text="'(~$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd || 0) + ')'"></p>
                 </div>
+
+                <!-- Zelle ($ USD) -->
                 <div class="p-2 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
                   <p class="text-emerald-800 font-bold text-[10px]">💵 Zelle ($):</p>
-                  <p class="font-black text-emerald-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.zelle_usd || 0)"></p>
+                  <p class="font-black text-emerald-950 text-xs sm:text-sm" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.zelle_usd || 0)"></p>
+                  <p class="text-[10px] text-emerald-700" x-text="'(~Bs. ' + formatNumber((cashCloseSummary?.collections_summary?.zelle_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></p>
                 </div>
-                <div class="p-2 bg-slate-100 rounded-xl border border-slate-300 text-center">
-                  <p class="text-slate-800 font-bold text-[10px]">🪙 Binance (USDT):</p>
-                  <p class="font-black text-slate-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.binance_usd || 0)"></p>
+
+                <!-- Binance (USDT) -->
+                <div class="p-2 bg-amber-50/80 rounded-xl border border-amber-200 text-center">
+                  <p class="text-amber-800 font-bold text-[10px]">🪙 Binance (USDT):</p>
+                  <p class="font-black text-amber-950 text-xs sm:text-sm" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.binance_usd || 0)"></p>
+                  <p class="text-[10px] text-amber-700" x-text="'(~Bs. ' + formatNumber((cashCloseSummary?.collections_summary?.binance_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></p>
                 </div>
-                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center col-span-2 sm:col-span-1">
-                  <p class="text-amber-800 font-bold text-[10px]">🟡 Cashea BNC:</p>
-                  <p class="font-black text-amber-950 text-xs" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></p>
+
+                <!-- Cashea BNC -->
+                <div class="p-2 bg-yellow-50 rounded-xl border border-yellow-200 text-center col-span-2 sm:col-span-1">
+                  <p class="text-yellow-800 font-bold text-[10px]">🟡 Cashea BNC:</p>
+                  <p class="font-black text-yellow-950 text-xs sm:text-sm" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.cashea_usd || 0)"></p>
+                  <p class="text-[10px] text-yellow-700" x-text="'(~Bs. ' + formatNumber((cashCloseSummary?.collections_summary?.cashea_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></p>
                 </div>
               </div>
 
-              <div class="pt-2 border-t-2 border-dashed border-gray-200 flex justify-between items-center font-black text-gray-900 bg-teal-100/50 p-2.5 rounded-2xl">
-                <span>Total Cobrado Efectivo del Día:</span>
-                <span class="text-teal-900 text-lg font-black" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_cobrado_dia_usd || 0)"></span>
+              <div class="pt-2.5 border-t-2 border-dashed border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between font-black text-gray-900 bg-teal-100/60 p-3 rounded-2xl gap-1">
+                <span class="text-xs sm:text-sm text-teal-950">Total Cobrado Efectivo del Día:</span>
+                <div class="text-right">
+                  <span class="text-teal-950 text-base sm:text-lg font-black" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_cobrado_dia_usd || 0)"></span>
+                  <span class="text-teal-800 text-xs font-bold ml-1.5" x-text="'(Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.total_cobrado_dia_ves || (cashCloseSummary?.collections_summary?.total_cobrado_dia_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></span>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- BLOQUE AUDITORÍA: CONCILIACIÓN DETALLADA DE COBROS POR CANAL -->
+        <!-- ======================================================== -->
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 gap-3">
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-gray-900 flex items-center gap-2">
+                <span>📋 Conciliación Detallada de Cobros del Turno</span>
+                <span class="text-xs px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full font-bold">Auditoría de Lotes y Bancos</span>
+              </h3>
+              <p class="text-xs text-gray-500">Compruebe qué facturas o notas componen los lotes de puntos POS, transferencias, Zelle, Binance y gaveta</p>
+            </div>
+
+            <!-- Resumen Total del Filtro Seleccionado -->
+            <div class="flex items-center gap-3 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-gray-200">
+              <span class="text-xs font-bold text-gray-600">Subtotal Filtro:</span>
+              <span class="text-xs font-black text-blue-900" x-text="'Bs. ' + formatNumber(filteredCuadreTotalVes())"></span>
+              <span class="text-xs text-gray-400">|</span>
+              <span class="text-xs font-black text-emerald-900" x-text="'$' + formatNumber(filteredCuadreTotalUsd())"></span>
+            </div>
+          </div>
+
+          <!-- Barra de Filtros Rápidos por Canal + Buscador -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" @click="cuadreAuditFilter = 'ALL'"
+                      :class="cuadreAuditFilter === 'ALL' ? 'bg-gray-900 text-white shadow font-black' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition cursor-pointer">
+                Todos (<span x-text="(cashCloseSummary?.transactions_audit || []).length"></span>)
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'POS'"
+                      :class="cuadreAuditFilter === 'POS' ? 'bg-blue-700 text-white shadow font-black' : 'bg-blue-50 text-blue-800 hover:bg-blue-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>💳</span> Puntos POS
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'PAGO_MOVIL'"
+                      :class="cuadreAuditFilter === 'PAGO_MOVIL' ? 'bg-purple-700 text-white shadow font-black' : 'bg-purple-50 text-purple-800 hover:bg-purple-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>📲</span> Pago Móvil / Bancos
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'BINANCE'"
+                      :class="cuadreAuditFilter === 'BINANCE' ? 'bg-amber-600 text-white shadow font-black' : 'bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>🪙</span> Binance USDT
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'ZELLE'"
+                      :class="cuadreAuditFilter === 'ZELLE' ? 'bg-emerald-700 text-white shadow font-black' : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>💵</span> Zelle
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'EFECTIVO_USD'"
+                      :class="cuadreAuditFilter === 'EFECTIVO_USD' ? 'bg-teal-700 text-white shadow font-black' : 'bg-teal-50 text-teal-900 hover:bg-teal-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>💵</span> Gaveta USD
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'EFECTIVO_VES'"
+                      :class="cuadreAuditFilter === 'EFECTIVO_VES' ? 'bg-indigo-700 text-white shadow font-black' : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>🇻🇪</span> Gaveta VES
+              </button>
+              <button type="button" @click="cuadreAuditFilter = 'CASHEA'"
+                      :class="cuadreAuditFilter === 'CASHEA' ? 'bg-yellow-600 text-white shadow font-black' : 'bg-yellow-50 text-yellow-900 hover:bg-yellow-100 font-bold'"
+                      class="px-2.5 py-1 rounded-xl text-xs transition flex items-center gap-1 cursor-pointer">
+                <span>🟡</span> Cashea
+              </button>
+            </div>
+
+            <!-- Buscador Rápido -->
+            <div class="relative w-full sm:w-64">
+              <input type="text" x-model="cuadreAuditSearch" placeholder="Buscar doc, cliente, ref o lote..."
+                     class="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500">
+              <span class="absolute left-2.5 top-2 text-xs text-gray-400">🔍</span>
+            </div>
+          </div>
+
+          <!-- Tabla de Transacciones Auditadas -->
+          <div class="overflow-x-auto border border-gray-200 rounded-2xl">
+            <table class="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-700 font-bold border-b">
+                  <th class="p-2.5">Hora</th>
+                  <th class="p-2.5">Documento</th>
+                  <th class="p-2.5">Cliente / Razón Social</th>
+                  <th class="p-2.5">Canal / Banco</th>
+                  <th class="p-2.5">Ref / Lote POS</th>
+                  <th class="p-2.5 text-right">Monto Bs. (VES)</th>
+                  <th class="p-2.5 text-right">Monto USD ($)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="tx in filteredCuadreTransactions()" :key="tx.id">
+                  <tr class="border-b hover:bg-slate-50 transition">
+                    <td class="p-2.5 text-gray-500 whitespace-nowrap" x-text="tx.time"></td>
+                    <td class="p-2.5 font-bold whitespace-nowrap">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-black mr-1"
+                            :class="tx.doc_type === 'FACTURA_FISCAL' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'"
+                            x-text="tx.doc_type === 'FACTURA_FISCAL' ? 'FACT' : 'NOTA'"></span>
+                      <span x-text="tx.doc_number"></span>
+                    </td>
+                    <td class="p-2.5 text-gray-800 font-semibold max-w-[200px] truncate" :title="tx.client_name" x-text="tx.client_name"></td>
+                    <td class="p-2.5 whitespace-nowrap">
+                      <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold"
+                            :class="tx.channel_type === 'POS' ? 'bg-blue-100 text-blue-800' : tx.channel_type === 'PAGO_MOVIL' ? 'bg-purple-100 text-purple-800' : tx.channel_type === 'BINANCE' ? 'bg-amber-100 text-amber-800' : tx.channel_type === 'ZELLE' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'"
+                            x-text="tx.channel"></span>
+                    </td>
+                    <td class="p-2.5 text-gray-600 font-mono text-[11px] whitespace-nowrap">
+                      <span x-show="tx.pos_lot_number && tx.pos_lot_number !== '-'" class="mr-1 text-blue-700 font-bold" x-text="'Lote: ' + tx.pos_lot_number"></span>
+                      <span x-text="tx.reference_number"></span>
+                    </td>
+                    <td class="p-2.5 text-right font-black text-gray-900 whitespace-nowrap"
+                        x-text="'Bs. ' + formatNumber(tx.amount_ves)"></td>
+                    <td class="p-2.5 text-right font-black text-teal-900 whitespace-nowrap"
+                        x-text="'$' + formatNumber(tx.amount_usd)"></td>
+                  </tr>
+                </template>
+                <tr x-show="filteredCuadreTransactions().length === 0">
+                  <td colspan="7" class="p-6 text-center text-gray-400">
+                    No se encontraron transacciones para el canal o filtro seleccionado.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -5868,11 +6020,11 @@
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-gray-600">💳 Total Lotes Puntos de Venta (POS):</span>
-                <span class="font-bold text-blue-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd ?? cashCloseSummary?.collections_summary?.pos_total ?? 0)"></span>
+                <span class="font-bold text-blue-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_ves || 0) + ' ($' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd ?? cashCloseSummary?.collections_summary?.pos_total ?? 0) + ')'"></span>
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-gray-600">📲 Pago Móvil / Bancos VES:</span>
-                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd ?? cashCloseSummary?.collections_summary?.pago_movil_usd ?? 0)"></span>
+                <span class="font-bold text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_ves_in || (cashCloseSummary?.collections_summary?.bank_transfers_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ' ($' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd ?? cashCloseSummary?.collections_summary?.pago_movil_usd ?? 0) + ')'"></span>
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-emerald-900 font-bold">💵 Zelle ($ USD):</span>
@@ -5898,7 +6050,7 @@
             <div class="flex justify-between items-center p-2.5 bg-blue-50 rounded-xl border border-blue-200 mt-2">
               <span class="text-xs font-black text-blue-950 uppercase">TOTAL FONDOS RECAUDADOS / CONCILIADOS:</span>
               <span class="text-sm font-black text-blue-950"
-                    x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_collected_real_usd || 0)"></span>
+                    x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_collected_real_usd || 0) + ' (Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.total_cobrado_dia_ves || (cashCloseSummary?.collections_summary?.total_collected_real_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></span>
             </div>
           </div>
 

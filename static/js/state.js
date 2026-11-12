@@ -267,6 +267,8 @@ window.TEVState = {
         salesAccumulatedData: null,
         showCashCloseReceiptModal: false,
         cuadreNotes: '',
+        cuadreAuditFilter: 'ALL',
+        cuadreAuditSearch: '',
 
         arqueo: {
           b100: 0, b50: 0, b20: 0, b10: 0, b5: 0, b1: 0

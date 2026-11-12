@@ -72,6 +72,34 @@ window.TEVCashClose = {
           return Math.abs(diff) < 0.01 ? 0 : diff;
         },
 
+        filteredCuadreTransactions() {
+          if (!this.cashCloseSummary || !this.cashCloseSummary.transactions_audit) return [];
+          let list = this.cashCloseSummary.transactions_audit;
+          if (this.cuadreAuditFilter && this.cuadreAuditFilter !== 'ALL') {
+            list = list.filter(t => t.channel_type === this.cuadreAuditFilter);
+          }
+          if (this.cuadreAuditSearch && this.cuadreAuditSearch.trim()) {
+            const q = this.cuadreAuditSearch.trim().toLowerCase();
+            list = list.filter(t => 
+              (t.doc_number && String(t.doc_number).toLowerCase().includes(q)) ||
+              (t.client_name && String(t.client_name).toLowerCase().includes(q)) ||
+              (t.reference_number && String(t.reference_number).toLowerCase().includes(q)) ||
+              (t.pos_lot_number && String(t.pos_lot_number).toLowerCase().includes(q)) ||
+              (t.channel && String(t.channel).toLowerCase().includes(q)) ||
+              (t.seller_name && String(t.seller_name).toLowerCase().includes(q))
+            );
+          }
+          return list;
+        },
+
+        filteredCuadreTotalUsd() {
+          return roundNumber(this.filteredCuadreTransactions().reduce((acc, t) => acc + (t.amount_usd || 0), 0), 2);
+        },
+
+        filteredCuadreTotalVes() {
+          return roundNumber(this.filteredCuadreTransactions().reduce((acc, t) => acc + (t.amount_ves || 0), 0), 2);
+        },
+
         async loadCommissions() {
           try {
             this.isLoadingCommissions = true;

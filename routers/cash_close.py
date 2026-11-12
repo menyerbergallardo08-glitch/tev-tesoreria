@@ -118,9 +118,13 @@ def get_cash_close_summary(
     cash_ves_out = 0.0
 
     pos_breakdown = {"Banesco": 0.0, "Bancaribe": 0.0, "BDV": 0.0, "BNC": 0.0, "Otros": 0.0}
+    pos_breakdown_ves = {"Banesco": 0.0, "Bancaribe": 0.0, "BDV": 0.0, "BNC": 0.0, "Otros": 0.0}
     pos_total_usd = 0.0
+    pos_total_ves = 0.0
     bank_transfers_usd_in = 0.0
     bank_transfers_usd_out = 0.0
+    bank_transfers_ves_in = 0.0
+    bank_transfers_ves_out = 0.0
     zelle_usd_in = 0.0
     zelle_usd_out = 0.0
     binance_usd_in = 0.0
@@ -165,19 +169,28 @@ def get_cash_close_summary(
                 binance_usd_in += t.amount_usd
             elif t.pos_terminal or "POS" in acc_name or "PUNTO" in acc_name:
                 p_term = (t.pos_terminal or acc_name).upper()
+                amt_ves = t.amount_original if t.currency == "VES" else round(t.amount_usd * active_bcv, 2)
                 if "BANESCO" in p_term:
                     pos_breakdown["Banesco"] += t.amount_usd
+                    pos_breakdown_ves["Banesco"] += amt_ves
                 elif "BANCARIBE" in p_term:
                     pos_breakdown["Bancaribe"] += t.amount_usd
+                    pos_breakdown_ves["Bancaribe"] += amt_ves
                 elif "VENEZUELA" in p_term or "BDV" in p_term:
                     pos_breakdown["BDV"] += t.amount_usd
+                    pos_breakdown_ves["BDV"] += amt_ves
                 elif "BNC" in p_term:
                     pos_breakdown["BNC"] += t.amount_usd
+                    pos_breakdown_ves["BNC"] += amt_ves
                 else:
                     pos_breakdown["Otros"] += t.amount_usd
+                    pos_breakdown_ves["Otros"] += amt_ves
                 pos_total_usd += t.amount_usd
+                pos_total_ves += amt_ves
             elif acc_name and "CXC" not in acc_name:
+                amt_ves = t.amount_original if t.currency == "VES" else round(t.amount_usd * active_bcv, 2)
                 bank_transfers_usd_in += t.amount_usd
+                bank_transfers_ves_in += amt_ves
 
         elif t.movement_type == "EGRESO":
             if t.subtype in ["DEVOLUCION_VENTA", "DEVOLUCION_CLIENTE"] or t.doc_type in ["DEVOLUCION", "NOTA_CREDITO"]:
@@ -195,13 +208,16 @@ def get_cash_close_summary(
             elif "BINANCE" in acc_name or "USDT" in acc_name or t.currency == "USDT":
                 binance_usd_out += t.amount_usd
             elif acc_name and "CXC" not in acc_name and not ("POS" in acc_name or "PUNTO" in acc_name):
+                amt_ves = t.amount_original if t.currency == "VES" else round(t.amount_usd * active_bcv, 2)
                 bank_transfers_usd_out += t.amount_usd
+                bank_transfers_ves_out += amt_ves
 
     # Venta Real Comercial del Día (Contado + Crédito - Devoluciones)
     venta_real_del_dia_usd = round(ventas_contado_usd + ventas_credito_usd - devoluciones_usd, 2)
 
     # Total Cobrado del Día (Ventas Cobradas + CxC Recibidas de Turno - Cuadre Puro)
     total_cobrado_dia_usd = round(ventas_cobradas_hoy_usd + cxc_recibidas_hoy_usd, 2)
+    total_cobrado_dia_ves = round(total_cobrado_dia_usd * active_bcv, 2)
 
     # Conversión precisa de efectivo neto a USD con tasa BCV real (para arqueo de gaveta)
     cash_usd_net = round(cash_usd_in - cash_usd_out, 2)
@@ -209,7 +225,76 @@ def get_cash_close_summary(
     zelle_usd_net = round(zelle_usd_in - zelle_usd_out, 2)
     binance_usd_net = round(binance_usd_in - binance_usd_out, 2)
     bank_transfers_usd_net = round(bank_transfers_usd_in - bank_transfers_usd_out, 2)
+    bank_transfers_ves_net = round(bank_transfers_ves_in - bank_transfers_ves_out, 2)
     total_collected_real_usd = total_cobrado_dia_usd
+
+    # Auditoría detallada de cobros para administración (Sra. Yurima / Cajera)
+    transactions_audit = []
+    sorted_txs = sorted(txs, key=lambda x: x.id, reverse=True)
+    for t in sorted_txs:
+        acc = t.account
+        acc_name = acc.name.upper() if acc else ""
+        channel_type = "OTRO"
+        channel_label = acc.name if acc else "Caja"
+
+        if t.movement_type == "EGRESO":
+            channel_type = "EGRESO"
+            channel_label = f"Egreso / {acc.name if acc else 'Caja'}"
+        else:
+            if t.pos_terminal or "POS" in acc_name or "PUNTO" in acc_name:
+                channel_type = "POS"
+                p_term = (t.pos_terminal or acc_name).upper()
+                if "BANESCO" in p_term:
+                    channel_label = "POS Banesco"
+                elif "BANCARIBE" in p_term:
+                    channel_label = "POS Bancaribe"
+                elif "VENEZUELA" in p_term or "BDV" in p_term:
+                    channel_label = "POS BDV"
+                elif "BNC" in p_term:
+                    channel_label = "POS BNC"
+                else:
+                    channel_label = f"POS {t.pos_terminal or 'General'}"
+            elif "EFECTIVO USD" in acc_name:
+                channel_type = "EFECTIVO_USD"
+                channel_label = "Gaveta USD"
+            elif "EFECTIVO VES" in acc_name:
+                channel_type = "EFECTIVO_VES"
+                channel_label = "Gaveta VES"
+            elif "CASHEA" in acc_name:
+                channel_type = "CASHEA"
+                channel_label = "Cashea BNC"
+            elif "ZELLE" in acc_name or "PANAMÁ" in acc_name or "PANAMA" in acc_name:
+                channel_type = "ZELLE"
+                channel_label = "Zelle ($ USD)"
+            elif "BINANCE" in acc_name or "USDT" in acc_name or t.currency == "USDT":
+                channel_type = "BINANCE"
+                channel_label = "Binance USDT"
+            elif acc_name and "CXC" not in acc_name:
+                channel_type = "PAGO_MOVIL"
+                channel_label = f"Pago Móvil / {acc.name}"
+
+        amt_usd = round(t.amount_usd or 0.0, 2)
+        amt_ves = round(t.amount_original if t.currency == "VES" else (amt_usd * active_bcv), 2)
+
+        transactions_audit.append({
+            "id": t.id,
+            "time": t.created_at.strftime("%I:%M %p") if t.created_at else "",
+            "movement_type": t.movement_type,
+            "subtype": t.subtype,
+            "doc_type": t.doc_type or "RECIBO",
+            "doc_number": t.doc_number or "-",
+            "client_name": t.client_name or t.beneficiary or "Cliente General",
+            "channel": channel_label,
+            "channel_type": channel_type,
+            "currency": t.currency,
+            "reference_number": t.reference_number or "-",
+            "pos_lot_number": t.pos_lot_number or "-",
+            "pos_terminal": t.pos_terminal or "",
+            "amount_usd": amt_usd,
+            "amount_ves": amt_ves,
+            "seller_name": t.seller_name or "",
+            "is_credit": bool(t.is_credit)
+        })
 
     return {
         "date": target_date.isoformat(),
@@ -239,8 +324,11 @@ def get_cash_close_summary(
         },
         "collections_summary": {
             "total_cobrado_dia_usd": total_cobrado_dia_usd,
+            "total_cobrado_dia_ves": total_cobrado_dia_ves,
             "ventas_cobradas_hoy_usd": round(ventas_cobradas_hoy_usd, 2),
+            "ventas_cobradas_hoy_ves": round(ventas_cobradas_hoy_usd * active_bcv, 2),
             "cxc_recibidas_hoy_usd": round(cxc_recibidas_hoy_usd, 2),
+            "cxc_recibidas_hoy_ves": round(cxc_recibidas_hoy_usd * active_bcv, 2),
             "bcv_rate": active_bcv,
             "cash_usd": round(cash_usd_in, 2),
             "cash_usd_net": cash_usd_net,
@@ -252,7 +340,9 @@ def get_cash_close_summary(
             "cash_ves_out": round(cash_ves_out, 2),
             "pos_total": round(pos_total_usd, 2),
             "pos_total_usd": round(pos_total_usd, 2),
+            "pos_total_ves": round(pos_total_ves, 2),
             "pos_breakdown": {k: round(v, 2) for k, v in pos_breakdown.items()},
+            "pos_breakdown_ves": {k: round(v, 2) for k, v in pos_breakdown_ves.items()},
             "pago_movil_usd": round(bank_transfers_usd_in, 2),
             "pago_movil_usd_in": round(bank_transfers_usd_in, 2),
             "pago_movil_usd_out": round(bank_transfers_usd_out, 2),
@@ -261,6 +351,9 @@ def get_cash_close_summary(
             "bank_transfers_usd_in": round(bank_transfers_usd_in, 2),
             "bank_transfers_usd_out": round(bank_transfers_usd_out, 2),
             "bank_transfers_usd_net": bank_transfers_usd_net,
+            "bank_transfers_ves_in": round(bank_transfers_ves_in, 2),
+            "bank_transfers_ves_out": round(bank_transfers_ves_out, 2),
+            "bank_transfers_ves_net": bank_transfers_ves_net,
             "zelle_usd": round(zelle_usd_in, 2),
             "zelle_usd_in": round(zelle_usd_in, 2),
             "zelle_usd_out": round(zelle_usd_out, 2),
@@ -276,6 +369,7 @@ def get_cash_close_summary(
             "expenses_caja_usd": round(expenses_caja_usd, 2),
             "total_collected_real_usd": total_collected_real_usd
         },
+        "transactions_audit": transactions_audit,
         "transactions_count": len(txs)
     }
 

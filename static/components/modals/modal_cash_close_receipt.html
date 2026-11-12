@@ -108,11 +108,11 @@
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-gray-600">💳 Total Lotes Puntos de Venta (POS):</span>
-                <span class="font-bold text-blue-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd ?? cashCloseSummary?.collections_summary?.pos_total ?? 0)"></span>
+                <span class="font-bold text-blue-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_ves || 0) + ' ($' + formatNumber(cashCloseSummary?.collections_summary?.pos_total_usd ?? cashCloseSummary?.collections_summary?.pos_total ?? 0) + ')'"></span>
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-gray-600">📲 Pago Móvil / Bancos VES:</span>
-                <span class="font-bold text-gray-900" x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd ?? cashCloseSummary?.collections_summary?.pago_movil_usd ?? 0)"></span>
+                <span class="font-bold text-gray-900" x-text="'Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_ves_in || (cashCloseSummary?.collections_summary?.bank_transfers_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ' ($' + formatNumber(cashCloseSummary?.collections_summary?.bank_transfers_usd ?? cashCloseSummary?.collections_summary?.pago_movil_usd ?? 0) + ')'"></span>
               </div>
               <div class="flex justify-between py-1 border-b border-gray-100">
                 <span class="text-emerald-900 font-bold">💵 Zelle ($ USD):</span>
@@ -138,7 +138,7 @@
             <div class="flex justify-between items-center p-2.5 bg-blue-50 rounded-xl border border-blue-200 mt-2">
               <span class="text-xs font-black text-blue-950 uppercase">TOTAL FONDOS RECAUDADOS / CONCILIADOS:</span>
               <span class="text-sm font-black text-blue-950"
-                    x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_collected_real_usd || 0)"></span>
+                    x-text="'$' + formatNumber(cashCloseSummary?.collections_summary?.total_collected_real_usd || 0) + ' (Bs. ' + formatNumber(cashCloseSummary?.collections_summary?.total_cobrado_dia_ves || (cashCloseSummary?.collections_summary?.total_collected_real_usd || 0) * (cashCloseSummary?.bcv_rate || bcvRate)) + ')'"></span>
             </div>
           </div>
 
