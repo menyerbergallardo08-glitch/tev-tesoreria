@@ -59,8 +59,19 @@ window.TEVExpenses = {
           this.retentionAssistant.net_to_pay = netToPay;
           
           if (netToPay > 0) {
-            this.form.amount_original = netToPay;
-            this.recalculateExpenseUsd('original');
+            const assistantCurr = this.retentionAssistant.currency || 'USD';
+            if (assistantCurr === 'USD' && this.selectedAccountCurrency === 'VES') {
+              this.form.amount_usd = netToPay;
+              this.recalculateExpenseUsd('usd');
+            } else {
+              this.form.amount_original = netToPay;
+              this.recalculateExpenseUsd('original');
+            }
+            if (this.isMultiPaymentExpense) {
+              this.multiPaymentTotalUsd = this.selectedAccountCurrency === 'VES'
+                ? this.parseAmount(this.form.amount_usd)
+                : (assistantCurr === 'USD' ? netToPay : this.parseAmount(this.form.amount_usd));
+            }
           }
         },
 
@@ -68,6 +79,7 @@ window.TEVExpenses = {
           if (!this.discountAssistant) {
             this.discountAssistant = {
               active: false,
+              currency: 'USD',
               total_invoice: '',
               discount_type: 'percent',
               discount_value: '',
@@ -83,8 +95,8 @@ window.TEVExpenses = {
 
         recalculateDiscount() {
           if (!this.discountAssistant || !this.discountAssistant.active) return;
-          const tot = parseFloat(String(this.discountAssistant.total_invoice || '0').replace(',', '.')) || 0;
-          const val = parseFloat(String(this.discountAssistant.discount_value || '0').replace(',', '.')) || 0;
+          const tot = this.parseAmount(this.discountAssistant.total_invoice);
+          const val = this.parseAmount(this.discountAssistant.discount_value);
           let discAmt = 0;
           if (this.discountAssistant.discount_type === 'percent') {
             discAmt = Math.round(tot * (val / 100) * 100) / 100;
@@ -95,32 +107,230 @@ window.TEVExpenses = {
           this.discountAssistant.discount_amount = discAmt;
           this.discountAssistant.net_to_pay = net;
           if (net > 0) {
-            this.form.amount_original = net;
-            this.recalculateExpenseUsd('original');
+            const assistantCurr = this.discountAssistant.currency || 'USD';
+            if (assistantCurr === 'USD' && this.selectedAccountCurrency === 'VES') {
+              this.form.amount_usd = net;
+              this.recalculateExpenseUsd('usd');
+            } else {
+              this.form.amount_original = net;
+              this.recalculateExpenseUsd('original');
+            }
+            if (this.isMultiPaymentExpense) {
+              this.multiPaymentTotalUsd = this.selectedAccountCurrency === 'VES'
+                ? this.parseAmount(this.form.amount_usd)
+                : (assistantCurr === 'USD' ? net : this.parseAmount(this.form.amount_usd));
+            }
           }
         },
 
         recalculateExpenseUsd(fromField = 'original') {
-          const rate = parseFloat(this.form.exchange_rate) || parseFloat(this.bcvRate) || 1.0;
+          const source = (fromField === 'rate') ? (this.expenseLastAmountSource || 'original') : fromField;
+          if (fromField === 'original' || fromField === 'usd') {
+            this.expenseLastAmountSource = fromField;
+          }
+          const rate = this.parseAmount(this.form.exchange_rate) || parseFloat(this.bcvRate) || 1.0;
           if (this.selectedAccountCurrency === 'VES') {
-            if (fromField === 'original') {
-              const orig = parseFloat(String(this.form.amount_original || '0').replace(',', '.')) || 0;
+            if (source === 'original') {
+              const orig = this.parseAmount(this.form.amount_original);
               this.form.amount_usd = Math.round((orig / rate) * 100) / 100;
-            } else if (fromField === 'usd') {
-              const usd = parseFloat(String(this.form.amount_usd || '0').replace(',', '.')) || 0;
+            } else if (source === 'usd') {
+              const usd = this.parseAmount(this.form.amount_usd);
               this.form.amount_original = Math.round((usd * rate) * 100) / 100;
             }
           } else {
-            const orig = parseFloat(String(this.form.amount_original || '0').replace(',', '.')) || 0;
+            const orig = this.parseAmount(this.form.amount_original);
             this.form.amount_usd = orig;
+          }
+        },
+
+        getExpensePayableAccounts() {
+          return (this.accounts || []).filter(a => a.is_active && !a.only_income && !a.name.toUpperCase().includes('CASHEA'));
+        },
+
+        toggleMultiPaymentExpense() {
+          this.isMultiPaymentExpense = !this.isMultiPaymentExpense;
+          if (this.isMultiPaymentExpense) {
+            const currentUsd = this.parseAmount(this.form.amount_usd) || this.parseAmount(this.form.amount_original);
+            if (!this.parseAmount(this.multiPaymentTotalUsd) && currentUsd > 0) {
+              this.multiPaymentTotalUsd = currentUsd;
+            }
+            if (!this.expensePayments || this.expensePayments.length === 0) {
+              const payable = this.getExpensePayableAccounts();
+              const defaultAccId = this.form.account_id || (payable[0] ? payable[0].id : null);
+              this.expensePayments = [
+                {
+                  account_id: defaultAccId,
+                  amount_original: this.form.amount_original || '',
+                  exchange_rate: this.parseAmount(this.form.exchange_rate) || this.bcvRate || 1.0,
+                  reference_number: this.form.reference_number || ''
+                },
+                {
+                  account_id: payable[1] ? payable[1].id : defaultAccId,
+                  amount_original: '',
+                  exchange_rate: this.bcvRate || 1.0,
+                  reference_number: ''
+                }
+              ];
+            }
+          }
+        },
+
+        addExpensePaymentLeg() {
+          const payable = this.getExpensePayableAccounts();
+          const defaultAccId = payable[0] ? payable[0].id : this.form.account_id;
+          this.expensePayments.push({
+            account_id: defaultAccId,
+            amount_original: '',
+            exchange_rate: this.bcvRate || 1.0,
+            reference_number: ''
+          });
+        },
+
+        removeExpensePaymentLeg(idx) {
+          if (this.expensePayments.length > 1) {
+            this.expensePayments.splice(idx, 1);
+          }
+        },
+
+        getLegCurrency(leg) {
+          const acc = (this.accounts || []).find(a => a.id == leg.account_id);
+          return acc ? acc.currency : 'USD';
+        },
+
+        getLegUsdAmount(leg) {
+          const amt = this.parseAmount(leg.amount_original);
+          if (this.getLegCurrency(leg) === 'VES') {
+            const rate = this.parseAmount(leg.exchange_rate) || parseFloat(this.bcvRate) || 1.0;
+            return Math.round((amt / rate) * 100) / 100;
+          }
+          return Math.round(amt * 100) / 100;
+        },
+
+        getMultiPaymentCoveredUsd() {
+          return Math.round((this.expensePayments || []).reduce((sum, leg) => sum + this.getLegUsdAmount(leg), 0) * 100) / 100;
+        },
+
+        getMultiPaymentRemainingUsd() {
+          const target = this.parseAmount(this.multiPaymentTotalUsd);
+          return Math.round((target - this.getMultiPaymentCoveredUsd()) * 100) / 100;
+        },
+
+        async executeBatchExpense() {
+          if (this.isSubmittingMovement) return;
+          const totalUsd = this.parseAmount(this.multiPaymentTotalUsd);
+          if (totalUsd <= 0) {
+            this.showToast('warning', 'Monto Global Inválido', 'Ingrese el monto global a pagar en $ USD.');
+            return;
+          }
+          if (this.form.subtype === 'GASTO_OPERATIVO' && !this.form.category_id) {
+            this.showToast('warning', 'Partida Requerida', 'Por favor seleccione la Partida Presupuestaria del gasto.');
+            return;
+          }
+
+          const validLegs = [];
+          for (let i = 0; i < (this.expensePayments || []).length; i++) {
+            const leg = this.expensePayments[i];
+            const amt = this.parseAmount(leg.amount_original);
+            if (amt <= 0) {
+              this.showToast('warning', `Tramo #${i + 1} Inválido`, 'Todos los tramos deben tener un monto mayor a cero (o elimine los vacíos).');
+              return;
+            }
+            const curr = this.getLegCurrency(leg);
+            const rate = curr === 'VES' ? (this.parseAmount(leg.exchange_rate) || parseFloat(this.bcvRate) || 1.0) : 1.0;
+            validLegs.push({
+              account_id: parseInt(leg.account_id),
+              amount_original: amt,
+              exchange_rate: rate,
+              amount_usd: this.getLegUsdAmount(leg),
+              reference_number: (leg.reference_number || '').trim()
+            });
+          }
+
+          const covered = this.getMultiPaymentCoveredUsd();
+          if (Math.abs(covered - totalUsd) > 0.05) {
+            this.showToast('warning', 'Montos No Cuadran', `Los tramos suman $${this.formatNumber(covered)} y el monto global es $${this.formatNumber(totalUsd)}.`);
+            return;
+          }
+
+          const subLabel = (this.form.subtype || '').replace(/_/g, ' ');
+          const summaryLines = validLegs.map((l, idx) => {
+            const acc = (this.accounts || []).find(a => a.id == l.account_id);
+            return `  ${idx + 1}. ${acc ? acc.name : 'Cuenta'}: ${acc ? acc.currency : ''} ${this.formatNumber(l.amount_original)} ($${this.formatNumber(l.amount_usd)}) | Ref: ${l.reference_number || 'S/R'}`;
+          }).join('\n');
+
+          if (!confirm(`¿Confirma registrar este PAGO MÚLTIPLE (${subLabel})?\n\n• Beneficiario: ${this.form.beneficiary || 'N/A'}\n• Total Global: $${this.formatNumber(totalUsd)}\n• Desglose:\n${summaryLines}`)) {
+            return;
+          }
+
+          this.isSubmittingMovement = true;
+          try {
+            const token = this.getToken();
+            const isRetActive = this.retentionAssistant && this.retentionAssistant.active;
+            const retAmt = isRetActive ? (this.retentionAssistant.total_retention || 0) : 0;
+            const retProof = isRetActive ? (this.retentionAssistant.proof_number || '') : '';
+
+            let extraDesc = '';
+            if (isRetActive && retAmt > 0) {
+              extraDesc += ` [Retención SENIAT: Factura: ${this.retentionAssistant.total_invoice} | Ret. IVA: ${this.retentionAssistant.ret_iva_amt} | Ret. ISLR: ${this.retentionAssistant.ret_islr_amt}]`;
+            }
+            const isDiscActive = this.discountAssistant && this.discountAssistant.active;
+            if (isDiscActive && this.discountAssistant.discount_amount > 0) {
+              const dLabel = this.discountAssistant.discount_type === 'percent' ? `${this.discountAssistant.discount_value}%` : `${this.discountAssistant.discount_value}`;
+              extraDesc += ` [Descuento Pronto Pago: -${dLabel} (Monto: ${this.discountAssistant.discount_amount}) | Factura: ${this.discountAssistant.total_invoice}]`;
+            }
+
+            const res = await fetch('/api/transactions/batch-expense', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+              },
+              body: JSON.stringify({
+                date: this.form.date,
+                subtype: this.form.subtype,
+                category_id: this.form.category_id ? parseInt(this.form.category_id) : null,
+                total_invoice_usd: totalUsd,
+                invoice_date: this.form.invoice_date || null,
+                beneficiary: this.form.beneficiary || '',
+                description: (this.form.description || '') + extraDesc,
+                tax_retention_amount: retAmt,
+                tax_retention_proof: retProof,
+                payments: validLegs
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Error al guardar pagos múltiples');
+
+            this.showToast('success', '¡Pagos Múltiples Registrados!', `Se registraron ${data.count} tramos por un total de $${this.formatNumber(data.total_usd)}.`);
+            this.isMultiPaymentExpense = false;
+            this.multiPaymentTotalUsd = '';
+            this.expensePayments = [];
+            this.form.amount_original = '';
+            this.form.amount_usd = 0;
+            this.form.reference_number = '';
+            this.form.beneficiary = '';
+            this.form.description = '';
+            if (this.retentionAssistant) this.retentionAssistant.active = false;
+            if (this.discountAssistant) this.discountAssistant.active = false;
+            await this.loadTransactions();
+            await this.loadAccounts();
+            if (typeof this.loadLiveMonitor === 'function') await this.loadLiveMonitor();
+          } catch (err) {
+            this.showToast('error', 'Error', err.message);
+          } finally {
+            this.isSubmittingMovement = false;
           }
         },
 
         async submitMovement() {
           if (this.isSubmittingMovement) return;
 
-          const rawAmt = String(this.form.amount_original || '').replace(',', '.').trim();
-          const amt = parseFloat(rawAmt);
+          if (this.isMultiPaymentExpense && this.form.movement_type === 'EGRESO') {
+            await this.executeBatchExpense();
+            return;
+          }
+
+          const amt = this.parseAmount(this.form.amount_original);
           if (isNaN(amt) || amt <= 0) {
             this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a cero.');
             return;

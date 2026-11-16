@@ -228,7 +228,15 @@
               <!-- PANEL ASISTIDO CUANDO ESTÁ ACTIVO -->
               <div x-show="retentionAssistant?.active" class="mt-4 pt-4 border-t border-amber-200 space-y-4">
                 <!-- Fila 1: Montos base de la factura -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-amber-950 mb-1">Moneda de la Factura:</label>
+                    <select x-model="retentionAssistant.currency" @change="recalculateRetentions('total')"
+                            class="w-full input-large border border-amber-300 bg-white font-bold text-xs sm:text-sm">
+                      <option value="USD">Dólares ($ USD)</option>
+                      <option value="VES">Bolívares (Bs. VES)</option>
+                    </select>
+                  </div>
                   <div>
                     <label class="block text-xs font-bold text-amber-950 mb-1">Total Factura Proveedor (con IVA):</label>
                     <input type="text" inputmode="decimal" x-model="retentionAssistant.total_invoice" 
@@ -334,7 +342,15 @@
 
               <!-- PANEL ASISTIDO DE DESCUENTO -->
               <div x-show="discountAssistant?.active" class="mt-4 pt-4 border-t border-indigo-200 space-y-4">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-indigo-950 mb-1">Moneda Factura:</label>
+                    <select x-model="discountAssistant.currency" @change="recalculateDiscount()"
+                            class="w-full input-large border border-indigo-300 bg-white font-bold text-xs sm:text-sm">
+                      <option value="USD">Dólares ($ USD)</option>
+                      <option value="VES">Bolívares (Bs. VES)</option>
+                    </select>
+                  </div>
                   <div>
                     <label class="block text-xs font-bold text-indigo-950 mb-1">Total Factura Proveedor:</label>
                     <input type="text" inputmode="decimal" x-model="discountAssistant.total_invoice" 
@@ -376,7 +392,32 @@
 
             <!-- 5. MONTO Y CONVERSIÓN EN VIVO -->
             <div class="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3">
-              
+
+              <!-- INTERRUPTOR DE PAGO MÚLTIPLE / COMBINADO (SOLO EGRESOS) -->
+              <div x-show="form.movement_type === 'EGRESO'"
+                   class="p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer"
+                   :class="isMultiPaymentExpense ? 'bg-teal-50 border-teal-300 ring-2 ring-teal-200' : 'bg-white border-slate-200 hover:bg-slate-100'"
+                   @click="toggleMultiPaymentExpense()">
+                <div class="flex items-center gap-2.5">
+                  <span class="text-lg">🔀</span>
+                  <div>
+                    <p class="text-xs font-black text-gray-900">Pago Múltiple / Combinado (Varias Cuentas y Referencias)</p>
+                    <p class="text-[11px] text-gray-500">Dividir el pago de esta factura entre Binance/USDT, Efectivo, Banesco Bs., etc.</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold" :class="isMultiPaymentExpense ? 'text-teal-800' : 'text-gray-400'"
+                        x-text="isMultiPaymentExpense ? 'ACTIVADO' : 'PAGO ÚNICO'"></span>
+                  <div class="w-10 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out relative"
+                       :class="isMultiPaymentExpense ? 'bg-teal-600' : 'bg-gray-300'">
+                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out"
+                         :class="isMultiPaymentExpense ? 'translate-x-4' : 'translate-x-0'"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MODO PAGO ÚNICO (ACTUAL) -->
+              <div x-show="!isMultiPaymentExpense" class="space-y-3">
               <!-- Si la cuenta de salida es VES: Fila de Tasa de Cambio y selector bidireccional -->
               <div x-show="selectedAccountCurrency === 'VES'" class="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -388,9 +429,9 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <input type="text" inputmode="decimal" x-model="form.exchange_rate" 
-                           @input="recalculateExpenseUsd('original')"
+                           @input="recalculateExpenseUsd('rate')"
                            class="w-32 p-2 border border-blue-300 rounded-xl font-black text-right text-blue-950 bg-white">
-                    <button type="button" @click="form.exchange_rate = bcvRate; recalculateExpenseUsd('original')"
+                    <button type="button" @click="form.exchange_rate = bcvRate; recalculateExpenseUsd('rate')"
                             class="px-2.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition whitespace-nowrap cursor-pointer"
                             title="Restablecer a Tasa Oficial BCV">
                       BCV: <span x-text="formatNumber(bcvRate)"></span>
@@ -427,9 +468,77 @@
                   <label class="block text-xs font-bold text-gray-700 mb-1">Equivalente de Conversión:</label>
                   <div class="input-large bg-emerald-50 border border-emerald-200 text-emerald-950 font-black text-xl flex items-center justify-between">
                     <span>Bs. Equivalente:</span>
-                    <span x-text="'Bs. ' + formatNumber((parseFloat(String(form.amount_original).replace(',', '.')) || 0) * (form.exchange_rate || bcvRate))"></span>
+                    <span x-text="'Bs. ' + formatNumber(parseAmount(form.amount_original) * (parseAmount(form.exchange_rate) || bcvRate))"></span>
                   </div>
                 </div>
+              </div>
+              </div>
+
+              <!-- MODO PAGO MÚLTIPLE / COMBINADO -->
+              <div x-show="isMultiPaymentExpense && form.movement_type === 'EGRESO'" class="space-y-3 pt-1">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-teal-200">
+                  <div>
+                    <label class="block text-xs font-black text-teal-950 mb-1">💵 Monto Global a Pagar ($ USD):</label>
+                    <input type="text" inputmode="decimal" x-model="multiPaymentTotalUsd" placeholder="0.00"
+                           class="w-full p-2.5 border border-teal-300 rounded-xl font-black text-lg text-teal-950 bg-teal-50/40">
+                  </div>
+                  <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center flex flex-col justify-center">
+                    <span class="text-[10px] font-bold text-emerald-800 uppercase">Cubierto en Tramos</span>
+                    <span class="text-base font-black text-emerald-900" x-text="'$ ' + formatNumber(getMultiPaymentCoveredUsd())"></span>
+                  </div>
+                  <div class="p-2.5 rounded-xl border text-center flex flex-col justify-center"
+                       :class="Math.abs(getMultiPaymentRemainingUsd()) <= 0.05 ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-amber-50 border-amber-300 text-amber-900'">
+                    <span class="text-[10px] font-bold uppercase" x-text="Math.abs(getMultiPaymentRemainingUsd()) <= 0.05 ? '✓ Cuadrado' : 'Restante por Cubrir'"></span>
+                    <span class="text-base font-black" x-text="'$ ' + formatNumber(getMultiPaymentRemainingUsd())"></span>
+                  </div>
+                </div>
+
+                <div class="space-y-2.5">
+                  <template x-for="(leg, idx) in expensePayments" :key="idx">
+                    <div class="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                      <div class="sm:col-span-4">
+                        <label class="block text-[11px] font-bold text-gray-700 mb-1" x-text="'Cuenta Pago #' + (idx + 1) + ':'"></label>
+                        <select x-model.number="leg.account_id" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+                          <template x-for="acc in getExpensePayableAccounts()" :key="acc.id">
+                            <option :value="acc.id" x-text="acc.name + ' (' + acc.currency + ')'"></option>
+                          </template>
+                        </select>
+                      </div>
+                      <div class="sm:col-span-3">
+                        <label class="block text-[11px] font-bold text-gray-700 mb-1" x-text="'Monto (' + getLegCurrency(leg) + '):'"></label>
+                        <input type="text" inputmode="decimal" x-model="leg.amount_original" placeholder="0.00"
+                               class="w-full p-2 border border-gray-300 rounded-xl text-xs font-black text-tev-darkgreen bg-white">
+                      </div>
+                      <div class="sm:col-span-2" x-show="getLegCurrency(leg) === 'VES'">
+                        <label class="block text-[11px] font-bold text-blue-800 mb-1">Tasa Bs/$:</label>
+                        <input type="text" inputmode="decimal" x-model="leg.exchange_rate"
+                               class="w-full p-2 border border-blue-300 rounded-xl text-xs font-bold text-blue-950 bg-blue-50/40">
+                      </div>
+                      <div class="sm:col-span-2" x-show="getLegCurrency(leg) !== 'VES'">
+                        <label class="block text-[11px] font-bold text-gray-500 mb-1">Equiv. USD:</label>
+                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-gray-700"
+                             x-text="'$ ' + formatNumber(getLegUsdAmount(leg))"></div>
+                      </div>
+                      <div class="sm:col-span-2">
+                        <label class="block text-[11px] font-bold text-gray-700 mb-1">N° Referencia:</label>
+                        <input type="text" x-model="leg.reference_number" placeholder="Ref / Hash"
+                               class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold bg-white">
+                      </div>
+                      <div class="sm:col-span-1 flex justify-end">
+                        <button type="button" @click="removeExpensePaymentLeg(idx)" x-show="expensePayments.length > 1"
+                                class="p-2 text-rose-600 hover:bg-rose-50 rounded-xl font-black text-xs cursor-pointer" title="Quitar tramo">✕</button>
+                      </div>
+                      <div class="sm:col-span-12 text-[11px] text-emerald-700 font-bold" x-show="getLegCurrency(leg) === 'VES'">
+                        Equivalente del tramo: <span x-text="'$ ' + formatNumber(getLegUsdAmount(leg))"></span> USD
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <button type="button" @click="addExpensePaymentLeg()"
+                        class="px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-300 rounded-xl text-xs font-black transition cursor-pointer">
+                  + Agregar otro tramo de pago
+                </button>
               </div>
             </div>
 

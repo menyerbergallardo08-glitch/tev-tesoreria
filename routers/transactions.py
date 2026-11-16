@@ -6,7 +6,7 @@ from sqlalchemy import text
 from database import get_db
 from models import Transaction, TreasuryAccount, SystemSetting, User
 from core.security import get_current_user, require_roles
-from schemas.transactions import TransactionCreate, TransferCreate, TransactionUpdate
+from schemas.transactions import TransactionCreate, TransferCreate, TransactionUpdate, BatchExpenseCreate
 from core.audit import record_audit
 
 router = APIRouter(prefix="/api/transactions", tags=["Transacciones de Tesorería"])
@@ -218,6 +218,109 @@ def create_transaction(
         "id": tx.id,
         "amount_usd": tx.amount_usd,
         "exchange_rate": tx.exchange_rate
+    }
+
+@router.post("/batch-expense")
+def create_batch_expense(
+    batch_in: BatchExpenseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not batch_in.payments:
+        raise HTTPException(status_code=400, detail="Debe incluir al menos un tramo de pago.")
+    if batch_in.total_invoice_usd <= 0:
+        raise HTTPException(status_code=400, detail="El monto global a pagar debe ser mayor a cero.")
+    if batch_in.subtype == "GASTO_OPERATIVO" and not batch_in.category_id:
+        raise HTTPException(status_code=400, detail="Para un gasto operativo debe seleccionar la Partida Presupuestaria correspondiente.")
+
+    bcv_setting = db.query(SystemSetting).filter(SystemSetting.key.in_(['tasa_bcv', 'bcv_rate'])).order_by(SystemSetting.id.desc()).first()
+    active_bcv = float(bcv_setting.value) if (bcv_setting and bcv_setting.value and float(bcv_setting.value) > 100) else 881.0664
+
+    generic_refs = {"0", "00", "000", "0000", "S/R", "N/A", "NA", "SIN REF", "SIN REFERENCIA", "EFECTIVO", "PAGO", "MANUAL"}
+    total_paid_usd = 0.0
+    tx_objects = []
+    n_legs = len(batch_in.payments)
+    base_desc = (batch_in.description or "").strip()
+    benef = (batch_in.beneficiary or "").strip()
+
+    for idx, leg in enumerate(batch_in.payments, start=1):
+        if leg.amount_original <= 0:
+            raise HTTPException(status_code=400, detail=f"El monto del tramo #{idx} debe ser mayor a cero.")
+
+        account = db.query(TreasuryAccount).filter(TreasuryAccount.id == leg.account_id).first()
+        if not account:
+            raise HTTPException(status_code=400, detail=f"La cuenta del tramo #{idx} no existe.")
+        if getattr(account, 'only_income', False) or 'CASHEA' in account.name.upper():
+            raise HTTPException(status_code=400, detail=f"La cuenta '{account.name}' es exclusiva para INGRESOS.")
+
+        clean_ref = (leg.reference_number or "").strip()
+        if clean_ref and len(clean_ref) > 3 and clean_ref.upper() not in generic_refs:
+            dup = db.query(Transaction).filter(
+                Transaction.account_id == account.id,
+                Transaction.movement_type == "EGRESO",
+                Transaction.reference_number.ilike(clean_ref),
+                Transaction.status != "ANULADO"
+            ).first()
+            if dup:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"¡ALERTA DE PAGO DUPLICADO! La referencia '{clean_ref}' ya fue registrada en '{account.name}' el {dup.date} por ${dup.amount_usd:.2f}."
+                )
+
+        if account.currency == "VES":
+            rate = leg.exchange_rate if (leg.exchange_rate and leg.exchange_rate > 1.0) else active_bcv
+            calc_usd = round(leg.amount_usd, 2) if (leg.amount_usd and leg.amount_usd > 0) else round(leg.amount_original / rate, 2)
+        else:
+            rate = 1.0
+            calc_usd = round(leg.amount_original, 2)
+
+        total_paid_usd += calc_usd
+        leg_tag = f"[Pago Múltiple {idx}/{n_legs}]" if n_legs > 1 else ""
+        leg_desc = f"{base_desc} {leg_tag}".strip()
+
+        tx_objects.append(Transaction(
+            branch_id=current_user.branch_id,
+            date=batch_in.date,
+            movement_type="EGRESO",
+            subtype=batch_in.subtype,
+            account_id=account.id,
+            category_id=batch_in.category_id,
+            amount_original=leg.amount_original,
+            currency=account.currency,
+            exchange_rate=rate,
+            amount_usd=calc_usd,
+            reference_number=clean_ref,
+            beneficiary=benef,
+            description=leg_desc,
+            doc_type=batch_in.doc_type or "FACTURA_FISCAL",
+            doc_number=batch_in.doc_number.strip() if batch_in.doc_number else "",
+            invoice_date=batch_in.invoice_date,
+            is_credit=False,
+            credit_status="PAGADO",
+            tax_retention_amount=(batch_in.tax_retention_amount or 0.0) if idx == 1 else 0.0,
+            tax_retention_proof=(batch_in.tax_retention_proof.strip() if batch_in.tax_retention_proof else "") if idx == 1 else "",
+            status="REGISTRADO",
+            created_by_id=current_user.id
+        ))
+
+    if abs(total_paid_usd - batch_in.total_invoice_usd) > 0.05:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La suma de los pagos (${total_paid_usd:.2f}) no coincide con el monto global a pagar (${batch_in.total_invoice_usd:.2f})."
+        )
+
+    for tx in tx_objects:
+        db.add(tx)
+    db.commit()
+    for tx in tx_objects:
+        db.refresh(tx)
+
+    return {
+        "success": True,
+        "message": f"{len(tx_objects)} pagos registrados con éxito",
+        "count": len(tx_objects),
+        "ids": [tx.id for tx in tx_objects],
+        "total_usd": round(total_paid_usd, 2)
     }
 
 @router.post("/transfer")

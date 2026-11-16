@@ -1,6 +1,6 @@
 import datetime
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class TransactionCreate(BaseModel):
     date: datetime.date
@@ -55,4 +55,25 @@ class TransactionUpdate(BaseModel):
     credit_status: Optional[str] = None
     description: Optional[str] = None
     edit_reason: Optional[str] = None
+
+class BatchExpenseLeg(BaseModel):
+    account_id: int
+    amount_original: float
+    exchange_rate: float = 1.0
+    amount_usd: Optional[float] = None
+    reference_number: Optional[str] = ""
+
+class BatchExpenseCreate(BaseModel):
+    date: datetime.date
+    subtype: str  # 'PAGO_PROVEEDOR' | 'GASTO_OPERATIVO'
+    category_id: Optional[int] = None
+    total_invoice_usd: float
+    invoice_date: Optional[datetime.date] = None
+    beneficiary: Optional[str] = ""
+    description: Optional[str] = ""
+    doc_type: Optional[str] = "FACTURA_FISCAL"
+    doc_number: Optional[str] = ""
+    tax_retention_amount: Optional[float] = 0.0
+    tax_retention_proof: Optional[str] = ""
+    payments: List[BatchExpenseLeg]
 

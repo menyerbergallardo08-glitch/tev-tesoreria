@@ -493,6 +493,37 @@ def test_suppliers_and_v32_features():
         )
         assert res_morning["rate"] == 920.0
 
+        # 23. Test Pagos Multiples / Combinados en Egresos (batch-expense)
+        usd_acc = db.query(TreasuryAccount).filter(TreasuryAccount.currency == "USD", TreasuryAccount.is_active == True).first()
+        ves_acc = db.query(TreasuryAccount).filter(TreasuryAccount.currency == "VES", TreasuryAccount.is_active == True).first()
+        if usd_acc and ves_acc:
+            res_bad = client.post("/api/transactions/batch-expense", json={
+                "date": "2026-11-16",
+                "subtype": "PAGO_PROVEEDOR",
+                "total_invoice_usd": 500.00,
+                "beneficiary": "PHEBO ELECTRIC, C.A",
+                "payments": [
+                    {"account_id": usd_acc.id, "amount_original": 100.00, "reference_number": "REF-BATCH-1"}
+                ]
+            }, headers=headers)
+            assert res_bad.status_code == 400
+
+            res_ok = client.post("/api/transactions/batch-expense", json={
+                "date": "2026-11-16",
+                "subtype": "PAGO_PROVEEDOR",
+                "total_invoice_usd": 500.00,
+                "beneficiary": "PHEBO ELECTRIC, C.A",
+                "description": "Pago combinado factura NE-0012332",
+                "payments": [
+                    {"account_id": usd_acc.id, "amount_original": 300.00, "reference_number": "USDT-998811"},
+                    {"account_id": ves_acc.id, "amount_original": 220000.00, "exchange_rate": 1100.0, "amount_usd": 200.00, "reference_number": "BAN-554433"}
+                ]
+            }, headers=headers)
+            assert res_ok.status_code == 200
+            batch_data = res_ok.json()
+            assert batch_data["count"] == 2
+            assert batch_data["total_usd"] == 500.0
+
     finally:
         db.close()
 

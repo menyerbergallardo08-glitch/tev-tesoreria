@@ -40,6 +40,7 @@ window.TEVState = {
 
         retentionAssistant: {
           active: false,
+          currency: 'USD',
           total_invoice: '',
           tax_base: '',
           calc_iva: 0,
@@ -54,12 +55,18 @@ window.TEVState = {
 
         discountAssistant: {
           active: false,
+          currency: 'USD',
           total_invoice: '',
           discount_type: 'percent', // 'percent' | 'amount'
           discount_value: '',
           discount_amount: 0,
           net_to_pay: 0
         },
+
+        expenseLastAmountSource: 'original',
+        isMultiPaymentExpense: false,
+        multiPaymentTotalUsd: '',
+        expensePayments: [],
 
         cashFlowData: {
           initial_balance_usd: 0,
