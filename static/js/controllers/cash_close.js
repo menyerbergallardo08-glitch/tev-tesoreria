@@ -213,7 +213,8 @@ window.TEVCashClose = {
             if (raw) {
               const d = JSON.parse(raw);
               if (d && (d.doc_number || d.client_name || d.amount_original)) {
-                this.liveSaleForm = Object.assign(this.liveSaleForm, d);
+                const todayDate = this.liveSaleForm.date;
+                this.liveSaleForm = Object.assign(this.liveSaleForm, d, { date: todayDate });
                 this.showToast('info', 'Borrador Recuperado', 'Se restauraron los datos que estabas ingresando.');
               }
             }

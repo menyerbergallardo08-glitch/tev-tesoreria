@@ -44,8 +44,8 @@ class BcvRateUpdateRequest(BaseModel):
     rate: float
 
 @router.get("/bcv-rate")
-def get_bcv_rate(db: Session = Depends(get_db)):
-    return resolve_effective_bcv_rate(db)
+def get_bcv_rate(sync: bool = False, db: Session = Depends(get_db)):
+    return resolve_effective_bcv_rate(db, force_sync=sync)
 
 @router.post("/bcv-rate")
 def update_bcv_rate(
@@ -56,18 +56,22 @@ def update_bcv_rate(
     if data.rate <= 0:
         raise HTTPException(status_code=400, detail="Tasa inválida.")
     
-    from models import SystemSetting
-    setting = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv').first()
-    if not setting:
-        setting = SystemSetting(key='tasa_bcv', value=str(data.rate))
-        db.add(setting)
-    else:
-        setting.value = str(data.rate)
-    
-    setting_friday = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes').first()
-    if setting_friday:
-        setting_friday.value = str(data.rate)
-        
+    import datetime
+    from core.bcv import _upsert_setting
+    tz_ve = datetime.timezone(datetime.timedelta(hours=-4))
+    now_ve = datetime.datetime.now(tz_ve)
+    today_str = now_ve.strftime('%Y-%m-%d')
+    rate_str = str(data.rate)
+
+    _upsert_setting(db, 'tasa_bcv', rate_str)
+    _upsert_setting(db, 'bcv_rate', rate_str)
+    _upsert_setting(db, 'tasa_bcv_manual_fecha', today_str)
+
+    if now_ve.weekday() in (4, 5, 6):
+        friday_str = (now_ve - datetime.timedelta(days=(now_ve.weekday() - 4))).strftime('%Y-%m-%d')
+        _upsert_setting(db, 'tasa_bcv_viernes', rate_str)
+        _upsert_setting(db, 'tasa_bcv_viernes_fecha', friday_str)
+
     db.commit()
     return {"message": "Tasa BCV actualizada exitosamente.", "rate": data.rate}
 

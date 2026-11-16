@@ -128,8 +128,7 @@ window.TEVPosSales = {
           if (this.isSubmittingSale) return;
           this.isSubmittingSale = true;
 
-          const rawAmt = String(this.liveSaleForm.amount_original || '').replace(',', '.').trim();
-          const amt = parseFloat(rawAmt);
+          const amt = this.parseAmount(this.liveSaleForm.amount_original);
           if (isNaN(amt) || amt <= 0) {
             this.showToast('warning', 'Monto Inválido', 'Por favor ingrese un monto mayor a $0.00 a cobrar.');
             this.isSubmittingSale = false;

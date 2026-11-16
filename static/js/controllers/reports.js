@@ -1,26 +1,24 @@
 // Modulo TEV: TEVReports
 window.TEVReports = {
-        async autoSyncBcvRate() {
-          this.loadingBcv = true;
-          try {
-            const token = this.getToken();
-            const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
-            const res = await fetch('/api/bcv-rate/sync', { headers });
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.rate) {
-                this.bcvRate = parseFloat(data.rate);
-                this.newBcvRate = parseFloat(data.rate);
-                if (this.form) this.form.exchange_rate = parseFloat(data.rate);
-                if (this.transferForm) this.transferForm.exchange_rate = parseFloat(data.rate);
-                this.showToast('success', 'Tasa BCV Sincronizada', `Bs. ${parseFloat(data.rate).toFixed(2)} (${data.policy || 'Oficial'})`);
-              }
+        parseAmount(val) {
+          if (val === undefined || val === null || val === '') return 0;
+          if (typeof val === 'number') return isNaN(val) ? 0 : val;
+          let s = String(val).trim().replace(/\s+/g, '');
+          if (!s) return 0;
+          const lastComma = s.lastIndexOf(',');
+          const lastDot = s.lastIndexOf('.');
+          if (lastComma !== -1 && lastDot !== -1) {
+            // El último separador es el decimal; el otro es separador de miles
+            if (lastComma > lastDot) {
+              s = s.replace(/\./g, '').replace(',', '.');
+            } else {
+              s = s.replace(/,/g, '');
             }
-          } catch (e) {
-            console.error('Error in autoSyncBcvRate:', e);
-          } finally {
-            this.loadingBcv = false;
+          } else if (lastComma !== -1) {
+            s = s.replace(',', '.');
           }
+          const num = parseFloat(s);
+          return isNaN(num) ? 0 : num;
         },
 
         startLiveSync() {
@@ -81,26 +79,26 @@ window.TEVReports = {
         openBcvRateModal() {
           this.newBcvRate = this.bcvRate;
           this.showBcvRateModal = true;
-          this.fetchBcvRateLive(false);
         },
 
         async autoSyncBcvRate() {
-          await this.fetchBcvRateLive(true);
+          await this.fetchBcvRateLive(false);
         },
 
         async fetchBcvRateLive(sync = false) {
           this.loadingBcv = true;
           try {
             const token = this.getToken();
-            const res = await fetch('/api/system/bcv-rate', {
+            const url = sync ? '/api/system/bcv-rate?sync=true' : '/api/system/bcv-rate';
+            const res = await fetch(url, {
               headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
               const data = await res.json();
               if (data.rate && data.rate > 0) {
-                this.bcvRate = data.rate;
-                this.newBcvRate = data.rate;
-                try { localStorage.setItem('tev_bcv_rate', String(data.rate)); } catch(e){}
+                this.bcvRate = parseFloat(data.rate);
+                this.newBcvRate = this.bcvRate;
+                try { localStorage.setItem('tev_bcv_rate', String(this.bcvRate)); } catch(e){}
                 if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
                   this.form.exchange_rate = this.bcvRate;
                 }
@@ -125,13 +123,14 @@ window.TEVReports = {
         },
 
         async updateBcvRate() {
-          if (!this.newBcvRate || this.newBcvRate <= 0) {
+          const parsedRate = this.parseAmount(this.newBcvRate);
+          if (!parsedRate || parsedRate <= 0) {
             alert('Por favor ingrese una tasa válida.');
             return;
           }
 
           // Confirmación de seguridad
-          if (!confirm(`¿Confirma actualizar la Tasa Oficial BCV a Bs. ${this.formatNumber(this.newBcvRate)}?`)) {
+          if (!confirm(`¿Confirma actualizar la Tasa Oficial BCV a Bs. ${this.formatNumber(parsedRate)}?`)) {
             return;
           }
 
@@ -139,10 +138,12 @@ window.TEVReports = {
           const res = await fetch('/api/system/bcv-rate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify({ rate: parseFloat(this.newBcvRate) })
+            body: JSON.stringify({ rate: parsedRate })
           });
           if (res.ok) {
-            this.bcvRate = parseFloat(this.newBcvRate);
+            this.bcvRate = parsedRate;
+            this.newBcvRate = parsedRate;
+            try { localStorage.setItem('tev_bcv_rate', String(this.bcvRate)); } catch(e){}
             if (this.selectedAccountCurrency === 'VES' && this.form.subtype !== 'CAMBIO_DIVISAS') {
               this.form.exchange_rate = this.bcvRate;
             }

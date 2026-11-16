@@ -50,10 +50,19 @@ def fetch_bcv_official_rate() -> Optional[float]:
 
     return None
 
+def _upsert_setting(db: Session, key: str, value: str) -> None:
+    setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+    if not setting:
+        db.add(SystemSetting(key=key, value=value))
+    else:
+        setting.value = value
+
+
 def resolve_effective_bcv_rate(
     db: Session,
     now_dt: Optional[datetime.datetime] = None,
-    mock_fresh_rate: Optional[float] = None
+    mock_fresh_rate: Optional[float] = None,
+    force_sync: bool = False
 ) -> dict:
     tz_ve = datetime.timezone(datetime.timedelta(hours=-4))
     if now_dt is not None:
@@ -78,17 +87,13 @@ def resolve_effective_bcv_rate(
             db.add(SystemSetting(key='tasa_bcv', value=str(current_val)))
         db.commit()
 
+    today_str = now_ve.strftime('%Y-%m-%d')
+
     if weekday == 4 and current_minutes >= cutoff_430:
         if fresh_rate and fresh_rate > 100.0:
-            if not setting_friday:
-                db.add(SystemSetting(key='tasa_bcv_viernes', value=str(current_val)))
-            else:
-                setting_friday.value = str(current_val)
-            
-            if not setting_next_monday:
-                db.add(SystemSetting(key='tasa_bcv_proximo_lunes', value=str(fresh_rate)))
-            else:
-                setting_next_monday.value = str(fresh_rate)
+            _upsert_setting(db, 'tasa_bcv_viernes', str(current_val))
+            _upsert_setting(db, 'tasa_bcv_viernes_fecha', today_str)
+            _upsert_setting(db, 'tasa_bcv_proximo_lunes', str(fresh_rate))
             db.commit()
             
         return {
@@ -99,7 +104,18 @@ def resolve_effective_bcv_rate(
         }
 
     if weekday in (5, 6):
-        friday_val = float(setting_friday.value) if (setting_friday and float(setting_friday.value) > 100.0) else current_val
+        friday_str = (now_ve - datetime.timedelta(days=(weekday - 4))).strftime('%Y-%m-%d')
+        setting_friday_date = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes_fecha').first()
+        is_current_friday = bool(setting_friday_date and setting_friday_date.value == friday_str)
+
+        if is_current_friday and setting_friday and float(setting_friday.value) > 100.0:
+            friday_val = float(setting_friday.value)
+        else:
+            friday_val = current_val if current_val > 100.0 else (fresh_rate or 848.55)
+            _upsert_setting(db, 'tasa_bcv_viernes', str(friday_val))
+            _upsert_setting(db, 'tasa_bcv_viernes_fecha', friday_str)
+            db.commit()
+
         return {
             "rate": friday_val,
             "policy_applied": "Fin de semana (Tasa de cierre del Viernes)",
@@ -113,10 +129,7 @@ def resolve_effective_bcv_rate(
     if weekday in (0, 1, 2, 3) and current_minutes >= cutoff_400:
         setting_next_day = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_siguiente_dia').first()
         if fresh_rate and fresh_rate > 100.0:
-            if not setting_next_day:
-                db.add(SystemSetting(key='tasa_bcv_siguiente_dia', value=str(fresh_rate)))
-            else:
-                setting_next_day.value = str(fresh_rate)
+            _upsert_setting(db, 'tasa_bcv_siguiente_dia', str(fresh_rate))
             db.commit()
 
         return {
@@ -126,19 +139,22 @@ def resolve_effective_bcv_rate(
             "synced": True
         }
 
+    # Respetar ajuste manual realizado hoy salvo sincronización explícita (force_sync) o pruebas unitarias
+    setting_manual_date = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_manual_fecha').first()
+    if not force_sync and mock_fresh_rate is None and setting_manual_date and setting_manual_date.value == today_str:
+        return {
+            "rate": current_val,
+            "policy_applied": "Tasa Manual Fijada Hoy",
+            "synced": False
+        }
+
     # Durante la mañana / primera mitad del día antes de las 4:00 PM: actualizar si hay tasa fresca
     if fresh_rate and fresh_rate > 100.0:
+        if force_sync and setting_manual_date:
+            setting_manual_date.value = ''
         if fresh_rate != current_val:
-            if not setting_active:
-                db.add(SystemSetting(key='tasa_bcv', value=str(fresh_rate)))
-            else:
-                setting_active.value = str(fresh_rate)
-            
-            setting_bcv_rate = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
-            if not setting_bcv_rate:
-                db.add(SystemSetting(key='bcv_rate', value=str(fresh_rate)))
-            else:
-                setting_bcv_rate.value = str(fresh_rate)
+            _upsert_setting(db, 'tasa_bcv', str(fresh_rate))
+            _upsert_setting(db, 'bcv_rate', str(fresh_rate))
             db.commit()
             current_val = fresh_rate
     else:
