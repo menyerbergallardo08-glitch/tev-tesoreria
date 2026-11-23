@@ -1677,7 +1677,7 @@
                   <label class="block text-xs font-bold text-gray-700 mb-1">Equivalente de Conversión:</label>
                   <div class="input-large bg-emerald-50 border border-emerald-200 text-emerald-950 font-black text-xl flex items-center justify-between">
                     <span>Bs. Equivalente:</span>
-                    <span x-text="'Bs. ' + formatNumber(parseAmount(form.amount_original) * (parseAmount(form.exchange_rate) || bcvRate))"></span>
+                    <span x-text="'Bs. ' + formatNumber(parseAmount(form.amount_original) * (parseFloat(bcvRate) > 0 ? parseFloat(bcvRate) : 1))"></span>
                   </div>
                 </div>
               </div>
