@@ -89,7 +89,7 @@ def resolve_effective_bcv_rate(
 
     today_str = now_ve.strftime('%Y-%m-%d')
 
-    if weekday == 4 and current_minutes >= cutoff_430:
+    if not force_sync and weekday == 4 and current_minutes >= cutoff_430:
         if fresh_rate and fresh_rate > 100.0:
             _upsert_setting(db, 'tasa_bcv_viernes', str(current_val))
             _upsert_setting(db, 'tasa_bcv_viernes_fecha', today_str)
@@ -103,7 +103,7 @@ def resolve_effective_bcv_rate(
             "synced": True
         }
 
-    if weekday in (5, 6):
+    if not force_sync and weekday in (5, 6):
         friday_str = (now_ve - datetime.timedelta(days=(weekday - 4))).strftime('%Y-%m-%d')
         setting_friday_date = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_viernes_fecha').first()
         is_current_friday = bool(setting_friday_date and setting_friday_date.value == friday_str)
@@ -125,17 +125,36 @@ def resolve_effective_bcv_rate(
 
     # Política de Lunes a Jueves después de las 4:00 PM (16:00)
     # El BCV publica la tasa del día siguiente, pero en tienda se sigue facturando a la tasa del día en curso.
+    # Si el usuario pulsa explícitamente "Sincronizar" (force_sync=True), sí se actualiza a la tasa oficial vigente.
     cutoff_400 = 16 * 60  # 16:00
-    if weekday in (0, 1, 2, 3) and current_minutes >= cutoff_400:
+    if not force_sync and weekday in (0, 1, 2, 3) and current_minutes >= cutoff_400:
+        # Si hoy aún no se había actualizado la tasa matutina (ej. el servidor estuvo caído en la mañana),
+        # promover la tasa programada para hoy (tasa_bcv_proximo_lunes en lunes, o tasa_bcv_siguiente_dia).
+        setting_last_sync_date = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_fecha').first()
+        if not (setting_last_sync_date and setting_last_sync_date.value == today_str):
+            scheduled_key = 'tasa_bcv_proximo_lunes' if weekday == 0 else 'tasa_bcv_siguiente_dia'
+            scheduled_setting = db.query(SystemSetting).filter(SystemSetting.key == scheduled_key).first()
+            if scheduled_setting and scheduled_setting.value:
+                try:
+                    sched_val = float(scheduled_setting.value)
+                    if sched_val > 100.0 and sched_val != current_val:
+                        current_val = sched_val
+                        _upsert_setting(db, 'tasa_bcv', str(current_val))
+                        _upsert_setting(db, 'bcv_rate', str(current_val))
+                        _upsert_setting(db, 'tasa_bcv_fecha', today_str)
+                except ValueError:
+                    pass
+
         setting_next_day = db.query(SystemSetting).filter(SystemSetting.key == 'tasa_bcv_siguiente_dia').first()
         if fresh_rate and fresh_rate > 100.0:
             _upsert_setting(db, 'tasa_bcv_siguiente_dia', str(fresh_rate))
             db.commit()
 
+        next_val = fresh_rate if (fresh_rate and fresh_rate > 100.0) else (float(setting_next_day.value) if setting_next_day else current_val)
         return {
             "rate": current_val,
             "policy_applied": "Jornada en curso (Tasa del día congelada; la tasa del BCV de la tarde regirá a partir de mañana)",
-            "next_rate_tomorrow": float(setting_next_day.value) if setting_next_day else (fresh_rate or current_val),
+            "next_rate_tomorrow": next_val,
             "synced": True
         }
 
@@ -148,15 +167,19 @@ def resolve_effective_bcv_rate(
             "synced": False
         }
 
-    # Durante la mañana / primera mitad del día antes de las 4:00 PM: actualizar si hay tasa fresca
+    # Durante la mañana / primera mitad del día antes de las 4:00 PM (o sincronización explícita): actualizar si hay tasa fresca
     if fresh_rate and fresh_rate > 100.0:
         if force_sync and setting_manual_date:
             setting_manual_date.value = ''
         if fresh_rate != current_val:
             _upsert_setting(db, 'tasa_bcv', str(fresh_rate))
             _upsert_setting(db, 'bcv_rate', str(fresh_rate))
+            _upsert_setting(db, 'tasa_bcv_fecha', today_str)
             db.commit()
             current_val = fresh_rate
+        else:
+            _upsert_setting(db, 'tasa_bcv_fecha', today_str)
+            db.commit()
     else:
         # Asegurar que bcv_rate exista si tasa_bcv existe
         setting_bcv_rate = db.query(SystemSetting).filter(SystemSetting.key == 'bcv_rate').first()
