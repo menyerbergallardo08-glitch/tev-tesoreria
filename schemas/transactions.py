@@ -37,6 +37,8 @@ class TransferCreate(BaseModel):
     description: Optional[str] = "Traspaso / Cambio de divisas"
 
 class TransactionUpdate(BaseModel):
+    date: Optional[datetime.date] = None
+    invoice_date: Optional[datetime.date] = None
     amount_original: Optional[float] = None
     currency: Optional[str] = None
     exchange_rate: Optional[float] = None

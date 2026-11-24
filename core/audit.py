@@ -21,7 +21,7 @@ def record_audit(
             action=action,
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id is not None else "",
-            details_json=json.dumps(details, ensure_ascii=False),
+            details_json=json.dumps(details, ensure_ascii=False, default=str),
             ip_address=ip_address
         )
         db.add(log_entry)

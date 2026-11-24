@@ -75,6 +75,8 @@ def list_transactions(
             "exchange_rate": round(t.exchange_rate, 2),
             "amount_usd": round(t.amount_usd, 2),
             "reference_number": t.reference_number,
+            "doc_number": t.doc_number,
+            "invoice_date": t.invoice_date.isoformat() if t.invoice_date else None,
             "beneficiary": t.beneficiary,
             "description": t.description,
             "status": t.status,
@@ -457,8 +459,8 @@ def update_transaction(
     update_data = data.model_dump(exclude_unset=True)
     edit_reason = (update_data.pop('edit_reason', None) or "").strip()
 
-    # Si es cajera o si se tocan campos financieros, se exige motivo obligatorio
-    financial_fields = {'amount_original', 'amount_usd', 'exchange_rate', 'currency', 'account_id', 'category_id'}
+    # Si es cajera o si se tocan campos financieros/fechas, se exige motivo obligatorio
+    financial_fields = {'date', 'invoice_date', 'amount_original', 'amount_usd', 'exchange_rate', 'currency', 'account_id', 'category_id'}
     touches_financial = any(f in update_data for f in financial_fields)
 
     if touches_financial and not edit_reason:
@@ -474,6 +476,8 @@ def update_transaction(
             raise HTTPException(status_code=400, detail="La cuenta de tesorería seleccionada no existe o está inactiva.")
 
     old_data = {
+        'date': tx.date.isoformat() if tx.date else None,
+        'invoice_date': tx.invoice_date.isoformat() if tx.invoice_date else None,
         'amount_original': tx.amount_original,
         'currency': tx.currency,
         'exchange_rate': tx.exchange_rate,
@@ -511,13 +515,24 @@ def update_transaction(
     elif "client_name" in update_data and update_data["client_name"]:
         tx.beneficiary = update_data["client_name"]
 
+    changes_for_audit = {
+        k: (v.isoformat() if isinstance(v, (datetime.date, datetime.datetime)) else v)
+        for k, v in update_data.items()
+    }
+    changed_fields = {
+        k: {"from": old_data.get(k), "to": v}
+        for k, v in changes_for_audit.items()
+        if old_data.get(k) != v
+    }
+
     action_label = 'CORRECCION_EMERGENCIA_EGRESO' if (touches_financial or edit_reason) else 'UPDATE_TRANSACTION'
     ip = request.client.host if request.client else ""
     record_audit(db, current_user, action_label, 'Transaction', str(tx.id), {
         'movement_type': tx.movement_type,
         'subtype': tx.subtype,
         'previous': old_data,
-        'changes': update_data,
+        'changes': changes_for_audit,
+        'diff': changed_fields,
         'reason': edit_reason or "Corrección de datos",
         'updated_by': current_user.username,
         'role': current_user.role
@@ -529,6 +544,8 @@ def update_transaction(
         "message": f"Movimiento #{id} corregido exitosamente",
         "transaction": {
             "id": tx.id,
+            "date": tx.date.isoformat() if tx.date else None,
+            "invoice_date": tx.invoice_date.isoformat() if tx.invoice_date else None,
             "amount_original": tx.amount_original,
             "amount_usd": tx.amount_usd,
             "currency": tx.currency,

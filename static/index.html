@@ -33,14 +33,14 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <!-- Logica y Estado Reactivo Alpine.js Desacoplado -->
     <!-- Modulos de Arquitectura Desacoplada (<600 lineas cada uno) -->
-  <script src="/static/js/state.js?v=2.6.1"></script>
-  <script src="/static/js/controllers/auth_core.js?v=2.6.1"></script>
-  <script src="/static/js/controllers/pos_sales.js?v=2.6.1"></script>
-  <script src="/static/js/controllers/cxc_collections.js?v=2.6.1"></script>
-  <script src="/static/js/controllers/cash_close.js?v=2.6.1"></script>
-  <script src="/static/js/controllers/expenses.js?v=2.6.1"></script>
-  <script src="/static/js/controllers/reports.js?v=2.6.1"></script>
-  <script src="/static/js/app_orchestrator.js?v=2.6.1"></script>
+  <script src="/static/js/state.js?v=2.6.2"></script>
+  <script src="/static/js/controllers/auth_core.js?v=2.6.2"></script>
+  <script src="/static/js/controllers/pos_sales.js?v=2.6.2"></script>
+  <script src="/static/js/controllers/cxc_collections.js?v=2.6.2"></script>
+  <script src="/static/js/controllers/cash_close.js?v=2.6.2"></script>
+  <script src="/static/js/controllers/expenses.js?v=2.6.2"></script>
+  <script src="/static/js/controllers/reports.js?v=2.6.2"></script>
+  <script src="/static/js/app_orchestrator.js?v=2.6.2"></script>
   <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-slate-50 text-gray-800 min-h-screen" x-data="app()" x-init="initApp()">
@@ -4843,6 +4843,20 @@
             <label class="block text-xs font-bold text-gray-700 mb-1">Beneficiario / Proveedor / Cliente *</label>
             <input type="text" x-model="editingTxForm.beneficiary" required placeholder="Nombre comercial o persona"
                    class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-bold">
+          </div>
+
+          <!-- Fechas del Movimiento y Factura -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">📅 Fecha del Movimiento / Pago *</label>
+              <input type="date" x-model="editingTxForm.date" required
+                     class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">🧾 Fecha de Factura (Opcional)</label>
+              <input type="date" x-model="editingTxForm.invoice_date"
+                     class="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-xs font-bold">
+            </div>
           </div>
 
           <!-- Monto y Moneda -->

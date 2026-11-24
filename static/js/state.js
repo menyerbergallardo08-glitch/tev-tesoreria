@@ -105,6 +105,8 @@ window.TEVState = {
         showEditTransactionModal: false,
         editingTx: null,
         editingTxForm: {
+          date: '',
+          invoice_date: '',
           beneficiary: '',
           doc_number: '',
           reference_number: '',

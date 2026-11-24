@@ -588,6 +588,8 @@ window.TEVExpenses = {
           }
 
           this.editingTxForm = {
+            date: item.date ? String(item.date).slice(0, 10) : '',
+            invoice_date: item.invoice_date ? String(item.invoice_date).slice(0, 10) : '',
             beneficiary: item.beneficiary || item.client_name || '',
             doc_number: item.doc_number || '',
             reference_number: item.reference_number || '',
@@ -658,6 +660,8 @@ window.TEVExpenses = {
             }
 
             const payload = {
+              date: this.editingTxForm.date || this.editingTx.date,
+              invoice_date: this.editingTxForm.invoice_date || null,
               beneficiary: this.editingTxForm.beneficiary,
               doc_number: this.editingTxForm.doc_number,
               reference_number: this.editingTxForm.reference_number,
@@ -690,6 +694,9 @@ window.TEVExpenses = {
             }
             if (typeof this.loadDirectorKpis === 'function') {
               await this.loadDirectorKpis();
+            }
+            if (typeof this.loadCashFlowAll === 'function' && (this.currentUser?.role === 'administradora' || this.currentUser?.role === 'directivo')) {
+              await this.loadCashFlowAll();
             }
           } catch (err) {
             this.showToast('error', 'Error al Guardar', err.message);
